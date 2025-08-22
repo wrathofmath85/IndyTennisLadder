@@ -6,27 +6,38 @@
 <title>Indy Tennis Ladder – Round 1 Score Entry</title>
 <style>
   :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-  body { margin: 24px; max-width: 900px; }
+  body { margin: 24px; max-width: 1000px; }
   h1 { margin: 0 0 12px; }
   fieldset { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 16px 0; }
   legend { font-weight: 600; }
   label { display: block; margin: 8px 0 4px; }
   input[type="number"] { width: 80px; padding: 6px; }
   input[readonly] { background: #f8f8f8; }
-  select { padding: 6px; min-width: 260px; }
+  select { padding: 6px; min-width: 320px; }
   .row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
-  .scoregrid { display: grid; grid-template-columns: 1fr 130px 130px; gap: 8px; align-items: center; }
-  .scoregrid > div { padding: 6px 0; }
   .muted { color: #666; font-size: 0.92rem; }
   .inline { display:inline-flex; gap:10px; align-items:center; }
   .chip { border:1px solid #bbb; border-radius:999px; padding:6px 10px; cursor:pointer; user-select:none; }
   .chip.active { background:#222; color:#fff; border-color:#222; }
-  .tb-row { display: none; }
   .error { color:#b00020; margin-top: 8px; }
   .success { color:#0a7a2f; margin-top: 8px; }
   button { padding: 10px 16px; border-radius: 8px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
   button[disabled] { opacity: 0.5; cursor: not-allowed; }
   hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
+
+  /* rotated score grid: rows=players, columns=sets */
+  .scoregrid {
+    display: grid;
+    grid-template-columns: 180px repeat(3, 170px) 220px; /* Name | Set1 | Set2 | Set3 | Match TB (hidden unless in TB mode) */
+    gap: 8px;
+    align-items: center;
+  }
+  .scoregrid .th { font-weight: 600; text-align: center; }
+  .scoregrid .rowlabel { font-weight: 600; }
+  .col-mtb { display: none; } /* only when match TB is on */
+  .tb-note { font-size: 0.85rem; color:#666; margin-top:4px; }
+  .setcell { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .setcell .tbwrap { display:none; }
 </style>
 </head>
 <body>
@@ -56,29 +67,59 @@
       <span id="chip-walkover" class="chip" data-status="Walkover" role="button" tabindex="0">Walkover</span>
     </div>
 
+    <div class="inline" style="margin-bottom:12px;">
+      <label class="inline">
+        <input id="isTb" type="checkbox" /> Use 10‑point <b>match</b> tiebreak instead of full third set
+      </label>
+      <span class="tb-note">If any set is 7–6, a small “TB (winner pts)” box will appear for that set.</span>
+    </div>
+
+    <!-- Rotated grid -->
     <div class="scoregrid" aria-label="Set scores">
-      <div></div> <div><strong>Winner</strong></div> <div><strong>Opponent</strong></div>
+      <div></div>
+      <div class="th">Set 1</div>
+      <div class="th">Set 2</div>
+      <div class="th col-s3">Set 3</div>
+      <div class="th col-mtb" id="mtbHdr">Match TB (to 10)</div>
 
-      <div>Set 1</div>
-      <div><input id="s1w" type="number" min="0" max="7" inputmode="numeric" /></div>
-      <div><input id="s1o" type="number" min="0" max="7" inputmode="numeric" /></div>
+      <div class="rowlabel" id="winnerLabel">Winner</div>
 
-      <div>Set 2</div>
-      <div><input id="s2w" type="number" min="0" max="7" inputmode="numeric" /></div>
-      <div><input id="s2o" type="number" min="0" max="7" inputmode="numeric" /></div>
-
-      <div class="inline">
-        <span>Set 3</span>
-        <label class="inline" style="margin-left:8px;">
-          <input id="isTb" type="checkbox" /> 10‑point tiebreak instead of full set
-        </label>
+      <div class="setcell">
+        <div><input id="s1w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" /></div>
+        <div class="tbwrap" id="s1tb_wrap"><label class="muted">TB (winner pts)</label><input id="s1tb" type="number" min="0" inputmode="numeric" /></div>
       </div>
-      <div id="s3wWrap"><input id="s3w" type="number" min="0" max="7" inputmode="numeric" /></div>
-      <div id="s3oWrap"><input id="s3o" type="number" min="0" max="7" inputmode="numeric" /></div>
 
-      <div class="tb-row" id="tbLabel">Match TB (to 10, win by 2)</div>
-      <div class="tb-row"><input id="tbw" type="number" min="0" inputmode="numeric" placeholder="Winner TB" /></div>
-      <div class="tb-row"><input id="tbo" type="number" min="0" inputmode="numeric" placeholder="Opponent TB" /></div>
+      <div class="setcell">
+        <div><input id="s2w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" /></div>
+        <div class="tbwrap" id="s2tb_wrap"><label class="muted">TB (winner pts)</label><input id="s2tb" type="number" min="0" inputmode="numeric" /></div>
+      </div>
+
+      <div class="setcell col-s3">
+        <div><input id="s3w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 3" /></div>
+        <div class="tbwrap" id="s3tb_wrap"><label class="muted">TB (winner pts)</label><input id="s3tb" type="number" min="0" inputmode="numeric" /></div>
+      </div>
+
+      <div class="setcell col-mtb">
+        <div><input id="tbw" type="number" min="0" inputmode="numeric" placeholder="Winner TB" /></div>
+      </div>
+
+      <div class="rowlabel" id="opponentLabel">Opponent</div>
+
+      <div class="setcell">
+        <div><input id="s1o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" /></div>
+      </div>
+
+      <div class="setcell">
+        <div><input id="s2o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" /></div>
+      </div>
+
+      <div class="setcell col-s3">
+        <div><input id="s3o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 3" /></div>
+      </div>
+
+      <div class="setcell col-mtb">
+        <div><input id="tbo" type="number" min="0" inputmode="numeric" placeholder="Opponent TB" /></div>
+      </div>
     </div>
 
     <div id="msg" class="error" role="alert" aria-live="polite"></div>
@@ -91,25 +132,24 @@
 
 <script>
 /*** ======= CONFIG: add your URLs here ======= ***/
-const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv'; // TODO
-const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv'; // TODO
-const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbxKmvlinT_xPRc5pHohySSYs5EKtEU4GCgfKNL1aE3OBJ6mgCu6gFSae27R_H6if9-9/exec'; // TODO (GAS web app URL)
+const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
+const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
+const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbxKmvlinT_xPRc5pHohySSYs5EKtEU4GCgfKNL1aE3OBJ6mgCu6gFSae27R_H6if9-9/exec';
 /*** =========================================== ***/
 
-// internal state
-let players = [];           // filtered & ranked (roundStart<=1 && roundEnd>=1)
-let nameByRank = new Map(); // rank -> name
-let rankByName = new Map(); // name -> rank
-let scheduleR1 = new Map(); // rank -> opponent rank (round 1)
-let status = 'Completed';   // Completed | Retired | Walkover
+// state
+let players = [];
+let nameByRank = new Map();
+let rankByName = new Map();
+let scheduleR1 = new Map();
+let status = 'Completed';
 
-// utility: tiny CSV parser (simple, OK for our clean data)
+// CSV parser
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   const headers = lines[0].split(',').map(s => s.trim());
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    // naive split (assumes no commas inside fields)
     const cols = lines[i].split(',').map(s => s.trim());
     const obj = {};
     headers.forEach((h, idx) => obj[h] = cols[idx] ?? '');
@@ -118,21 +158,16 @@ function parseCSV(text) {
   return { headers, rows };
 }
 
-// extract last name (simple best effort)
 function lastNameOf(full) {
   if (!full) return '';
   const parts = full.trim().split(/\s+/);
-  let last = parts[parts.length - 1];
-  // strip simple suffix punctuation
-  return last.replace(/[.,]/g, '');
+  return parts[parts.length - 1].replace(/[.,]/g, '');
 }
 
 async function loadPlayers() {
   const res = await fetch(PLAYERS_CSV_URL, { cache: 'no-store' });
   const text = await res.text();
   const { rows } = parseCSV(text);
-
-  // normalize keys (case-insensitive)
   const norm = k => k.toLowerCase();
 
   const mapped = rows.map(r => {
@@ -146,10 +181,8 @@ async function loadPlayers() {
     };
   }).filter(p => p.name);
 
-  // filter for round 1 eligibility
   const eligible = mapped.filter(p => p.roundStart <= 1 && p.roundEnd >= 1);
 
-  // rank by points desc, percent desc, last name asc
   eligible.sort((a, b) => {
     if (b.p !== a.p) return b.p - a.p;
     if (b.pct !== a.pct) return b.pct - a.pct;
@@ -160,7 +193,6 @@ async function loadPlayers() {
     return a.name.localeCompare(b.name);
   });
 
-  // fill ranking maps
   players = eligible;
   nameByRank.clear(); rankByName.clear();
   eligible.forEach((p, idx) => {
@@ -169,23 +201,22 @@ async function loadPlayers() {
     rankByName.set(p.name, rank);
   });
 
-  // populate winner dropdown alphabetically
+  // dropdown: show "[rank] Name" but keep value = Name
   const sel = document.getElementById('winner');
   const names = [...eligible.map(p => p.name)].sort((a,b) => a.localeCompare(b));
-  sel.innerHTML = '<option value="">Select winner…</option>' + names.map(n => `<option>${n}</option>`).join('');
+  sel.innerHTML = '<option value="">Select winner…</option>' + names.map(n => {
+    const rank = rankByName.get(n);
+    return `<option value="${n}">[${rank}] ${n}</option>`;
+  }).join('');
 }
 
 async function loadScheduleR1() {
   const res = await fetch(SCHEDULE_CSV_URL, { cache: 'no-store' });
   const text = await res.text();
   const { headers, rows } = parseCSV(text);
-
-  // find header indexes
   const idxRanking = headers.findIndex(h => h.trim().toLowerCase() === 'ranking');
   const idxR1 = headers.findIndex(h => h.trim().toLowerCase() === 'round 1' || h.trim().toLowerCase() === 'round1');
-  if (idxRanking === -1 || idxR1 === -1) {
-    throw new Error('Schedule CSV must have headers "Ranking" and "Round 1"');
-  }
+  if (idxRanking === -1 || idxR1 === -1) throw new Error('Schedule CSV must have headers "Ranking" and "Round 1"');
 
   scheduleR1.clear();
   rows.forEach(r => {
@@ -197,68 +228,81 @@ async function loadScheduleR1() {
 
 function setStatusChip(newStatus) {
   status = newStatus;
-  // toggle chip UI
   for (const id of ['chip-completed', 'chip-retired', 'chip-walkover']) {
     const el = document.getElementById(id);
-    if (el.dataset.status === newStatus) el.classList.add('active');
-    else el.classList.remove('active');
+    if (el.dataset.status === newStatus) el.classList.add('active'); else el.classList.remove('active');
   }
   const disabled = (newStatus === 'Walkover');
-  // disable or enable score inputs on WO
-  ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo','isTb'].forEach(id => {
+  ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo','isTb','s1tb','s2tb','s3tb'].forEach(id => {
     const el = document.getElementById(id);
-    el.disabled = disabled;
+    if (el) el.disabled = disabled;
   });
   document.getElementById('msg').textContent = '';
 }
 
+function showSetTBIfNeeded(setIdx) {
+  const w = Number(document.getElementById(`s${setIdx}w`).value);
+  const o = Number(document.getElementById(`s${setIdx}o`).value);
+  const wrap = document.getElementById(`s${setIdx}tb_wrap`);
+  if (!wrap) return;
+  const is76 = ( (w === 7 && o === 6) || (w === 6 && o === 7) );
+  wrap.style.display = is76 ? 'flex' : 'none';
+  if (!is76) document.getElementById(`s${setIdx}tb`).value = '';
+}
+
 function toggleTBUI(isTB) {
-  // show/hide third-set vs TB inputs
-  document.getElementById('s3wWrap').style.display = isTB ? 'none' : '';
-  document.getElementById('s3oWrap').style.display = isTB ? 'none' : '';
-  document.getElementById('tbLabel').style.display = isTB ? 'block' : 'none';
-  for (const id of ['tbw','tbo']) document.getElementById(id).parentElement.style.display = isTB ? 'block' : 'none';
+  // toggle columns for Set 3 vs Match TB
+  document.querySelectorAll('.col-s3').forEach(el => el.style.display = isTB ? 'none' : '');
+  document.querySelectorAll('.col-mtb').forEach(el => el.style.display = isTB ? '' : 'none');
+}
+
+function updateRowLabels() {
+  const w = document.getElementById('winner').value || 'Winner';
+  const o = document.getElementById('opponent').value || 'Opponent';
+  document.getElementById('winnerLabel').textContent = w;
+  document.getElementById('opponentLabel').textContent = o;
 }
 
 function computeOpponent() {
   const winner = document.getElementById('winner').value;
   const out = document.getElementById('opponent');
   out.value = '';
-  if (!winner) return;
+  if (!winner) { updateRowLabels(); return; }
 
   const r = rankByName.get(winner);
-  if (!r) { out.value = 'Rank not found'; return; }
+  if (!r) { out.value = 'Rank not found'; updateRowLabels(); return; }
 
   const oppRank = scheduleR1.get(r);
-  if (!oppRank) { out.value = 'No Round 1 opponent found'; return; }
+  if (!oppRank) { out.value = 'No Round 1 opponent found'; updateRowLabels(); return; }
 
   const oppName = nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
   out.value = oppName || '';
+  updateRowLabels();
 }
 
 function readInt(id) {
-  const v = document.getElementById(id).value.trim();
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const v = el.value.trim();
   return v === '' ? null : Number(v);
 }
 
 function validateScores() {
   const msg = document.getElementById('msg');
   msg.textContent = '';
-
-  if (status === 'Walkover') return true; // no scores required
+  if (status === 'Walkover') return true;
 
   const isTB = document.getElementById('isTb').checked;
 
-  const s1w = readInt('s1w'), s1o = readInt('s1o');
-  const s2w = readInt('s2w'), s2o = readInt('s2o');
-  const s3w = readInt('s3w'), s3o = readInt('s3o');
+  const s1w = readInt('s1w'), s1o = readInt('s1o'), s1tb = readInt('s1tb');
+  const s2w = readInt('s2w'), s2o = readInt('s2o'), s2tb = readInt('s2tb');
+  const s3w = readInt('s3w'), s3o = readInt('s3o'), s3tb = readInt('s3tb');
   const tbw = readInt('tbw'), tbo = readInt('tbo');
 
   const haveS1 = s1w !== null && s1o !== null;
   const haveS2 = s2w !== null && s2o !== null;
 
   if (status === 'Retired') {
-    // allow incomplete as long as at least one value exists
     if (!(haveS1 || haveS2 || s3w !== null || s3o !== null || tbw !== null || tbo !== null)) {
       msg.textContent = 'Please enter whatever score progress existed before retirement.';
       return false;
@@ -266,26 +310,33 @@ function validateScores() {
     return true;
   }
 
-  // Completed match validation (simple, not enforcing all tennis edge rules)
   if (!haveS1 || !haveS2) {
     msg.textContent = 'Enter Set 1 and Set 2 scores.';
     return false;
   }
-  // determine sets won by winner
+
+  // require TB fields when a set is 7–6
+  const needTB1 = ( (s1w===7&&s1o===6) || (s1w===6&&s1o===7) );
+  if (needTB1 && s1tb === null) { msg.textContent = 'Enter TB (winner pts) for Set 1.'; return false; }
+  const needTB2 = ( (s2w===7&&s2o===6) || (s2w===6&&s2o===7) );
+  if (needTB2 && s2tb === null) { msg.textContent = 'Enter TB (winner pts) for Set 2.'; return false; }
+
   const winSet = (a, b) => a !== null && b !== null && a > b;
   let setsWon = 0, setsLost = 0;
   if (winSet(s1w, s1o)) setsWon++; else setsLost++;
   if (winSet(s2w, s2o)) setsWon++; else setsLost++;
 
-  if (setsWon === 2) return true; // straight sets
+  if (setsWon === 2) return true;
 
   if (setsWon === 1 && setsLost === 1) {
-    if (document.getElementById('isTb').checked) {
+    if (isTB) {
       if (tbw === null || tbo === null) { msg.textContent = 'Enter the match tiebreak score.'; return false; }
-      if (tbw < 10 || tbw - tbo < 2) { msg.textContent = 'Match tiebreak must be at least 10 points and win by 2 for the winner.'; return false; }
+      if (tbw < 10 || tbw - tbo < 2) { msg.textContent = 'Match tiebreak must be at least 10 and win by 2 for the winner.'; return false; }
       return true;
     } else {
-      if (s3w === null || s3o === null) { msg.textContent = 'Enter Set 3 score or choose “10‑pt tiebreak”.'; return false; }
+      if (s3w === null || s3o === null) { msg.textContent = 'Enter Set 3 score or choose “match tiebreak”.'; return false; }
+      const needTB3 = ( (s3w===7&&s3o===6) || (s3w===6&&s3o===7) );
+      if (needTB3 && s3tb === null) { msg.textContent = 'Enter TB (winner pts) for Set 3.'; return false; }
       if (!(s3w > s3o)) { msg.textContent = 'Winner must win Set 3.'; return false; }
       return true;
     }
@@ -316,26 +367,25 @@ async function submitForm() {
     opponentRank: scheduleR1.get(rankByName.get(winner)) || null,
     status,
     isTiebreakThird: document.getElementById('isTb').checked,
-    s1w: readInt('s1w'), s1o: readInt('s1o'),
-    s2w: readInt('s2w'), s2o: readInt('s2o'),
-    s3w: readInt('s3w'), s3o: readInt('s3o'),
+    s1w: readInt('s1w'), s1o: readInt('s1o'), s1tb: readInt('s1tb'),
+    s2w: readInt('s2w'), s2o: readInt('s2o'), s2tb: readInt('s2tb'),
+    s3w: readInt('s3w'), s3o: readInt('s3o'), s3tb: readInt('s3tb'),
     tbw: readInt('tbw'), tbo: readInt('tbo')
   };
 
   btn.disabled = true;
   try {
-const res = await fetch(SUBMIT_ENDPOINT, {
- method: 'POST',
- headers: { 'Content-Type': 'text/plain;charset=utf-8' },
- body: JSON.stringify(payload),
- mode: 'no-cors'   // <-- prevents the CORS error; response will be "opaque"
-});
-// If we get here, the request was sent; treat as success.
-ok.style.display = 'inline';
-['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo'].forEach(id=>document.getElementById(id).value='');
-msg.textContent = '';
-    // clear scores (keep winner/opponent for convenience)
-    ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo'].forEach(id=>document.getElementById(id).value='');
+    await fetch(SUBMIT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+
+    // request sent; treat as success
+    ok.style.display = 'inline';
+    ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo','s1tb','s2tb','s3tb'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+    msg.textContent = '';
   } catch (e) {
     msg.textContent = 'Could not submit: ' + e.message;
   } finally {
@@ -348,6 +398,13 @@ document.getElementById('isTb').addEventListener('change', (e)=>toggleTBUI(e.tar
 ['chip-completed','chip-retired','chip-walkover'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => setStatusChip(e.target.dataset.status));
 });
+['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    const setIdx = id[1]; // '1','2','3'
+    showSetTBIfNeeded(setIdx);
+  });
+});
 document.getElementById('winner').addEventListener('change', computeOpponent);
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
@@ -356,6 +413,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
   try {
     await Promise.all([loadPlayers(), loadScheduleR1()]);
     computeOpponent();
+    updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
     document.getElementById('submitBtn').disabled = false;
