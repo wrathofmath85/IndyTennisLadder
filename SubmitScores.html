@@ -326,9 +326,9 @@ async function submitForm() {
   try {
     const res = await fetch(SUBMIT_ENDPOINT, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-      mode: 'cors',
+      // Use a "simple" content-type so the browser won't preflight.
+      headers: {'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success !== true) throw new Error(data.error || 'Submission failed');
