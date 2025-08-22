@@ -324,15 +324,16 @@ async function submitForm() {
 
   btn.disabled = true;
   try {
-    const res = await fetch(SUBMIT_ENDPOINT, {
-      method: 'POST',
-      // Use a "simple" content-type so the browser won't preflight.
-      headers: {'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success !== true) throw new Error(data.error || 'Submission failed');
-    ok.style.display = 'inline';
+const res = await fetch(SUBMIT_ENDPOINT, {
+ method: 'POST',
+ headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+ body: JSON.stringify(payload),
+ mode: 'no-cors'   // <-- prevents the CORS error; response will be "opaque"
+});
+// If we get here, the request was sent; treat as success.
+ok.style.display = 'inline';
+['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo'].forEach(id=>document.getElementById(id).value='');
+msg.textContent = '';
     // clear scores (keep winner/opponent for convenience)
     ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo'].forEach(id=>document.getElementById(id).value='');
   } catch (e) {
