@@ -53,8 +53,16 @@
     background:#0e1420;
     color:var(--text);
     outline:none;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
   }
   input[readonly]{ opacity:.8; }
+
+  /* invalid field highlight */
+  .invalid{
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(255,107,107,.25);
+    background: #170f12;
+  }
 
   .grid{
     display:grid; gap:14px;
@@ -97,7 +105,6 @@
   .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   .tight-num{ max-width:80px; }
 
-  /* permanently visible TB inputs look disabled until needed */
   .disabled-like{ opacity:.5; }
 </style>
 </head>
@@ -167,7 +174,6 @@
           </tr>
           <tr>
             <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
-            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
             <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
             <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
             <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
@@ -197,6 +203,37 @@ let nameByRank = new Map();
 let rankByName = new Map();
 let scheduleR1 = new Map();
 let status = 'Completed';
+
+/* ---------- Utils for invalid highlighting ---------- */
+function clearInvalids(){
+  document.querySelectorAll('.invalid').forEach(el=>{
+    el.classList.remove('invalid');
+    el.removeAttribute('aria-invalid');
+  });
+}
+function markInvalid(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('invalid');
+  el.setAttribute('aria-invalid','true');
+  return el;
+}
+function focusFirstInvalid(){
+  const first = document.querySelector('.invalid');
+  if (first){
+    first.focus({preventScroll:false});
+    first.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+/* Clear invalid state as soon as the user edits a field */
+function wireLiveCleanup(ids){
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
+    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
+  });
+}
 
 function parseCSV(text){
   const lines = text.trim().split(/\r?\n/);
@@ -269,40 +306,13 @@ function setStatusChip(newStatus){
 }
 
 function toggleTBUI(isTB){
-  // Switch the third column between Set 3 and Match TB (re-use s3w/s3o)
   document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Set 3';
   document.getElementById('s3wCell').classList.toggle('hidden', false);
   document.getElementById('s3oCell').classList.toggle('hidden', false);
-  // hide the set-3 tiebreak input row when using match TB
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
 }
 
-function labelWithRank(name, role){
-  const rank = rankByName.get(name);
-  const text = name ? `${name} (Rank ${rank ?? '—'})` : role;
-  return `<span class="rank-badge"><span class="dot"></span><span>${text}</span></span>`;
-}
-
-function updateRowLabels(){
-  const wName = document.getElementById('winner').value;
-  const oName = document.getElementById('opponent').value;
-  document.getElementById('winnerLabel').innerHTML   = labelWithRank(wName, 'Winner');
-  document.getElementById('opponentLabel').innerHTML = labelWithRank(oName, 'Opponent');
-}
-
-function computeOpponent(){
-  const winner=document.getElementById('winner').value;
-  const out=document.getElementById('opponent'); out.value='';
-  if(!winner){ updateRowLabels(); return; }
-  const r=rankByName.get(winner);
-  if(!r){ out.value='Rank not found'; updateRowLabels(); return; }
-  const oppRank=scheduleR1.get(r);
-  if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
-  const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
-  out.value=oppName||''; updateRowLabels();
-}
-
-/** TB enable/disable (permanent inputs, but only editable when 7–6) **/
+/** Enable/disable the per-set TB inputs (7–6 only) */
 function refreshTBEnabled(){
   const sets=[1,2,3];
   const isTB = document.getElementById('isTb').checked;
@@ -311,7 +321,6 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
-    // If using match TB for third "set", there is no set-3 TB box
     if (k===3 && isTB){
       tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
     }
@@ -323,62 +332,137 @@ function refreshTBEnabled(){
   });
 }
 
-function readInt(id){
+/** Helpers */
+function readCell(id){
   const el=document.getElementById(id);
   if(!el) return '';
   const v=el.value.trim();
   if (v==='') return '';
   const n=Number(v);
-  return Number.isNaN(n) ? '' : n;  // return "" if blank/invalid, else number
+  return Number.isNaN(n) ? '' : n;
+}
+function isAllowedWinnerPair(win, lose){
+  // Allowed: 6-0..4, 7-5, 7-6
+  if (win===6 && lose>=0 && lose<=4) return true;
+  if (win===7 && (lose===5 || lose===6)) return true;
+  return false;
+}
+function validateSetPair(a,b,setName, topId, bottomId){
+  // accepts either orientation; returns {ok, winnerIsTop, needTB, msg}
+  if (a==='' || b===''){
+    markInvalid(topId); markInvalid(bottomId);
+    return {ok:false, msg:`Enter both scores for ${setName}.`};
+  }
+  if (a===b){
+    markInvalid(topId); markInvalid(bottomId);
+    return {ok:false, msg:`${setName}: ties are not allowed.`};
+  }
+  const topWins = a>b;
+  const win = topWins ? a : b;
+  const lose = topWins ? b : a;
+  if (!isAllowedWinnerPair(win, lose)){
+    markInvalid(topId); markInvalid(bottomId);
+    return {ok:false, msg:`${setName}: invalid tennis score.`};
+  }
+  const needTB = (win===7 && lose===6);
+  return {ok:true, winnerIsTop: topWins, needTB};
 }
 
 function validateScores(){
+  clearInvalids();
   const msg=document.getElementById('msg'); msg.textContent='';
   if (status==='Walkover') return true;
+
   const isTB=document.getElementById('isTb').checked;
 
-  const s1w=readInt('s1w'), s1o=readInt('s1o'), s1tb=readInt('s1tb');
-  const s2w=readInt('s2w'), s2o=readInt('s2o'), s2tb=readInt('s2tb');
-  const s3w=readInt('s3w'), s3o=readInt('s3o'), s3tb=readInt('s3tb');
+  const s1w=readCell('s1w'), s1o=readCell('s1o');
+  const s2w=readCell('s2w'), s2o=readCell('s2o');
+  const s3w=readCell('s3w'), s3o=readCell('s3o');
 
-  const haveS1 = s1w!=='' && s1o!=='';
-  const haveS2 = s2w!=='' && s2o!=='';
+  const s1tb=readCell('s1tb'), s2tb=readCell('s2tb'), s3tb=readCell('s3tb');
 
+  // Retired: allow anything as long as some progress exists
   if (status==='Retired'){
-    if(!(haveS1||haveS2||s3w!==''||s3o!=='')){
-      msg.textContent='Please enter whatever score progress existed before retirement.'; return false;
+    if (s1w!==''||s1o!==''||s2w!==''||s2o!==''||s3w!==''||s3o!==''){
+      return true;
+    }
+    msg.textContent='Please enter whatever score progress existed before retirement.';
+    markInvalid('s1w'); markInvalid('s1o'); markInvalid('s2w'); markInvalid('s2o');
+    focusFirstInvalid();
+    return false;
+  }
+
+  // Completed: strict validation for sets 1 & 2
+  const v1 = validateSetPair(s1w,s1o,'Set 1','s1w','s1o'); if(!v1.ok){ msg.textContent=v1.msg; focusFirstInvalid(); return false; }
+  const v2 = validateSetPair(s2w,s2o,'Set 2','s2w','s2o'); if(!v2.ok){ msg.textContent=v2.msg; focusFirstInvalid(); return false; }
+
+  // TB required when 7–6
+  if (v1.needTB && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; markInvalid('s1tb'); focusFirstInvalid(); return false; }
+  if (v2.needTB && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; markInvalid('s2tb'); focusFirstInvalid(); return false; }
+
+  // Count sets won by the Winner row across first two sets
+  let won=0, lost=0;
+  won += v1.winnerIsTop ? 1 : 0;
+  lost+= v1.winnerIsTop ? 0 : 1;
+  won += v2.winnerIsTop ? 1 : 0;
+  lost+= v2.winnerIsTop ? 0 : 1;
+
+  if (won===2){
+    // Straight sets: set 3 must be blank and no TB
+    if (s3w!=='' || s3o!=='' || s3tb!==''){
+      msg.textContent='Leave Set 3 blank when the match ends in two sets.';
+      if (s3w!=='') markInvalid('s3w');
+      if (s3o!=='') markInvalid('s3o');
+      if (s3tb!=='') markInvalid('s3tb');
+      focusFirstInvalid();
+      return false;
     }
     return true;
   }
 
-  if (!haveS1 || !haveS2){ msg.textContent='Enter Set 1 and Set 2 scores.'; return false; }
-
-  // TB required when 7–6
-  const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
-  const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
-
-  const winSet=(a,b)=>a!=='' && b!=='' && a>b;
-  let won=0, lost=0;
-  if (winSet(s1w,s1o)) won++; else lost++;
-  if (winSet(s2w,s2o)) won++; else lost++;
-
-  if (won===2) return true;
-
+  // Split sets: need either match TB or a valid full third set
   if (won===1 && lost===1){
     if (isTB){
-      // Use s3w/s3o as the match TB values
-      if (s3w==='' || s3o===''){ msg.textContent='Enter the match tiebreak score in the Set 3 boxes.'; return false; }
-      if (s3w < 10 || (s3w - s3o) < 2){ msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.'; return false; }
+      if (s3w==='' || s3o===''){
+        msg.textContent='Enter the match tiebreak score in the Set 3 boxes.';
+        if (s3w==='') markInvalid('s3w');
+        if (s3o==='') markInvalid('s3o');
+        focusFirstInvalid();
+        return false;
+      }
+      const w = Number(s3w), o = Number(s3o);
+      if (w < 10 || (w - o) < 2){
+        msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.';
+        markInvalid('s3w'); markInvalid('s3o');
+        focusFirstInvalid();
+        return false;
+      }
+      if (s3tb!==''){
+        msg.textContent='Do not fill the Set 3 tiebreak box when using a match tiebreak.';
+        markInvalid('s3tb');
+        focusFirstInvalid();
+        return false;
+      }
       return true;
     } else {
-      if (s3w==='' || s3o===''){ msg.textContent='Enter Set 3 score or choose match tiebreak.'; return false; }
-      const needTB3=((s3w===7&&s3o===6)||(s3w===6&&s3o===7)); if(needTB3 && s3tb===''){ msg.textContent='Enter tie‑break points for Set 3.'; return false; }
-      if (!(s3w > s3o)){ msg.textContent='Winner must win Set 3.'; return false; }
+      const v3 = validateSetPair(s3w,s3o,'Set 3','s3w','s3o'); if(!v3.ok){ msg.textContent=v3.msg; focusFirstInvalid(); return false; }
+      if (!v3.winnerIsTop){
+        msg.textContent='Winner must win Set 3.';
+        markInvalid('s3w'); markInvalid('s3o');
+        focusFirstInvalid();
+        return false;
+      }
+      if (v3.needTB && s3tb===''){
+        msg.textContent='Enter tie‑break points for Set 3.';
+        markInvalid('s3tb'); focusFirstInvalid(); return false;
+      }
       return true;
     }
   }
 
-  msg.textContent='Scores must reflect the selected winner.';
+  msg.textContent='Scores must reflect the selected winner (two sets to one).';
+  markInvalid('s1w'); markInvalid('s1o'); markInvalid('s2w'); markInvalid('s2o');
+  focusFirstInvalid();
   return false;
 }
 
@@ -390,27 +474,23 @@ async function submitForm(){
 
   const winner=document.getElementById('winner').value;
   const opponent=document.getElementById('opponent').value;
-  if (!winner){ msg.textContent='Pick a winner.'; return; }
-  if (!opponent){ msg.textContent='Opponent not found yet.'; return; }
+  if (!winner){ msg.textContent='Pick a winner.'; markInvalid('winner'); focusFirstInvalid(); return; }
+  if (!opponent){ msg.textContent='Opponent not found yet.'; markInvalid('winner'); focusFirstInvalid(); return; }
   if (!validateScores()) return;
 
-  // compute TB-needed flags (useful on the sheet)
-  const s1w=readInt('s1w'), s1o=readInt('s1o');
-  const s2w=readInt('s2w'), s2o=readInt('s2o');
-  const s3w=readInt('s3w'), s3o=readInt('s3o');
+  const s1w=readCell('s1w'), s1o=readCell('s1o');
+  const s2w=readCell('s2w'), s2o=readCell('s2o');
+  const s3w=readCell('s3w'), s3o=readCell('s3o');
   const isTB=document.getElementById('isTb').checked;
 
-  const needTB1 = (s1w===7 && s1o===6) || (s1w===6 && s1o===7);
-  const needTB2 = (s2w===7 && s2o===6) || (s2w===6 && s2o===7);
-  const needTB3 = !isTB && ((s3w===7 && s3o===6) || (s3w===6 && s3o===7));
+  const needTB1 = (s1w!=='' && s1o!=='' && ((s1w===7 && s1o===6) || (s1o===7 && s1w===6)));
+  const needTB2 = (s2w!=='' && s2o!=='' && ((s2w===7 && s2o===6) || (s2o===7 && s2w===6)));
+  const needTB3 = !isTB && (s3w!=='' && s3o!=='' && ((s3w===7 && s3o===6) || (s3o===7 && s3w===6)));
 
-  // row‑3 TB winner points (per set)
-  const s1tb = readInt('s1tb');
-  const s2tb = readInt('s2tb');
-  const s3tb = readInt('s3tb');
+  const s1tb = readCell('s1tb');
+  const s2tb = readCell('s2tb');
+  const s3tb = readCell('s3tb');
 
-  // Optional back‑compat for your previous columns:
-  // If match TB is used, fill TB_W/TB_O; otherwise keep them blank.
   const TB_W = isTB ? s3w : '';
   const TB_O = isTB ? s3o : '';
 
@@ -424,20 +504,16 @@ async function submitForm(){
     opponentRank: scheduleR1.get(rankByName.get(winner)) || '',
     isTiebreakThird: isTB,
 
-    // set scores
     s1w, s1o,
     s2w, s2o,
     s3w, s3o,
 
-    // NEW per-set tiebreak fields (winner points). Blank when not 7–6.
+    // per-set TBs (winner points)
     Set1_T: s1tb,
     Set2_T: s2tb,
     Set3_T: s3tb,
 
-    // (Optional) old columns for compatibility; safe to remove if not needed
     TB_W, TB_O,
-
-    // flags (handy if you use them)
     needTB1, needTB2, needTB3
   };
 
@@ -453,6 +529,7 @@ async function submitForm(){
     ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
+    clearInvalids();
     refreshTBEnabled();
   }catch(e){
     msg.textContent='Could not submit: '+e.message;
@@ -462,14 +539,15 @@ async function submitForm(){
 }
 
 /*** wiring ***/
-document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.target.checked); refreshTBEnabled(); });
+document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.target.checked); refreshTBEnabled(); clearInvalids(); });
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
-  document.getElementById(id).addEventListener('click', e=>setStatusChip(e.target.dataset.status));
+  document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
-// On any set score change, recompute TB enabled state
-['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
+['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner'].forEach(id=>{
   const el=document.getElementById(id);
-  el.addEventListener('input', refreshTBEnabled);
+  if (el){
+    el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
+  }
 });
 
 document.getElementById('winner').addEventListener('change', computeOpponent);
@@ -484,8 +562,11 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled(); // TB boxes permanent but disabled by default
+    refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
+
+    // live cleanup for all inputs
+    wireLiveCleanup(['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner']);
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
