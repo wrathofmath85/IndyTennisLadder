@@ -83,29 +83,87 @@
   }
   button[disabled]{ opacity:.6; cursor:not-allowed; }
 
-  /* Score table */
-  table.scoretable{ width:100%; border-collapse:separate; border-spacing:0; overflow:hidden;
-    border:1px solid var(--line); border-radius:12px; background:#0e1420; }
-  table.scoretable th, table.scoretable td{ padding:12px 10px; border-bottom:1px solid #172033; text-align:center; }
-  table.scoretable thead th{ background:#101a2a; font-weight:800; }
-  table.scoretable tr:last-child td{ border-bottom:none; }
-  table.scoretable td:first-child, table.scoretable th:first-child{ text-align:left; width:260px; }
+  /* ---------- NEW: Responsive score grid ---------- */
+  .scores{
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#0e1420;
+    padding:10px;
+  }
 
+  .scores-head,
+  .scores-row{
+    display:grid;
+    grid-template-columns: 1fr repeat(3, 68px);
+    gap:10px;
+    align-items:center;
+  }
+
+  .scores-head{
+    background:#101a2a;
+    border-radius:8px;
+    padding:10px;
+    font-weight:800;
+    text-align:center;
+    margin-bottom:8px;
+  }
+  .scores-head div:first-child{ text-align:left; }
+
+  .scores-row{ padding:8px 4px; }
+  .scores-row + .scores-row{ border-top:1px solid #172033; }
+
+  .who{ font-weight:700; display:flex; align-items:center; }
   .rank-badge{
     display:inline-flex; align-items:center; gap:6px;
-    background:#0f1b2c; border:1px solid #1e2a42; border-radius:999px; padding:4px 10px; font-weight:700;
+    background:#0f1b2c; border:1px solid #1e2a42; border-radius:999px; padding:6px 10px; font-weight:700;
   }
   .rank-badge .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; }
+
+  .tight-num{
+    width:100%;
+    text-align:center;
+    padding:10px 0;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:#0e1420;
+    color:var(--text);
+    font-size:16px;
+  }
+
+  .disabled-like{ opacity:.5; }
+  .hidden{ display:none; }
+
+  /* Mobile layout:
+     - Hide the empty top-left header cell
+     - Labels (Winner/Opponent/Tie-break) span full width
+     - Inputs line up in a clean 3-col row under each label
+  */
+  @media (max-width:600px){
+    .scores-head{
+      grid-template-columns: repeat(3, 1fr);
+      text-align:center;
+    }
+    .scores-head div:first-child{ display:none; }
+
+    .scores-row{
+      grid-template-columns: repeat(3, 1fr);
+      gap:8px;
+    }
+    .scores-row .who{
+      grid-column: 1 / -1;
+      margin:6px 0 2px;
+    }
+    .tight-num{ height:44px; }
+  }
+  /* Desktop/tablet: keep compact widths for inputs */
+  @media (min-width:601px){
+    .tight-num{ max-width:68px; margin-inline:auto; }
+  }
 
   .help{ font-size:.9rem; margin-top:8px; color:var(--muted); }
   .error{ color:var(--danger); margin-top:10px; }
   .success{ color:var(--success); margin-left:10px; }
-
   .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-  .tight-num{ max-width:80px; }
-
-  .disabled-like{ opacity:.5; }
-  .hidden{ display:none; }
 </style>
 </head>
 <body>
@@ -119,7 +177,6 @@
     <fieldset>
       <legend>Players</legend>
       <div class="grid">
-        <!-- NEW: Match Type -->
         <label for="matchType">Match Type</label>
         <select id="matchType">
           <option value="Scheduled" selected>Scheduled Match</option>
@@ -132,9 +189,7 @@
         </select>
 
         <label for="opponent">Opponent</label>
-        <!-- scheduled: readonly text auto-filled -->
         <input id="opponentText" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
-        <!-- challenge: select from ±5 ranks -->
         <select id="opponentSelect" class="hidden">
           <option value="">Select opponent…</option>
         </select>
@@ -163,36 +218,37 @@
         <span class="help">Tiebreak boxes are always visible but only accept input when a set score is 7–6.</span>
       </div>
 
-      <table class="scoretable" aria-label="Set scores">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Set 1</th>
-            <th>Set 2</th>
-            <th id="col3Header">Set 3</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td id="winnerLabel"><span class="rank-badge"><span class="dot"></span><span>Winner</span></span></td>
-            <td><input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" /></td>
-            <td><input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" /></td>
-            <td id="s3wCell"><input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Winner Set 3 or Match TB" /></td>
-          </tr>
-          <tr>
-            <td id="opponentLabel"><span class="rank-badge"><span class="dot"></span><span>Opponent</span></span></td>
-            <td><input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" /></td>
-            <td><input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" /></td>
-            <td id="s3oCell"><input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Opponent Set 3 or Match TB" /></td>
-          </tr>
-          <tr>
-            <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
-            <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
-            <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
-            <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- ---------- NEW RESPONSIVE SCORE GRID ---------- -->
+      <div class="scores" aria-label="Set scores">
+        <div class="scores-head">
+          <div></div>
+          <div>Set 1</div>
+          <div>Set 2</div>
+          <div id="col3Header">Set 3</div>
+        </div>
+
+        <div class="scores-row">
+          <div id="winnerLabel" class="who"><span class="rank-badge"><span class="dot"></span><span>Winner</span></span></div>
+          <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" />
+          <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" />
+          <div id="s3wCell"><input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Winner Set 3 or Match TB" /></div>
+        </div>
+
+        <div class="scores-row">
+          <div id="opponentLabel" class="who"><span class="rank-badge"><span class="dot"></span><span>Opponent</span></span></div>
+          <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" />
+          <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" />
+          <div id="s3oCell"><input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Opponent Set 3 or Match TB" /></div>
+        </div>
+
+        <div class="scores-row">
+          <div class="who"><b>Tie‑break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
+          <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled />
+          <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled />
+          <div id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></div>
+        </div>
+      </div>
+      <!-- ------------------------------------------------ -->
 
       <div id="msg" class="error" role="alert" aria-live="polite"></div>
     </fieldset>
@@ -380,11 +436,9 @@ function setOpponentUI(mode){
   if (mode === 'Challenge'){
     txt.classList.add('hidden');
     sel.classList.remove('hidden');
-    sel.disabled = false;
   } else {
     sel.classList.add('hidden');
     txt.classList.remove('hidden');
-    sel.disabled = true;
   }
 }
 function getOpponentValue(){
@@ -419,7 +473,6 @@ function recomputeOpponentForMode(){
 
   if (getMatchType()==='Challenge'){
     const sel = document.getElementById('opponentSelect');
-    // Build ±5 range (excluding winner)
     const minR = Math.max(1, wRank - 5);
     const maxR = wRank + 5;
     const options = [];
@@ -431,7 +484,6 @@ function recomputeOpponentForMode(){
     }
     sel.innerHTML = options.join('');
   }else{
-    // Scheduled
     const oppRank = scheduleR1.get(wRank);
     const oppName = nameByRank.get(oppRank) || '';
     setOpponentValue(oppName || 'No Round 1 opponent found');
@@ -536,6 +588,7 @@ function validateScores(){
   }
 
   if (won===1 && lost===1){
+    const isTB=document.getElementById('isTb').checked;
     if (isTB){
       if (s3w==='' || s3o===''){
         msg.textContent='Enter the match tiebreak score in the Set 3 boxes.';
@@ -613,7 +666,7 @@ async function submitForm(){
     timestamp:new Date().toISOString(),
     round:1,
     status,
-    matchType,                          
+    matchType,
     winner,
     opponent,
     winnerRank: rankByName.get(winner) || '',
