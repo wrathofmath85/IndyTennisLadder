@@ -166,6 +166,7 @@
           </tr>
           <tr>
             <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
+            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
             <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
             <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
             <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
@@ -309,6 +310,7 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
+    // If using match TB for third "set", there is no set-3 TB box
     if (k===3 && isTB){
       tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
     }
@@ -320,7 +322,14 @@ function refreshTBEnabled(){
   });
 }
 
-function readInt(id){ const el=document.getElementById(id); if(!el) return null; const v=el.value.trim(); return v===''?null:Number(v); }
+function readInt(id){
+  const el=document.getElementById(id);
+  if(!el) return '';
+  const v=el.value.trim();
+  if (v==='') return '';            // <-- send empty string when blank/disabled
+  const n=Number(v);
+  return Number.isNaN(n) ? '' : n;  // number when valid, else empty string
+}
 
 function validateScores(){
   const msg=document.getElementById('msg'); msg.textContent='';
@@ -331,11 +340,11 @@ function validateScores(){
   const s2w=readInt('s2w'), s2o=readInt('s2o'), s2tb=readInt('s2tb');
   const s3w=readInt('s3w'), s3o=readInt('s3o'), s3tb=readInt('s3tb');
 
-  const haveS1 = s1w!==null && s1o!==null;
-  const haveS2 = s2w!==null && s2o!==null;
+  const haveS1 = s1w!=='' && s1o!=='';
+  const haveS2 = s2w!=='' && s2o!=='';
 
   if (status==='Retired'){
-    if(!(haveS1||haveS2||s3w!==null||s3o!==null)){
+    if(!(haveS1||haveS2||s3w!==''||s3o!=='')){
       msg.textContent='Please enter whatever score progress existed before retirement.'; return false;
     }
     return true;
@@ -343,10 +352,10 @@ function validateScores(){
 
   if (!haveS1 || !haveS2){ msg.textContent='Enter Set 1 and Set 2 scores.'; return false; }
 
-  const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===null){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
-  const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===null){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
+  const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
+  const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
 
-  const winSet=(a,b)=>a!==null && b!==null && a>b;
+  const winSet=(a,b)=>a!=='' && b!=='' && a>b;
   let won=0, lost=0;
   if (winSet(s1w,s1o)) won++; else lost++;
   if (winSet(s2w,s2o)) won++; else lost++;
@@ -355,12 +364,12 @@ function validateScores(){
 
   if (won===1 && lost===1){
     if (isTB){
-      if (s3w===null || s3o===null){ msg.textContent='Enter the match tiebreak score in the Set 3 boxes.'; return false; }
+      if (s3w==='' || s3o===''){ msg.textContent='Enter the match tiebreak score in the Set 3 boxes.'; return false; }
       if (s3w < 10 || (s3w - s3o) < 2){ msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.'; return false; }
       return true;
     } else {
-      if (s3w===null || s3o===null){ msg.textContent='Enter Set 3 score or choose match tiebreak.'; return false; }
-      const needTB3=((s3w===7&&s3o===6)||(s3w===6&&s3o===7)); if(needTB3 && s3tb===null){ msg.textContent='Enter tie‑break points for Set 3.'; return false; }
+      if (s3w==='' || s3o===''){ msg.textContent='Enter Set 3 score or choose match tiebreak.'; return false; }
+      const needTB3=((s3w===7&&s3o===6)||(s3w===6&&s3o===7)); if(needTB3 && s3tb===''){ msg.textContent='Enter tie‑break points for Set 3.'; return false; }
       if (!(s3w > s3o)){ msg.textContent='Winner must win Set 3.'; return false; }
       return true;
     }
@@ -392,24 +401,14 @@ async function submitForm(){
   const needTB2 = (s2w===7 && s2o===6) || (s2w===6 && s2o===7);
   const needTB3 = !isTB && ((s3w===7 && s3o===6) || (s3w===6 && s3o===7));
 
-  // Read TB inputs as both numbers and strings (to satisfy different GAS parsers)
-  const s1tbNum = readInt('s1tb');
-  const s2tbNum = readInt('s2tb');
-  const s3tbNum = readInt('s3tb');
-
-  const s1tbStr = document.getElementById('s1tb').value || null;
-  const s2tbStr = document.getElementById('s2tb').value || null;
-  const s3tbStr = document.getElementById('s3tb').value || null;
-
   const payload={
     timestamp:new Date().toISOString(),
     round:1,
     status,
     winner,
     opponent,
-    winnerRank: rankByName.get(winner) || null,
-    opponentRank: scheduleR1.get(rankByName.get(winner)) || null,
-
+    winnerRank: rankByName.get(winner) || '',
+    opponentRank: scheduleR1.get(rankByName.get(winner)) || '',
     isTiebreakThird: isTB,
 
     // Set scores
@@ -417,10 +416,10 @@ async function submitForm(){
     s2w, s2o,
     s3w, s3o,
 
-    // Row 3 TB values (multiple keys for compatibility)
-    s1tb: s1tbNum, s2tb: s2tbNum, s3tb: s3tbNum,            // numeric
-    s1tb_text: s1tbStr, s2tb_text: s2tbStr, s3tb_text: s3tbStr, // string
-    set1TB: s1tbNum, set2TB: s2tbNum, set3TB: s3tbNum,      // alias keys
+    // Tie-break row (always included as number or "")
+    s1tb: readInt('s1tb'),
+    s2tb: readInt('s2tb'),
+    s3tb: readInt('s3tb'),
 
     // Flags
     needTB1, needTB2, needTB3
@@ -430,7 +429,7 @@ async function submitForm(){
   try{
     await fetch(SUBMIT_ENDPOINT,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(payload),
       mode:'no-cors'
     });
@@ -467,7 +466,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled();
+    refreshTBEnabled(); // TB boxes permanent but disabled by default
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
