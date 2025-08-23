@@ -166,7 +166,6 @@
           </tr>
           <tr>
             <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
-            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
             <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
             <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
             <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
@@ -310,7 +309,6 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
-    // If using match TB for third "set", there is no set-3 TB box
     if (k===3 && isTB){
       tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
     }
@@ -345,7 +343,6 @@ function validateScores(){
 
   if (!haveS1 || !haveS2){ msg.textContent='Enter Set 1 and Set 2 scores.'; return false; }
 
-  // TB required when 7–6; inputs are only enabled in that case (permanent UI)
   const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===null){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
   const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===null){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
 
@@ -358,7 +355,6 @@ function validateScores(){
 
   if (won===1 && lost===1){
     if (isTB){
-      // Use s3w/s3o as the match TB values
       if (s3w===null || s3o===null){ msg.textContent='Enter the match tiebreak score in the Set 3 boxes.'; return false; }
       if (s3w < 10 || (s3w - s3o) < 2){ msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.'; return false; }
       return true;
@@ -396,14 +392,23 @@ async function submitForm(){
   const needTB2 = (s2w===7 && s2o===6) || (s2w===6 && s2o===7);
   const needTB3 = !isTB && ((s3w===7 && s3o===6) || (s3w===6 && s3o===7));
 
+  // Read TB inputs as both numbers and strings (to satisfy different GAS parsers)
+  const s1tbNum = readInt('s1tb');
+  const s2tbNum = readInt('s2tb');
+  const s3tbNum = readInt('s3tb');
+
+  const s1tbStr = document.getElementById('s1tb').value || null;
+  const s2tbStr = document.getElementById('s2tb').value || null;
+  const s3tbStr = document.getElementById('s3tb').value || null;
+
   const payload={
     timestamp:new Date().toISOString(),
     round:1,
     status,
-    winner: document.getElementById('winner').value,
-    opponent: document.getElementById('opponent').value,
-    winnerRank: rankByName.get(document.getElementById('winner').value) || null,
-    opponentRank: scheduleR1.get(rankByName.get(document.getElementById('winner').value)) || null,
+    winner,
+    opponent,
+    winnerRank: rankByName.get(winner) || null,
+    opponentRank: scheduleR1.get(rankByName.get(winner)) || null,
 
     isTiebreakThird: isTB,
 
@@ -412,12 +417,12 @@ async function submitForm(){
     s2w, s2o,
     s3w, s3o,
 
-    // PER-SET TB (row 3) – these are the inputs you asked to include
-    s1tb: readInt('s1tb'),
-    s2tb: readInt('s2tb'),
-    s3tb: readInt('s3tb'),
+    // Row 3 TB values (multiple keys for compatibility)
+    s1tb: s1tbNum, s2tb: s2tbNum, s3tb: s3tbNum,            // numeric
+    s1tb_text: s1tbStr, s2tb_text: s2tbStr, s3tb_text: s3tbStr, // string
+    set1TB: s1tbNum, set2TB: s2tbNum, set3TB: s3tbNum,      // alias keys
 
-    // Helpful flags for your sheet logic
+    // Flags
     needTB1, needTB2, needTB3
   };
 
@@ -425,7 +430,7 @@ async function submitForm(){
   try{
     await fetch(SUBMIT_ENDPOINT,{
       method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),
       mode:'no-cors'
     });
@@ -450,7 +455,6 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
   const el=document.getElementById(id);
   el.addEventListener('input', refreshTBEnabled);
 });
-
 document.getElementById('winner').addEventListener('change', computeOpponent);
 document.getElementById('winner').addEventListener('change', updateRowLabels);
 document.getElementById('submitBtn').addEventListener('click', submitForm);
@@ -463,7 +467,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled(); // TB boxes permanent but disabled by default
+    refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
