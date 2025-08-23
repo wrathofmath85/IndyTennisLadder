@@ -97,6 +97,7 @@
   .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   .tight-num{ max-width:80px; }
 
+  /* permanently visible TB inputs look disabled until needed */
   .disabled-like{ opacity:.5; }
 </style>
 </head>
@@ -166,6 +167,7 @@
           </tr>
           <tr>
             <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
+            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
             <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
             <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
             <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
@@ -267,9 +269,11 @@ function setStatusChip(newStatus){
 }
 
 function toggleTBUI(isTB){
+  // Switch the third column between Set 3 and Match TB (re-use s3w/s3o)
   document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Set 3';
   document.getElementById('s3wCell').classList.toggle('hidden', false);
   document.getElementById('s3oCell').classList.toggle('hidden', false);
+  // hide the set-3 tiebreak input row when using match TB
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
 }
 
@@ -298,7 +302,7 @@ function computeOpponent(){
   out.value=oppName||''; updateRowLabels();
 }
 
-/** TB enable/disable **/
+/** TB enable/disable (permanent inputs, but only editable when 7–6) **/
 function refreshTBEnabled(){
   const sets=[1,2,3];
   const isTB = document.getElementById('isTb').checked;
@@ -307,6 +311,7 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
+    // If using match TB for third "set", there is no set-3 TB box
     if (k===3 && isTB){
       tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
     }
@@ -324,7 +329,7 @@ function readInt(id){
   const v=el.value.trim();
   if (v==='') return '';
   const n=Number(v);
-  return Number.isNaN(n) ? '' : n;
+  return Number.isNaN(n) ? '' : n;  // return "" if blank/invalid, else number
 }
 
 function validateScores(){
@@ -348,6 +353,7 @@ function validateScores(){
 
   if (!haveS1 || !haveS2){ msg.textContent='Enter Set 1 and Set 2 scores.'; return false; }
 
+  // TB required when 7–6
   const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
   const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
 
@@ -360,6 +366,7 @@ function validateScores(){
 
   if (won===1 && lost===1){
     if (isTB){
+      // Use s3w/s3o as the match TB values
       if (s3w==='' || s3o===''){ msg.textContent='Enter the match tiebreak score in the Set 3 boxes.'; return false; }
       if (s3w < 10 || (s3w - s3o) < 2){ msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.'; return false; }
       return true;
@@ -387,7 +394,7 @@ async function submitForm(){
   if (!opponent){ msg.textContent='Opponent not found yet.'; return; }
   if (!validateScores()) return;
 
-  // compute TB-needed flags
+  // compute TB-needed flags (useful on the sheet)
   const s1w=readInt('s1w'), s1o=readInt('s1o');
   const s2w=readInt('s2w'), s2o=readInt('s2o');
   const s3w=readInt('s3w'), s3o=readInt('s3o');
@@ -402,19 +409,10 @@ async function submitForm(){
   const s2tb = readInt('s2tb');
   const s3tb = readInt('s3tb');
 
-  // ---- Back‑compat for your Sheet columns TB_W / TB_O ----
-  // If match TB is used, keep original meaning (winner & opponent TB scores).
-  // Otherwise, put the per‑set tiebreak winner points (first one present) into TB_W
-  // so your existing script/headers pick it up.
-  let TB_W = '';
-  let TB_O = '';
-  if (isTB){
-    TB_W = s3w; // match tiebreak winner points
-    TB_O = s3o; // match tiebreak opponent points
-  } else {
-    TB_W = s1tb !== '' ? s1tb : (s2tb !== '' ? s2tb : (s3tb !== '' ? s3tb : ''));
-    TB_O = ''; // row 3 is winner points only
-  }
+  // Optional back‑compat for your previous columns:
+  // If match TB is used, fill TB_W/TB_O; otherwise keep them blank.
+  const TB_W = isTB ? s3w : '';
+  const TB_O = isTB ? s3o : '';
 
   const payload={
     timestamp:new Date().toISOString(),
@@ -431,13 +429,15 @@ async function submitForm(){
     s2w, s2o,
     s3w, s3o,
 
-    // tiebreak row (always included)
-    s1tb, s2tb, s3tb,
+    // NEW per-set tiebreak fields (winner points). Blank when not 7–6.
+    Set1_T: s1tb,
+    Set2_T: s2tb,
+    Set3_T: s3tb,
 
-    // back‑compat fields for your current sheet columns
+    // (Optional) old columns for compatibility; safe to remove if not needed
     TB_W, TB_O,
 
-    // flags
+    // flags (handy if you use them)
     needTB1, needTB2, needTB3
   };
 
@@ -466,10 +466,12 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>setStatusChip(e.target.dataset.status));
 });
+// On any set score change, recompute TB enabled state
 ['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener('input', refreshTBEnabled);
 });
+
 document.getElementById('winner').addEventListener('change', computeOpponent);
 document.getElementById('winner').addEventListener('change', updateRowLabels);
 document.getElementById('submitBtn').addEventListener('click', submitForm);
@@ -482,7 +484,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled();
+    refreshTBEnabled(); // TB boxes permanent but disabled by default
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
