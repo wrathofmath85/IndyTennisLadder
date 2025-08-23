@@ -204,8 +204,11 @@ let rankByName = new Map();
 let scheduleR1 = new Map();
 let status = 'Completed';
 
-/* ---------- Robust CSV parser (handles quotes/commas) ---------- */
+/* ---------- Robust CSV parser (handles quotes/commas + strips BOM) ---------- */
 function parseCSV(text){
+  // Strip BOM at file start if present
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
   const rows = [];
   let cur = [], field = '', inQuotes = false;
   for (let i=0;i<text.length;i++){
@@ -227,37 +230,26 @@ function parseCSV(text){
     }
   }
   if (field !== '' || cur.length){ cur.push(field); rows.push(cur); }
-  const headers = rows[0].map(h=>h.trim());
+
+  // Trim cells and strip BOM from the first header cell if present
+  const headers = rows[0].map((h,idx)=>{
+    let t = (h ?? '').trim();
+    if (idx===0) t = t.replace(/^\uFEFF/,'');
+    return t;
+  });
+
   const outRows = rows.slice(1).map(cols=>{
     const o={};
-    headers.forEach((h,idx)=>{ o[h]= (cols[idx] ?? '').toString().trim(); });
+    headers.forEach((h,idx)=>{
+      let v = (cols[idx] ?? '').toString();
+      o[h] = v.trim();
+    });
     return o;
   });
   return {headers, rows: outRows};
 }
-const norm = s => (s||'').toLowerCase();
 
-/* ---------- Invalid highlighting helpers ---------- */
-function clearInvalids(){
-  document.querySelectorAll('.invalid').forEach(el=>{
-    el.classList.remove('invalid');
-    el.removeAttribute('aria-invalid');
-  });
-}
-function markInvalid(id){
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('invalid');
-  el.setAttribute('aria-invalid','true');
-  return el;
-}
-function focusFirstInvalid(){
-  const first = document.querySelector('.invalid');
-  if (first){
-    first.focus({preventScroll:false});
-    first.scrollIntoView({behavior:'smooth', block:'center'});
-  }
-}
+const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,''); // also strip BOM from keys
 
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
@@ -400,6 +392,48 @@ function validateSetPair(a,b,setName, topId, bottomId){
   }
   const needTB = (win===7 && lose===6);
   return {ok:true, winnerIsTop: topWins, needTB};
+}
+
+/* invalid highlighting helpers */
+function clearInvalids(){
+  document.querySelectorAll('.invalid').forEach(el=>{
+    el.classList.remove('invalid');
+    el.removeAttribute('aria-invalid');
+  });
+}
+function markInvalid(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('invalid');
+  el.setAttribute('aria-invalid','true');
+  return el;
+}
+function focusFirstInvalid(){
+  const first = document.querySelector('.invalid');
+  if (first){
+    first.focus({preventScroll:false});
+    first.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+function updateRowLabels(){
+  const wName = document.getElementById('winner').value;
+  const oName = document.getElementById('opponent').value;
+  const rankBadge = (text)=>`<span class="rank-badge"><span class="dot"></span><span>${text}</span></span>`;
+  document.getElementById('winnerLabel').innerHTML   = rankBadge(wName || 'Winner');
+  document.getElementById('opponentLabel').innerHTML = rankBadge(oName || 'Opponent');
+}
+
+function computeOpponent(){
+  const winner=document.getElementById('winner').value;
+  const out=document.getElementById('opponent'); out.value='';
+  if(!winner){ updateRowLabels(); return; }
+  const r=rankByName.get(winner);
+  if(!r){ out.value='Rank not found'; updateRowLabels(); return; }
+  const oppRank=scheduleR1.get(r);
+  if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
+  const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
+  out.value=oppName||''; updateRowLabels();
 }
 
 function validateScores(){
@@ -571,13 +605,13 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
 
-/* ✅ Re-added: recompute TB enabled state whenever any set score changes */
+/* Recompute TB enabled state whenever any set score changes */
 ['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
   const el=document.getElementById(id);
   if (el) el.addEventListener('input', refreshTBEnabled);
 });
 
-/* light cleanup of invalid state on input */
+/* cleanup invalid state on input */
 ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
