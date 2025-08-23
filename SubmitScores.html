@@ -166,7 +166,6 @@
           </tr>
           <tr>
             <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
-            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
             <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
             <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
             <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
@@ -268,11 +267,9 @@ function setStatusChip(newStatus){
 }
 
 function toggleTBUI(isTB){
-  // Switch the third column between Set 3 and Match TB (re-use s3w/s3o)
   document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Set 3';
   document.getElementById('s3wCell').classList.toggle('hidden', false);
   document.getElementById('s3oCell').classList.toggle('hidden', false);
-  // hide the set-3 tiebreak input row when using match TB
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
 }
 
@@ -301,7 +298,7 @@ function computeOpponent(){
   out.value=oppName||''; updateRowLabels();
 }
 
-/** TB enable/disable (permanent inputs, but only editable when 7–6) **/
+/** TB enable/disable **/
 function refreshTBEnabled(){
   const sets=[1,2,3];
   const isTB = document.getElementById('isTb').checked;
@@ -310,7 +307,6 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
-    // If using match TB for third "set", there is no set-3 TB box
     if (k===3 && isTB){
       tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
     }
@@ -326,9 +322,9 @@ function readInt(id){
   const el=document.getElementById(id);
   if(!el) return '';
   const v=el.value.trim();
-  if (v==='') return '';            // <-- send empty string when blank/disabled
+  if (v==='') return '';
   const n=Number(v);
-  return Number.isNaN(n) ? '' : n;  // number when valid, else empty string
+  return Number.isNaN(n) ? '' : n;
 }
 
 function validateScores(){
@@ -391,7 +387,7 @@ async function submitForm(){
   if (!opponent){ msg.textContent='Opponent not found yet.'; return; }
   if (!validateScores()) return;
 
-  // compute TB-needed flags (useful on the sheet)
+  // compute TB-needed flags
   const s1w=readInt('s1w'), s1o=readInt('s1o');
   const s2w=readInt('s2w'), s2o=readInt('s2o');
   const s3w=readInt('s3w'), s3o=readInt('s3o');
@@ -400,6 +396,25 @@ async function submitForm(){
   const needTB1 = (s1w===7 && s1o===6) || (s1w===6 && s1o===7);
   const needTB2 = (s2w===7 && s2o===6) || (s2w===6 && s2o===7);
   const needTB3 = !isTB && ((s3w===7 && s3o===6) || (s3w===6 && s3o===7));
+
+  // row‑3 TB winner points (per set)
+  const s1tb = readInt('s1tb');
+  const s2tb = readInt('s2tb');
+  const s3tb = readInt('s3tb');
+
+  // ---- Back‑compat for your Sheet columns TB_W / TB_O ----
+  // If match TB is used, keep original meaning (winner & opponent TB scores).
+  // Otherwise, put the per‑set tiebreak winner points (first one present) into TB_W
+  // so your existing script/headers pick it up.
+  let TB_W = '';
+  let TB_O = '';
+  if (isTB){
+    TB_W = s3w; // match tiebreak winner points
+    TB_O = s3o; // match tiebreak opponent points
+  } else {
+    TB_W = s1tb !== '' ? s1tb : (s2tb !== '' ? s2tb : (s3tb !== '' ? s3tb : ''));
+    TB_O = ''; // row 3 is winner points only
+  }
 
   const payload={
     timestamp:new Date().toISOString(),
@@ -411,17 +426,18 @@ async function submitForm(){
     opponentRank: scheduleR1.get(rankByName.get(winner)) || '',
     isTiebreakThird: isTB,
 
-    // Set scores
+    // set scores
     s1w, s1o,
     s2w, s2o,
     s3w, s3o,
 
-    // Tie-break row (always included as number or "")
-    s1tb: readInt('s1tb'),
-    s2tb: readInt('s2tb'),
-    s3tb: readInt('s3tb'),
+    // tiebreak row (always included)
+    s1tb, s2tb, s3tb,
 
-    // Flags
+    // back‑compat fields for your current sheet columns
+    TB_W, TB_O,
+
+    // flags
     needTB1, needTB2, needTB3
   };
 
@@ -466,7 +482,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled(); // TB boxes permanent but disabled by default
+    refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
