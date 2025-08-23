@@ -57,7 +57,6 @@
   }
   input[readonly]{ opacity:.8; }
 
-  /* invalid field highlight */
   .invalid{
     border-color: var(--danger) !important;
     box-shadow: 0 0 0 3px rgba(255,107,107,.25);
@@ -127,6 +126,7 @@
         <label for="opponent">Opponent</label>
         <input id="opponent" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
       </div>
+      <p id="playersError" class="error" style="display:none;"></p>
     </fieldset>
   </section>
 
@@ -204,7 +204,40 @@ let rankByName = new Map();
 let scheduleR1 = new Map();
 let status = 'Completed';
 
-/* ---------- Utils for invalid highlighting ---------- */
+/* ---------- Robust CSV parser (handles quotes/commas) ---------- */
+function parseCSV(text){
+  const rows = [];
+  let cur = [], field = '', inQuotes = false;
+  for (let i=0;i<text.length;i++){
+    const c = text[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (text[i+1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else { field += c; }
+    } else {
+      if (c === '"'){ inQuotes = true; }
+      else if (c === ','){ cur.push(field); field=''; }
+      else if (c === '\n' || c === '\r'){
+        if (c === '\r' && text[i+1] === '\n') i++; // CRLF
+        cur.push(field); field='';
+        if (cur.length>1 || (cur.length===1 && cur[0] !== '')) rows.push(cur);
+        cur = [];
+      } else { field += c; }
+    }
+  }
+  if (field !== '' || cur.length){ cur.push(field); rows.push(cur); }
+  const headers = rows[0].map(h=>h.trim());
+  const outRows = rows.slice(1).map(cols=>{
+    const o={};
+    headers.forEach((h,idx)=>{ o[h]= (cols[idx] ?? '').toString().trim(); });
+    return o;
+  });
+  return {headers, rows: outRows};
+}
+const norm = s => (s||'').toLowerCase();
+
+/* ---------- Invalid highlighting helpers ---------- */
 function clearInvalids(){
   document.querySelectorAll('.invalid').forEach(el=>{
     el.classList.remove('invalid');
@@ -225,7 +258,6 @@ function focusFirstInvalid(){
     first.scrollIntoView({behavior:'smooth', block:'center'});
   }
 }
-/* Clear invalid state as soon as the user edits a field */
 function wireLiveCleanup(ids){
   ids.forEach(id=>{
     const el=document.getElementById(id);
@@ -235,64 +267,78 @@ function wireLiveCleanup(ids){
   });
 }
 
-function parseCSV(text){
-  const lines = text.trim().split(/\r?\n/);
-  const headers = lines[0].split(',').map(s=>s.trim());
-  const rows = [];
-  for (let i=1;i<lines.length;i++){
-    const cols = lines[i].split(',').map(s=>s.trim());
-    const obj={}; headers.forEach((h,idx)=>obj[h]=cols[idx]??''); rows.push(obj);
-  }
-  return {headers,rows};
-}
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
+/* ---------- Data loading ---------- */
 async function loadPlayers(){
-  const res = await fetch(PLAYERS_CSV_URL,{cache:'no-store'}); const text = await res.text();
-  const {rows} = parseCSV(text); const norm=k=>k.toLowerCase();
-  const mapped = rows.map(r=>{
-    const m = new Map(Object.entries(r).map(([k,v])=>[norm(k),v]));
-    return {
-      name: m.get('participant')||m.get('name')||'',
-      roundStart: Number(m.get('roundstart')||m.get('round start')||0),
-      roundEnd: Number(m.get('roundend')||m.get('round end')||0),
-      p: Number(m.get('round1points')||m.get('round 1 points')||0),
-      pct: Number(m.get('round1percent')||m.get('round 1 percent')||0),
-    };
-  }).filter(p=>p.name);
+  const errEl = document.getElementById('playersError');
+  errEl.style.display='none';
+  try{
+    const res = await fetch(PLAYERS_CSV_URL,{cache:'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const {rows} = parseCSV(text);
 
-  const eligible = mapped.filter(p=>p.roundStart<=1 && p.roundEnd>=1);
-  eligible.sort((a,b)=>{
-    if (b.p!==a.p) return b.p-a.p;
-    if (b.pct!==a.pct) return b.pct-a.pct;
-    const la=lastNameOf(a.name).toLowerCase(), lb=lastNameOf(b.name).toLowerCase();
-    if (la<lb) return -1; if (la>lb) return 1; return a.name.localeCompare(b.name);
-  });
+    const mapped = rows.map(r=>{
+      // Accept several possible header names
+      const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[norm(k), v]));
+      const name = entries['participant'] || entries['name'] || entries['player'] || '';
+      return {
+        name,
+        roundStart: Number(entries['roundstart'] || entries['round start'] || entries['round_start'] || 0),
+        roundEnd:   Number(entries['roundend']   || entries['round end']   || entries['round_end']   || 0),
+        p:   Number(entries['round1points']  || entries['round 1 points']  || entries['r1_points'] || 0),
+        pct: Number(entries['round1percent'] || entries['round 1 percent'] || entries['r1_percent']|| 0),
+      };
+    }).filter(p=>p.name);
 
-  players = eligible; nameByRank.clear(); rankByName.clear();
-  eligible.forEach((p,idx)=>{ const rank=idx+1; nameByRank.set(rank,p.name); rankByName.set(p.name,rank); });
+    // If nothing mapped, surface an error (helps diagnose header/name mismatches)
+    if (!mapped.length){
+      throw new Error('No player names found. Check column header is "Participant" or "Name".');
+    }
 
-  // NO RANKS IN DROPDOWN (names only)
-  const sel=document.getElementById('winner');
-  const names=[...eligible.map(p=>p.name)].sort((a,b)=>a.localeCompare(b));
-  sel.innerHTML = '<option value="">Select winner…</option>' +
-    names.map(n=>`<option value="${n}">${n}</option>`).join('');
+    const eligible = mapped.filter(p=>p.roundStart<=1 && p.roundEnd>=1);
+    eligible.sort((a,b)=>{
+      if (b.p!==a.p) return b.p-a.p;
+      if (b.pct!==a.pct) return b.pct-a.pct;
+      const la=lastNameOf(a.name).toLowerCase(), lb=lastNameOf(b.name).toLowerCase();
+      if (la<lb) return -1; if (la>lb) return 1; return a.name.localeCompare(b.name);
+    });
+
+    players = eligible; nameByRank.clear(); rankByName.clear();
+    eligible.forEach((p,idx)=>{ const rank=idx+1; nameByRank.set(rank,p.name); rankByName.set(p.name,rank); });
+
+    // NO RANKS IN DROPDOWN (names only, alpha)
+    const sel=document.getElementById('winner');
+    const names=[...eligible.map(p=>p.name)].sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = '<option value="">Select winner…</option>' +
+      names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  }catch(e){
+    console.error('loadPlayers error:', e);
+    const sel=document.getElementById('winner');
+    sel.innerHTML = '<option value="">Could not load players</option>';
+    errEl.textContent = 'Could not load players. Please check the Google Sheet publish settings and headers.';
+    errEl.style.display = 'block';
+  }
 }
 
 async function loadScheduleR1(){
-  const res = await fetch(SCHEDULE_CSV_URL,{cache:'no-store'}); const text = await res.text();
+  const res = await fetch(SCHEDULE_CSV_URL,{cache:'no-store'});
+  if (!res.ok) throw new Error('Schedule HTTP ' + res.status);
+  const text = await res.text();
   const {headers,rows}=parseCSV(text);
-  const idxRanking=headers.findIndex(h=>h.trim().toLowerCase()==='ranking');
-  const idxR1=headers.findIndex(h=>['round 1','round1'].includes(h.trim().toLowerCase()));
+  const idxRanking=headers.findIndex(h=>norm(h)==='ranking');
+  const idxR1=headers.findIndex(h=>['round 1','round1','r1'].includes(norm(h)));
   if (idxRanking===-1||idxR1===-1) throw new Error('Schedule CSV must have headers "Ranking" and "Round 1"');
   scheduleR1.clear();
   rows.forEach(r=>{
-    const vals = Object.values(r);
+    const vals = headers.map(h=>r[h]);
     const rank=Number(vals[idxRanking]), opp=Number(vals[idxR1]);
     if(!Number.isNaN(rank)&&!Number.isNaN(opp)) scheduleR1.set(rank,opp);
   });
 }
 
+/* ---------- UI / validation ---------- */
 function setStatusChip(newStatus){
   status=newStatus;
   for (const id of ['chip-completed','chip-retired','chip-walkover']){
@@ -310,6 +356,29 @@ function toggleTBUI(isTB){
   document.getElementById('s3wCell').classList.toggle('hidden', false);
   document.getElementById('s3oCell').classList.toggle('hidden', false);
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
+}
+
+function labelWithRank(name, role){
+  const rank = rankByName.get(name);
+  const txt = name ? `${name} (Rank ${rank ?? '—'})` : role;
+  return `<span class="rank-badge"><span class="dot"></span><span>${txt}</span></span>`;
+}
+function updateRowLabels(){
+  const wName = document.getElementById('winner').value;
+  const oName = document.getElementById('opponent').value;
+  document.getElementById('winnerLabel').innerHTML   = labelWithRank(wName, 'Winner');
+  document.getElementById('opponentLabel').innerHTML = labelWithRank(oName, 'Opponent');
+}
+function computeOpponent(){
+  const winner=document.getElementById('winner').value;
+  const out=document.getElementById('opponent'); out.value='';
+  if(!winner){ updateRowLabels(); return; }
+  const r=rankByName.get(winner);
+  if(!r){ out.value='Rank not found'; updateRowLabels(); return; }
+  const oppRank=scheduleR1.get(r);
+  if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
+  const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
+  out.value=oppName||''; updateRowLabels();
 }
 
 /** Enable/disable the per-set TB inputs (7–6 only) */
@@ -332,7 +401,6 @@ function refreshTBEnabled(){
   });
 }
 
-/** Helpers */
 function readCell(id){
   const el=document.getElementById(id);
   if(!el) return '';
@@ -342,13 +410,11 @@ function readCell(id){
   return Number.isNaN(n) ? '' : n;
 }
 function isAllowedWinnerPair(win, lose){
-  // Allowed: 6-0..4, 7-5, 7-6
   if (win===6 && lose>=0 && lose<=4) return true;
   if (win===7 && (lose===5 || lose===6)) return true;
   return false;
 }
 function validateSetPair(a,b,setName, topId, bottomId){
-  // accepts either orientation; returns {ok, winnerIsTop, needTB, msg}
   if (a==='' || b===''){
     markInvalid(topId); markInvalid(bottomId);
     return {ok:false, msg:`Enter both scores for ${setName}.`};
@@ -381,7 +447,6 @@ function validateScores(){
 
   const s1tb=readCell('s1tb'), s2tb=readCell('s2tb'), s3tb=readCell('s3tb');
 
-  // Retired: allow anything as long as some progress exists
   if (status==='Retired'){
     if (s1w!==''||s1o!==''||s2w!==''||s2o!==''||s3w!==''||s3o!==''){
       return true;
@@ -392,15 +457,12 @@ function validateScores(){
     return false;
   }
 
-  // Completed: strict validation for sets 1 & 2
   const v1 = validateSetPair(s1w,s1o,'Set 1','s1w','s1o'); if(!v1.ok){ msg.textContent=v1.msg; focusFirstInvalid(); return false; }
   const v2 = validateSetPair(s2w,s2o,'Set 2','s2w','s2o'); if(!v2.ok){ msg.textContent=v2.msg; focusFirstInvalid(); return false; }
 
-  // TB required when 7–6
   if (v1.needTB && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; markInvalid('s1tb'); focusFirstInvalid(); return false; }
   if (v2.needTB && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; markInvalid('s2tb'); focusFirstInvalid(); return false; }
 
-  // Count sets won by the Winner row across first two sets
   let won=0, lost=0;
   won += v1.winnerIsTop ? 1 : 0;
   lost+= v1.winnerIsTop ? 0 : 1;
@@ -408,7 +470,6 @@ function validateScores(){
   lost+= v2.winnerIsTop ? 0 : 1;
 
   if (won===2){
-    // Straight sets: set 3 must be blank and no TB
     if (s3w!=='' || s3o!=='' || s3tb!==''){
       msg.textContent='Leave Set 3 blank when the match ends in two sets.';
       if (s3w!=='') markInvalid('s3w');
@@ -420,7 +481,6 @@ function validateScores(){
     return true;
   }
 
-  // Split sets: need either match TB or a valid full third set
   if (won===1 && lost===1){
     if (isTB){
       if (s3w==='' || s3o===''){
@@ -508,7 +568,6 @@ async function submitForm(){
     s2w, s2o,
     s3w, s3o,
 
-    // per-set TBs (winner points)
     Set1_T: s1tb,
     Set2_T: s2tb,
     Set3_T: s3tb,
@@ -565,9 +624,9 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
 
-    // live cleanup for all inputs
     wireLiveCleanup(['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner']);
   }catch(e){
+    console.error('init error:', e);
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
 })();
