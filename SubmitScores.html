@@ -5,110 +5,203 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Indy Tennis Ladder – Round 1 Score Entry</title>
 <style>
-  :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-  body { margin: 24px; max-width: 1000px; }
-  h1 { margin: 0 0 12px; }
-  fieldset { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 16px 0; }
-  legend { font-weight: 600; }
-  label { display: block; margin: 8px 0 4px; }
-  input[type="number"] { width: 70px; padding: 6px; }
-  input[readonly] { background: #f8f8f8; }
-  select { padding: 6px; min-width: 340px; }
-  .row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
-  .muted { color: #666; font-size: 0.92rem; }
-  .inline { display:inline-flex; gap:10px; align-items:center; }
-  .chip { border:1px solid #bbb; border-radius:999px; padding:6px 10px; cursor:pointer; user-select:none; }
-  .chip.active { background:#222; color:#fff; border-color:#222; }
-  .error { color:#b00020; margin-top: 8px; }
-  .success { color:#0a7a2f; margin-top: 8px; }
-  button { padding: 10px 16px; border-radius: 8px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
-  button[disabled] { opacity: 0.5; cursor: not-allowed; }
+  :root{
+    --bg:#0b0e14;
+    --card:#11161f;
+    --muted:#8ea0b4;
+    --text:#e9eef5;
+    --line:#253043;
+    --accent:#5dd0ff;
+    --accent-ink:#052c3a;
+    --success:#3bd37f;
+    --danger:#ff6b6b;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text);}
+  body{ margin:24px; display:flex; justify-content:center; }
+  .wrap{ width:min(1100px,100%); }
 
-  /* Table layout to match your reference UI */
-  table.scoretable { width: 100%; border: 1px solid #ddd; border-radius: 8px; border-collapse: separate; border-spacing: 10px; }
-  table.scoretable th { text-align: center; font-weight: 600; }
-  table.scoretable td:first-child, table.scoretable th:first-child { width: 200px; text-align: left; }
-  table.scoretable td { text-align: center; vertical-align: middle; }
-  .tb-note { font-size: 0.85rem; color:#666; margin-left: 8px; }
-  .hidden { display:none; }
+  header{
+    padding:20px 16px;
+    border-radius:14px;
+    background:
+      radial-gradient(1200px 400px at 20% -80%, rgba(93,208,255,.10), transparent 60%),
+      linear-gradient(180deg, rgba(93,208,255,.07), rgba(93,208,255,0));
+    border:1px solid var(--line);
+    margin-bottom:16px;
+  }
+  h1{ margin:0 0 6px; font-size:1.5rem; letter-spacing:.2px;}
+  .muted{ color:var(--muted); font-size:.95rem; }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin:16px 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  legend{ font-weight:700; padding:0 6px; }
+  fieldset{ border: none; margin:0; padding:0; }
+
+  label{ display:block; margin:8px 0 6px; font-weight:600; }
+  select, input[type="number"], input[type="text"]{
+    width:100%;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#0e1420;
+    color:var(--text);
+    outline:none;
+  }
+  input[readonly]{ opacity:.8; }
+
+  .grid{
+    display:grid; gap:14px;
+    grid-template-columns: 220px 1fr;
+    align-items:center;
+  }
+  @media (max-width:700px){ .grid{ grid-template-columns: 1fr; } }
+
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    padding:8px 12px; border-radius:999px; border:1px solid var(--line);
+    background:#0f1724; color:var(--text); cursor:pointer; user-select:none;
+  }
+  .chip.active{ background:var(--accent); color:var(--accent-ink); border-color:transparent; font-weight:700; }
+
+  button{
+    padding:12px 16px; border-radius:10px; border:1px solid transparent;
+    background:var(--accent); color:var(--accent-ink); font-weight:800; cursor:pointer;
+  }
+  button[disabled]{ opacity:.6; cursor:not-allowed; }
+
+  /* Score table */
+  table.scoretable{ width:100%; border-collapse:separate; border-spacing:0; overflow:hidden;
+    border:1px solid var(--line); border-radius:12px; background:#0e1420; }
+  table.scoretable th, table.scoretable td{ padding:12px 10px; border-bottom:1px solid #172033; text-align:center; }
+  table.scoretable thead th{ background:#101a2a; font-weight:800; }
+  table.scoretable tr:last-child td{ border-bottom:none; }
+  table.scoretable td:first-child, table.scoretable th:first-child{ text-align:left; width:260px; }
+
+  .rank-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#0f1b2c; border:1px solid #1e2a42; border-radius:999px; padding:4px 10px; font-weight:700;
+  }
+  .rank-badge .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; }
+
+  .help{ font-size:.9rem; margin-top:8px; color:var(--muted); }
+  .error{ color:var(--danger); margin-top:10px; }
+  .success{ color:var(--success); margin-left:10px; }
+
+  .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .tight-num{ max-width:80px; }
+
+  /* permanently visible TB inputs look disabled until needed */
+  .disabled-like{ opacity:.5; }
 </style>
 </head>
 <body>
-  <h1>Round 1 Score Submission</h1>
-  <p class="muted">Pick the winner, we’ll auto‑fill the opponent based on Round 1 pairings. Third set can be a full set or a 10‑point match tiebreak.</p>
+<div class="wrap">
+  <header>
+    <h1>Round 1 Score Submission</h1>
+    <p class="muted">Pick the winner, we’ll auto‑fill the opponent based on Round 1 pairings. Third set can be a full set or a 10‑point match tiebreak.</p>
+  </header>
 
-  <fieldset>
-    <legend>Players</legend>
-    <div class="row">
-      <label for="winner">Winner</label>
-      <select id="winner" required>
-        <option value="">Loading players…</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="opponent">Opponent</label>
-      <input id="opponent" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
-    </div>
-  </fieldset>
+  <section class="card">
+    <fieldset>
+      <legend>Players</legend>
+      <div class="grid">
+        <label for="winner">Winner</label>
+        <select id="winner" required>
+          <option value="">Loading players…</option>
+        </select>
 
-  <fieldset>
-    <legend>Scores</legend>
+        <label for="opponent">Opponent</label>
+        <input id="opponent" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
+      </div>
+    </fieldset>
+  </section>
 
-    <div class="inline" style="margin-bottom:8px;">
-      <span class="muted">Match status:</span>
-      <span id="chip-completed" class="chip active" data-status="Completed" role="button" tabindex="0">Completed</span>
-      <span id="chip-retired" class="chip" data-status="Retired" role="button" tabindex="0">Retired</span>
-      <span id="chip-walkover" class="chip" data-status="Walkover" role="button" tabindex="0">Walkover</span>
-    </div>
+  <section class="card">
+    <fieldset>
+      <legend>Scores</legend>
 
-    <div class="inline" style="margin-bottom:12px;">
-      <label class="inline" for="isTb">
-        <input id="isTb" type="checkbox" /> Use 10‑point <b>match</b> tiebreak instead of full third set
-      </label>
-      <span class="tb-note">If any set is 7–6, fill in the "Tie‑break" box for that set.</span>
-    </div>
+      <div class="row-inline" style="margin-bottom:8px;">
+        <span class="muted">Match status:</span>
+        <div class="chips" role="tablist" aria-label="Match status">
+          <span id="chip-completed" class="chip active" data-status="Completed" role="button" tabindex="0">Completed</span>
+          <span id="chip-retired"   class="chip" data-status="Retired"   role="button" tabindex="0">Retired</span>
+          <span id="chip-walkover"  class="chip" data-status="Walkover"  role="button" tabindex="0">Walkover</span>
+        </div>
+      </div>
 
-    <!-- Table that mirrors your reference layout -->
-    <table class="scoretable" aria-label="Set scores">
-      <thead>
-        <tr>
-          <th></th>
-          <th>Set 1</th>
-          <th>Set 2</th>
-          <th id="col3Header">Set 3</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td id="winnerLabel"><b>Winner</b></td>
-          <td><input id="s1w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" /></td>
-          <td><input id="s2w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" /></td>
-          <td id="s3wCell"><input id="s3w" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 3" /></td>
-          <td id="tbwCell" class="hidden"><input id="tbw" type="number" min="0" inputmode="numeric" placeholder="TB" aria-label="Winner Match TB" /></td>
-        </tr>
-        <tr>
-          <td id="opponentLabel"><b>Opponent</b></td>
-          <td><input id="s1o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" /></td>
-          <td><input id="s2o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" /></td>
-          <td id="s3oCell"><input id="s3o" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 3" /></td>
-          <td id="tboCell" class="hidden"><input id="tbo" type="number" min="0" inputmode="numeric" placeholder="TB" aria-label="Opponent Match TB" /></td>
-        </tr>
-        <tr>
-          <td><b>Tie‑break</b></td>
-          <td><input id="s1tb" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" /></td>
-          <td><input id="s2tb" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" /></td>
-          <td id="s3tbCell"><input id="s3tb" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" /></td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="row-inline" style="margin-bottom:12px;">
+        <label class="row-inline" for="isTb" style="gap:10px;">
+          <input id="isTb" type="checkbox" /> Use 10‑point <b>match</b> tiebreak instead of full third set
+        </label>
+        <span class="help">Tiebreak boxes are always visible but only accept input when a set score is 7–6.</span>
+      </div>
 
-    <div id="msg" class="error" role="alert" aria-live="polite"></div>
-  </fieldset>
+      <table class="scoretable" aria-label="Set scores">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Set 1</th>
+            <th>Set 2</th>
+            <th id="col3Header">Set 3</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="winnerLabel"><span class="rank-badge"><span class="dot"></span><span>Winner</span></span></td>
+            <td>
+              <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" />
+            </td>
+            <td>
+              <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" />
+            </td>
+            <td id="s3wCell">
+              <input id="s3w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 3" />
+            </td>
+            <td id="tbwCell" class="hidden">
+              <input id="tbw" class="tight-num" type="number" min="0" inputmode="numeric" placeholder="TB" aria-label="Winner Match TB" />
+            </td>
+          </tr>
+          <tr>
+            <td id="opponentLabel"><span class="rank-badge"><span class="dot"></span><span>Opponent</span></span></td>
+            <td>
+              <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" />
+            </td>
+            <td>
+              <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" />
+            </td>
+            <td id="s3oCell">
+              <input id="s3o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 3" />
+            </td>
+            <td id="tboCell" class="hidden">
+              <input id="tbo" class="tight-num" type="number" min="0" inputmode="numeric" placeholder="TB" aria-label="Opponent Match TB" />
+            </td>
+          </tr>
+          <tr>
+            <td><b>Tie‑break</b> <span class="muted">(winner points)</span></td>
+            <!-- PERMANENT TB inputs; disabled unless that set is 7–6 -->
+            <td><input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled /></td>
+            <td><input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled /></td>
+            <td id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></td>
+          </tr>
+        </tbody>
+      </table>
 
-  <div class="inline">
+      <div id="msg" class="error" role="alert" aria-live="polite"></div>
+    </fieldset>
+  </section>
+
+  <div class="row-inline">
     <button id="submitBtn" disabled>Submit score</button>
     <span id="ok" class="success" style="display:none;">Submitted. Thanks!</span>
   </div>
+</div>
 
 <script>
 /*** ======= CONFIG ======= ***/
@@ -160,11 +253,11 @@ async function loadPlayers(){
   players = eligible; nameByRank.clear(); rankByName.clear();
   eligible.forEach((p,idx)=>{ const rank=idx+1; nameByRank.set(rank,p.name); rankByName.set(p.name,rank); });
 
-  // dropdown label "[rank] Name", value is Name
+  // === NO RANKINGS IN DROPDOWN (names only, alpha) ===
   const sel=document.getElementById('winner');
   const names=[...eligible.map(p=>p.name)].sort((a,b)=>a.localeCompare(b));
   sel.innerHTML = '<option value="">Select winner…</option>' +
-    names.map(n=>`<option value="${n}">[${rankByName.get(n)}] ${n}</option>`).join('');
+    names.map(n=>`<option value="${n}">${n}</option>`).join('');
 }
 
 async function loadScheduleR1(){
@@ -203,11 +296,17 @@ function toggleTBUI(isTB){
   document.getElementById('tboCell').classList.toggle('hidden', !isTB);
 }
 
+function labelWithRank(name, role){
+  const rank = rankByName.get(name);
+  const text = name ? `${name} (Rank ${rank ?? '—'})` : role;
+  return `<span class="rank-badge"><span class="dot"></span><span>${text}</span></span>`;
+}
+
 function updateRowLabels(){
-  const w = document.getElementById('winner').value || 'Winner';
-  const o = document.getElementById('opponent').value || 'Opponent';
-  document.getElementById('winnerLabel').textContent = w;
-  document.getElementById('opponentLabel').textContent = o;
+  const wName = document.getElementById('winner').value;
+  const oName = document.getElementById('opponent').value;
+  document.getElementById('winnerLabel').innerHTML   = labelWithRank(wName, 'Winner');
+  document.getElementById('opponentLabel').innerHTML = labelWithRank(oName, 'Opponent');
 }
 
 function computeOpponent(){
@@ -220,6 +319,22 @@ function computeOpponent(){
   if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
   const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
   out.value=oppName||''; updateRowLabels();
+}
+
+/** TB enable/disable (permanent inputs, but only editable when 7–6) **/
+function refreshTBEnabled(){
+  const sets=[1,2,3];
+  sets.forEach(k=>{
+    const w=document.getElementById(`s${k}w`);
+    const o=document.getElementById(`s${k}o`);
+    const tb=document.getElementById(`s${k}tb`);
+    if (!w || !o || !tb) return;
+    const a=Number(w.value), b=Number(o.value);
+    const need=((a===7&&b===6)||(a===6&&b===7));
+    tb.disabled = !need;
+    tb.classList.toggle('disabled-like', !need);
+    if(!need) tb.value='';
+  });
 }
 
 function readInt(id){ const el=document.getElementById(id); if(!el) return null; const v=el.value.trim(); return v===''?null:Number(v); }
@@ -246,6 +361,7 @@ function validateScores(){
 
   if (!haveS1 || !haveS2){ msg.textContent='Enter Set 1 and Set 2 scores.'; return false; }
 
+  // TB required when 7–6; inputs are only enabled in that case (permanent UI)
   const needTB1=((s1w===7&&s1o===6)||(s1w===6&&s1o===7)); if(needTB1 && s1tb===null){ msg.textContent='Enter tie‑break points for Set 1.'; return false; }
   const needTB2=((s2w===7&&s2o===6)||(s2w===6&&s2o===7)); if(needTB2 && s2tb===null){ msg.textContent='Enter tie‑break points for Set 2.'; return false; }
 
@@ -303,6 +419,7 @@ async function submitForm(){
     await fetch(SUBMIT_ENDPOINT,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload), mode:'no-cors' });
     ok.style.display='inline';
     ['s1w','s1o','s2w','s2o','s3w','s3o','tbw','tbo','s1tb','s2tb','s3tb'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    refreshTBEnabled();
   }catch(e){
     msg.textContent='Could not submit: '+e.message;
   }finally{
@@ -315,21 +432,14 @@ document.getElementById('isTb').addEventListener('change', e=>toggleTBUI(e.targe
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>setStatusChip(e.target.dataset.status));
 });
+// On any set score change, recompute TB enabled state
 ['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
   const el=document.getElementById(id);
-  el.addEventListener('input', ()=>{
-    // Show TB row inputs only when 7–6 (you can leave them visible; this auto-clears when not 7–6)
-    const sets=[1,2,3];
-    sets.forEach(k=>{
-      const w=Number(document.getElementById(`s${k}w`)?.value);
-      const o=Number(document.getElementById(`s${k}o`)?.value);
-      const need=((w===7&&o===6)||(w===6&&o===7));
-      const tb=document.getElementById(`s${k}tb`);
-      if (tb){ tb.parentElement.classList.toggle('hidden', !need); if(!need) tb.value=''; }
-    });
-  });
+  el.addEventListener('input', refreshTBEnabled);
 });
+
 document.getElementById('winner').addEventListener('change', computeOpponent);
+document.getElementById('winner').addEventListener('change', updateRowLabels);
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
 // init
@@ -340,6 +450,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
+    refreshTBEnabled(); // make TB boxes permanent but disabled by default
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
