@@ -258,14 +258,6 @@ function focusFirstInvalid(){
     first.scrollIntoView({behavior:'smooth', block:'center'});
   }
 }
-function wireLiveCleanup(ids){
-  ids.forEach(id=>{
-    const el=document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
-    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
-  });
-}
 
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
@@ -280,7 +272,6 @@ async function loadPlayers(){
     const {rows} = parseCSV(text);
 
     const mapped = rows.map(r=>{
-      // Accept several possible header names
       const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[norm(k), v]));
       const name = entries['participant'] || entries['name'] || entries['player'] || '';
       return {
@@ -292,7 +283,6 @@ async function loadPlayers(){
       };
     }).filter(p=>p.name);
 
-    // If nothing mapped, surface an error (helps diagnose header/name mismatches)
     if (!mapped.length){
       throw new Error('No player names found. Check column header is "Participant" or "Name".');
     }
@@ -317,6 +307,7 @@ async function loadPlayers(){
     console.error('loadPlayers error:', e);
     const sel=document.getElementById('winner');
     sel.innerHTML = '<option value="">Could not load players</option>';
+    const errEl = document.getElementById('playersError');
     errEl.textContent = 'Could not load players. Please check the Google Sheet publish settings and headers.';
     errEl.style.display = 'block';
   }
@@ -356,29 +347,6 @@ function toggleTBUI(isTB){
   document.getElementById('s3wCell').classList.toggle('hidden', false);
   document.getElementById('s3oCell').classList.toggle('hidden', false);
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
-}
-
-function labelWithRank(name, role){
-  const rank = rankByName.get(name);
-  const txt = name ? `${name} (Rank ${rank ?? '—'})` : role;
-  return `<span class="rank-badge"><span class="dot"></span><span>${txt}</span></span>`;
-}
-function updateRowLabels(){
-  const wName = document.getElementById('winner').value;
-  const oName = document.getElementById('opponent').value;
-  document.getElementById('winnerLabel').innerHTML   = labelWithRank(wName, 'Winner');
-  document.getElementById('opponentLabel').innerHTML = labelWithRank(oName, 'Opponent');
-}
-function computeOpponent(){
-  const winner=document.getElementById('winner').value;
-  const out=document.getElementById('opponent'); out.value='';
-  if(!winner){ updateRowLabels(); return; }
-  const r=rankByName.get(winner);
-  if(!r){ out.value='Rank not found'; updateRowLabels(); return; }
-  const oppRank=scheduleR1.get(r);
-  if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
-  const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
-  out.value=oppName||''; updateRowLabels();
 }
 
 /** Enable/disable the per-set TB inputs (7–6 only) */
@@ -602,6 +570,14 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
+
+/* ✅ Re-added: recompute TB enabled state whenever any set score changes */
+['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
+  const el=document.getElementById(id);
+  if (el) el.addEventListener('input', refreshTBEnabled);
+});
+
+/* light cleanup of invalid state on input */
 ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
@@ -623,8 +599,6 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     setStatusChip('Completed');
     refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
-
-    wireLiveCleanup(['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner']);
   }catch(e){
     console.error('init error:', e);
     document.getElementById('msg').textContent='Setup error: '+e.message;
