@@ -97,7 +97,6 @@
   .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   .tight-num{ max-width:80px; }
 
-  /* permanently visible TB inputs look disabled until needed */
   .disabled-like{ opacity:.5; }
 </style>
 </head>
@@ -387,23 +386,53 @@ async function submitForm(){
   if (!opponent){ msg.textContent='Opponent not found yet.'; return; }
   if (!validateScores()) return;
 
+  // compute TB-needed flags (useful on the sheet)
+  const s1w=readInt('s1w'), s1o=readInt('s1o');
+  const s2w=readInt('s2w'), s2o=readInt('s2o');
+  const s3w=readInt('s3w'), s3o=readInt('s3o');
+  const isTB=document.getElementById('isTb').checked;
+
+  const needTB1 = (s1w===7 && s1o===6) || (s1w===6 && s1o===7);
+  const needTB2 = (s2w===7 && s2o===6) || (s2w===6 && s2o===7);
+  const needTB3 = !isTB && ((s3w===7 && s3o===6) || (s3w===6 && s3o===7));
+
   const payload={
     timestamp:new Date().toISOString(),
-    round:1, winner, opponent,
-    winnerRank: rankByName.get(winner)||null,
-    opponentRank: scheduleR1.get(rankByName.get(winner))||null,
+    round:1,
     status,
-    isTiebreakThird: document.getElementById('isTb').checked,
-    s1w:readInt('s1w'), s1o:readInt('s1o'), s1tb:readInt('s1tb'),
-    s2w:readInt('s2w'), s2o:readInt('s2o'), s2tb:readInt('s2tb'),
-    s3w:readInt('s3w'), s3o:readInt('s3o'), s3tb:readInt('s3tb')
+    winner: document.getElementById('winner').value,
+    opponent: document.getElementById('opponent').value,
+    winnerRank: rankByName.get(document.getElementById('winner').value) || null,
+    opponentRank: scheduleR1.get(rankByName.get(document.getElementById('winner').value)) || null,
+
+    isTiebreakThird: isTB,
+
+    // Set scores
+    s1w, s1o,
+    s2w, s2o,
+    s3w, s3o,
+
+    // PER-SET TB (row 3) – these are the inputs you asked to include
+    s1tb: readInt('s1tb'),
+    s2tb: readInt('s2tb'),
+    s3tb: readInt('s3tb'),
+
+    // Helpful flags for your sheet logic
+    needTB1, needTB2, needTB3
   };
 
   btn.disabled=true;
   try{
-    await fetch(SUBMIT_ENDPOINT,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload), mode:'no-cors' });
+    await fetch(SUBMIT_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload),
+      mode:'no-cors'
+    });
     ok.style.display='inline';
-    ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
     refreshTBEnabled();
   }catch(e){
     msg.textContent='Could not submit: '+e.message;
@@ -417,7 +446,6 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>setStatusChip(e.target.dataset.status));
 });
-// On any set score change, recompute TB enabled state
 ['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener('input', refreshTBEnabled);
@@ -435,7 +463,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
-    refreshTBEnabled(); // make TB boxes permanent but disabled by default
+    refreshTBEnabled(); // TB boxes permanent but disabled by default
     document.getElementById('submitBtn').disabled=false;
   }catch(e){
     document.getElementById('msg').textContent='Setup error: '+e.message;
