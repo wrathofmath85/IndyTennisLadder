@@ -105,26 +105,39 @@
   .tight-num{ max-width:80px; }
 
   .disabled-like{ opacity:.5; }
+  .hidden{ display:none; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Round 1 Score Submission</h1>
-    <p class="muted">Pick the winner, we’ll auto‑fill the opponent based on Round 1 pairings. Third set can be a full set or a 10‑point match tiebreak.</p>
+    <p class="muted">Pick the winner, then enter the score. Third set can be a full set or a 10‑point match tiebreak.</p>
   </header>
 
   <section class="card">
     <fieldset>
       <legend>Players</legend>
       <div class="grid">
+        <!-- NEW: Match Type -->
+        <label for="matchType">Match Type</label>
+        <select id="matchType">
+          <option value="Scheduled" selected>Scheduled Match</option>
+          <option value="Challenge">Challenge Match</option>
+        </select>
+
         <label for="winner">Winner</label>
         <select id="winner" required>
           <option value="">Loading players…</option>
         </select>
 
         <label for="opponent">Opponent</label>
-        <input id="opponent" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
+        <!-- scheduled: readonly text auto-filled -->
+        <input id="opponentText" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
+        <!-- challenge: select from ±5 ranks -->
+        <select id="opponentSelect" class="hidden">
+          <option value="">Select opponent…</option>
+        </select>
       </div>
       <p id="playersError" class="error" style="display:none;"></p>
     </fieldset>
@@ -204,52 +217,34 @@ let rankByName = new Map();
 let scheduleR1 = new Map();
 let status = 'Completed';
 
-/* ---------- Robust CSV parser (handles quotes/commas + strips BOM) ---------- */
-function parseCSV(text){
-  // Strip BOM at file start if present
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 
-  const rows = [];
-  let cur = [], field = '', inQuotes = false;
+/* Robust CSV parser that strips BOM and handles quotes */
+function parseCSV(text){
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows=[], curInit=[]; let cur=[], field='', inQuotes=false;
   for (let i=0;i<text.length;i++){
-    const c = text[i];
-    if (inQuotes){
-      if (c === '"'){
-        if (text[i+1] === '"'){ field += '"'; i++; }
-        else { inQuotes = false; }
-      } else { field += c; }
-    } else {
-      if (c === '"'){ inQuotes = true; }
-      else if (c === ','){ cur.push(field); field=''; }
-      else if (c === '\n' || c === '\r'){
-        if (c === '\r' && text[i+1] === '\n') i++; // CRLF
-        cur.push(field); field='';
-        if (cur.length>1 || (cur.length===1 && cur[0] !== '')) rows.push(cur);
-        cur = [];
-      } else { field += c; }
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else { inQuotes=false; } }
+      else field+=c;
+    }else{
+      if(c==='"') inQuotes=true;
+      else if(c===','){ cur.push(field); field=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; cur.push(field); field=''; rows.push(cur); cur=[]; }
+      else field+=c;
     }
   }
-  if (field !== '' || cur.length){ cur.push(field); rows.push(cur); }
-
-  // Trim cells and strip BOM from the first header cell if present
-  const headers = rows[0].map((h,idx)=>{
-    let t = (h ?? '').trim();
-    if (idx===0) t = t.replace(/^\uFEFF/,'');
-    return t;
-  });
-
-  const outRows = rows.slice(1).map(cols=>{
-    const o={};
-    headers.forEach((h,idx)=>{
-      let v = (cols[idx] ?? '').toString();
-      o[h] = v.trim();
+  if(field!==''||cur.length){ cur.push(field); rows.push(cur); }
+  const headers = (rows[0]||[]).map((h,i)=> (i===0? String(h||'').replace(/^\uFEFF/,''):String(h||'')).trim());
+  const outRows = rows.slice(1).filter(r=>r.length>1|| (r.length===1&&r[0]!==''))
+    .map(cols=>{
+      const o={};
+      headers.forEach((h,idx)=>{ o[h]=(cols[idx]??'').toString().trim(); });
+      return o;
     });
-    return o;
-  });
   return {headers, rows: outRows};
 }
-
-const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,''); // also strip BOM from keys
 
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
@@ -259,7 +254,7 @@ async function loadPlayers(){
   errEl.style.display='none';
   try{
     const res = await fetch(PLAYERS_CSV_URL,{cache:'no-store'});
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     const {rows} = parseCSV(text);
 
@@ -290,15 +285,13 @@ async function loadPlayers(){
     players = eligible; nameByRank.clear(); rankByName.clear();
     eligible.forEach((p,idx)=>{ const rank=idx+1; nameByRank.set(rank,p.name); rankByName.set(p.name,rank); });
 
-    // NO RANKS IN DROPDOWN (names only, alpha)
     const sel=document.getElementById('winner');
     const names=[...eligible.map(p=>p.name)].sort((a,b)=>a.localeCompare(b));
     sel.innerHTML = '<option value="">Select winner…</option>' +
       names.map(n=>`<option value="${n}">${n}</option>`).join('');
   }catch(e){
     console.error('loadPlayers error:', e);
-    const sel=document.getElementById('winner');
-    sel.innerHTML = '<option value="">Could not load players</option>';
+    document.getElementById('winner').innerHTML = '<option value="">Could not load players</option>';
     const errEl = document.getElementById('playersError');
     errEl.textContent = 'Could not load players. Please check the Google Sheet publish settings and headers.';
     errEl.style.display = 'block';
@@ -321,7 +314,7 @@ async function loadScheduleR1(){
   });
 }
 
-/* ---------- UI / validation ---------- */
+/* ---------- UI helpers ---------- */
 function setStatusChip(newStatus){
   status=newStatus;
   for (const id of ['chip-completed','chip-retired','chip-walkover']){
@@ -341,7 +334,6 @@ function toggleTBUI(isTB){
   document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
 }
 
-/** Enable/disable the per-set TB inputs (7–6 only) */
 function refreshTBEnabled(){
   const sets=[1,2,3];
   const isTB = document.getElementById('isTb').checked;
@@ -350,9 +342,7 @@ function refreshTBEnabled(){
     const o=document.getElementById(`s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
-    if (k===3 && isTB){
-      tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return;
-    }
+    if (k===3 && isTB){ tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return; }
     const a=Number(w.value), b=Number(o.value);
     const need=((a===7&&b===6)||(a===6&&b===7));
     tb.disabled = !need;
@@ -361,6 +351,96 @@ function refreshTBEnabled(){
   });
 }
 
+function clearInvalids(){
+  document.querySelectorAll('.invalid').forEach(el=>{
+    el.classList.remove('invalid');
+    el.removeAttribute('aria-invalid');
+  });
+}
+function markInvalid(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('invalid');
+  el.setAttribute('aria-invalid','true');
+  return el;
+}
+function focusFirstInvalid(){
+  const first = document.querySelector('.invalid');
+  if (first){
+    first.focus({preventScroll:false});
+    first.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+/* Get/set opponent UI based on match type */
+function getMatchType(){ return document.getElementById('matchType').value; }
+function setOpponentUI(mode){
+  const txt = document.getElementById('opponentText');
+  const sel = document.getElementById('opponentSelect');
+  if (mode === 'Challenge'){
+    txt.classList.add('hidden');
+    sel.classList.remove('hidden');
+    sel.disabled = false;
+  } else {
+    sel.classList.add('hidden');
+    txt.classList.remove('hidden');
+    sel.disabled = true;
+  }
+}
+function getOpponentValue(){
+  return getMatchType()==='Challenge'
+    ? document.getElementById('opponentSelect').value
+    : document.getElementById('opponentText').value;
+}
+function setOpponentValue(val){
+  if (getMatchType()==='Challenge'){
+    const sel = document.getElementById('opponentSelect');
+    sel.value = val || '';
+  }else{
+    document.getElementById('opponentText').value = val || '';
+  }
+}
+
+function updateRowLabels(){
+  const wName = document.getElementById('winner').value;
+  const oName = getOpponentValue();
+  const badge = t=>`<span class="rank-badge"><span class="dot"></span><span>${t||''}</span></span>`;
+  document.getElementById('winnerLabel').innerHTML   = badge(wName || 'Winner');
+  document.getElementById('opponentLabel').innerHTML = badge(oName || 'Opponent');
+}
+
+/* Scheduled: compute opponent from schedule; Challenge: build list ±5 ranks */
+function recomputeOpponentForMode(){
+  const winner=document.getElementById('winner').value;
+  setOpponentValue('');
+  if(!winner){ updateRowLabels(); return; }
+  const wRank = rankByName.get(winner);
+  if (!wRank){ setOpponentValue('Rank not found'); updateRowLabels(); return; }
+
+  if (getMatchType()==='Challenge'){
+    const sel = document.getElementById('opponentSelect');
+    // Build ±5 range (excluding winner)
+    const minR = Math.max(1, wRank - 5);
+    const maxR = wRank + 5;
+    const options = [];
+    options.push('<option value="">Select opponent…</option>');
+    for (let r=minR; r<=maxR; r++){
+      if (r===wRank) continue;
+      const name = nameByRank.get(r);
+      if (name) options.push(`<option value="${name}">${name}</option>`);
+    }
+    sel.innerHTML = options.join('');
+  }else{
+    // Scheduled
+    const oppRank = scheduleR1.get(wRank);
+    const oppName = nameByRank.get(oppRank) || '';
+    setOpponentValue(oppName || 'No Round 1 opponent found');
+  }
+
+  updateRowLabels();
+}
+
+/* Reading & validation */
 function readCell(id){
   const el=document.getElementById(id);
   if(!el) return '';
@@ -394,52 +474,24 @@ function validateSetPair(a,b,setName, topId, bottomId){
   return {ok:true, winnerIsTop: topWins, needTB};
 }
 
-/* invalid highlighting helpers */
-function clearInvalids(){
-  document.querySelectorAll('.invalid').forEach(el=>{
-    el.classList.remove('invalid');
-    el.removeAttribute('aria-invalid');
-  });
-}
-function markInvalid(id){
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('invalid');
-  el.setAttribute('aria-invalid','true');
-  return el;
-}
-function focusFirstInvalid(){
-  const first = document.querySelector('.invalid');
-  if (first){
-    first.focus({preventScroll:false});
-    first.scrollIntoView({behavior:'smooth', block:'center'});
-  }
-}
-
-function updateRowLabels(){
-  const wName = document.getElementById('winner').value;
-  const oName = document.getElementById('opponent').value;
-  const rankBadge = (text)=>`<span class="rank-badge"><span class="dot"></span><span>${text}</span></span>`;
-  document.getElementById('winnerLabel').innerHTML   = rankBadge(wName || 'Winner');
-  document.getElementById('opponentLabel').innerHTML = rankBadge(oName || 'Opponent');
-}
-
-function computeOpponent(){
-  const winner=document.getElementById('winner').value;
-  const out=document.getElementById('opponent'); out.value='';
-  if(!winner){ updateRowLabels(); return; }
-  const r=rankByName.get(winner);
-  if(!r){ out.value='Rank not found'; updateRowLabels(); return; }
-  const oppRank=scheduleR1.get(r);
-  if(!oppRank){ out.value='No Round 1 opponent found'; updateRowLabels(); return; }
-  const oppName=nameByRank.get(oppRank) || '(rank exists but player not in eligible list)';
-  out.value=oppName||''; updateRowLabels();
-}
-
 function validateScores(){
   clearInvalids();
   const msg=document.getElementById('msg'); msg.textContent='';
   if (status==='Walkover') return true;
+
+  const matchType = getMatchType();
+  const winner = document.getElementById('winner').value;
+  const opponent = getOpponentValue();
+
+  if (!winner){ msg.textContent='Pick a winner.'; markInvalid('winner'); focusFirstInvalid(); return false; }
+  if (matchType==='Challenge'){
+    if (!opponent){ msg.textContent='Pick an opponent for the Challenge Match.'; markInvalid('opponentSelect'); focusFirstInvalid(); return false; }
+    if (opponent === winner){ msg.textContent='Opponent cannot be the same as the winner.'; markInvalid('opponentSelect'); focusFirstInvalid(); return false; }
+  } else {
+    if (!opponent || /not found|no round 1/i.test(opponent)){
+      msg.textContent='Opponent not found yet.'; markInvalid('winner'); focusFirstInvalid(); return false;
+    }
+  }
 
   const isTB=document.getElementById('isTb').checked;
 
@@ -534,16 +586,15 @@ async function submitForm(){
   const msg=document.getElementById('msg');
   msg.textContent=''; ok.style.display='none';
 
-  const winner=document.getElementById('winner').value;
-  const opponent=document.getElementById('opponent').value;
-  if (!winner){ msg.textContent='Pick a winner.'; markInvalid('winner'); focusFirstInvalid(); return; }
-  if (!opponent){ msg.textContent='Opponent not found yet.'; markInvalid('winner'); focusFirstInvalid(); return; }
   if (!validateScores()) return;
+
+  const winner=document.getElementById('winner').value;
+  const opponent=getOpponentValue();
+  const isTB=document.getElementById('isTb').checked;
 
   const s1w=readCell('s1w'), s1o=readCell('s1o');
   const s2w=readCell('s2w'), s2o=readCell('s2o');
   const s3w=readCell('s3w'), s3o=readCell('s3o');
-  const isTB=document.getElementById('isTb').checked;
 
   const needTB1 = (s1w!=='' && s1o!=='' && ((s1w===7 && s1o===6) || (s1o===7 && s1w===6)));
   const needTB2 = (s2w!=='' && s2o!=='' && ((s2w===7 && s2o===6) || (s2o===7 && s2w===6)));
@@ -556,14 +607,19 @@ async function submitForm(){
   const TB_W = isTB ? s3w : '';
   const TB_O = isTB ? s3o : '';
 
+  const matchType = getMatchType();
+
   const payload={
     timestamp:new Date().toISOString(),
     round:1,
     status,
+    matchType,                          // NEW
     winner,
     opponent,
     winnerRank: rankByName.get(winner) || '',
-    opponentRank: scheduleR1.get(rankByName.get(winner)) || '',
+    opponentRank: (matchType==='Scheduled'
+                    ? (scheduleR1.get(rankByName.get(winner)) || '')
+                    : (rankByName.get(opponent) || '')),
     isTiebreakThird: isTB,
 
     s1w, s1o,
@@ -600,7 +656,15 @@ async function submitForm(){
 }
 
 /*** wiring ***/
-document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.target.checked); refreshTBEnabled(); clearInvalids(); });
+document.getElementById('matchType').addEventListener('change', ()=>{
+  setOpponentUI(getMatchType());
+  recomputeOpponentForMode();
+  clearInvalids();
+});
+
+document.getElementById('isTb').addEventListener('change', e=>{
+  toggleTBUI(e.target.checked); refreshTBEnabled(); clearInvalids();
+});
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
@@ -612,22 +676,29 @@ document.getElementById('isTb').addEventListener('change', e=>{ toggleTBUI(e.tar
 });
 
 /* cleanup invalid state on input */
-['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner'].forEach(id=>{
+['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner','opponentSelect'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
+    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
   }
 });
 
-document.getElementById('winner').addEventListener('change', computeOpponent);
-document.getElementById('winner').addEventListener('change', updateRowLabels);
+document.getElementById('winner').addEventListener('change', ()=>{
+  recomputeOpponentForMode();
+  updateRowLabels();
+});
+
+document.getElementById('opponentSelect').addEventListener('change', updateRowLabels);
+
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
 // init
 (async function init(){
   try{
     await Promise.all([loadPlayers(), loadScheduleR1()]);
-    computeOpponent();
+    setOpponentUI(getMatchType());
+    recomputeOpponentForMode();
     updateRowLabels();
     toggleTBUI(false);
     setStatusChip('Completed');
