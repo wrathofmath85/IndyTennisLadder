@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Indy Tennis Ladder — Rankings</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#11161f; --muted:#8ea0b4; --text:#e9eef5; --rule:#253043;
+    --accent:#5dd0ff; --accent-ink:#052c3a; --ok:#3bd37f; --bad:#ff6b6b;
+    --chip:#1a2332; --chipBorder:#2a364a;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
+  body{ margin:24px; display:flex; justify-content:center; }
+  .wrap{ width:100%; max-width:1100px; }
+  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule); border-radius:14px; padding:18px 18px 14px; box-shadow: 0 6px 30px rgba(0,0,0,.35);}
+  .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
+  .round-pill{ font-size:12px; padding:4px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted);}
+  .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
+  .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px;}
+  tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
+  tbody tr:hover{ background:#0e1420;}
+  .rank{ width:56px; color:#cdd8e6; }
+  .name{ font-weight:600;}
+  .points{ font-variant-numeric: tabular-nums; }
+  .sub{ color:var(--muted); font-weight:500;}
+  .result{ font-weight:600;}
+  .won{ color:var(--ok); }
+  .lost{ color:var(--bad); }
+  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:var(--muted);}
+  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; }
+  .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
+  @media (max-width:720px){
+    thead{ display:none; }
+    table, tbody, tr, td{ display:block; width:100%; }
+    tbody tr{ padding:12px 12px 6px; }
+    tbody td{ border:0; padding:4px 0; }
+    .rank{ order:-3; font-weight:700; }
+    .name{ order:-2; font-size:16px; }
+    .points{ order:-1; }
+    .cell-label{ display:inline-block; width:150px; color:#91a3bb;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>Indy Tennis Ladder</h1>
+      <span class="round-pill" id="roundPill">Round 1</span>
+    </div>
+    <div class="meta" id="roundMeta">
+      <!-- Filled with: Aug 12 – Aug 18 • Even up 1 -->
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="loading" id="status">Loading data…</div>
+    <table id="ladder" style="display:none;">
+      <thead>
+        <tr>
+          <th class="rank">#</th>
+          <th>Participant</th>
+          <th class="points">Points</th>
+          <th>Scheduled Opponent / Result</th>
+          <th>Challenge Opponent / Result</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer-note">Tip: Add <code>?round=2</code> to the page URL while testing different rounds.</div>
+</div>
+
+<script>
+/* ============== CONFIG ==============
+
+Publish each tab as CSV and paste the links here.
+Required columns:
+
+Players:
+- Participant
+- Round1Points, Round2Points, ... Round10Points
+- Round1Percent, Round2Percent, ... Round10Percent
+
+Scores:
+- Round (number)
+- MatchType ("Scheduled" or "Challenge")
+- Winner, Opponent
+- S1_W, S1_O, S2_W, S2_O, S3_W, S3_O  (numbers or blank)
+
+Schedule:
+- Ranking (1..N)
+- "Round 1", "Round 2", ... "Round 10"  (value is the opponent's rank)
+
+Dates:
+- Round (number)
+- Start (date or text), End (date or text)
+- Type (e.g., "Even up 1")
+
+*/
+const CSV = {
+  Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
+  Scores: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=551333593&single=true&output=csv',
+  Schedule: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
+  Dates: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv'
+};
+
+// Active round: you can override via ?round=#
+const ROUND = (() => {
+  const u = new URLSearchParams(location.search);
+  const q = parseInt(u.get('round'),10);
+  if (!isNaN(q) && q>=1 && q<=10) return q;
+  return 1; // default
+})();
+
+document.getElementById('roundPill').textContent = `Round ${ROUND}`;
+
+/* ============== HELPERS ============== */
+function loadCSV(url){
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true, header: true, skipEmptyLines: 'greedy',
+      complete: (res) => resolve(res.data || []),
+      error: (err) => reject(err)
+    });
+  });
+}
+
+const nameKey = s => String(s||'').trim().toLowerCase();
+const lastName = s => {
+  const parts = String(s||'').trim().split(/\s+/);
+  return parts.length ? parts[parts.length-1] : '';
+};
+const num = v => (v===null || v===undefined || v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
+const fmt = (v) => v===undefined || v===null ? '' : String(v);
+
+function fmtDateRange(startRaw, endRaw){
+  // Try to format friendly; fall back to raw strings if parsing fails.
+  const tryParse = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    // Handle Google numeric date serials if present
+    if (/^\d+(\.\d+)?$/.test(String(val))) {
+      // Excel serial date, assume days since 1899-12-30
+      const days = Number(val);
+      const base = new Date(Date.UTC(1899,11,30));
+      const d = new Date(base.getTime() + days*86400000);
+      return d;
+    }
+    const d = new Date(val);
+    return isNaN(d) ? null : d;
+  };
+  const s = tryParse(startRaw), e = tryParse(endRaw);
+  const nice = (d) => d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+  if (s && e) return `${nice(s)} – ${nice(e)}`;
+  if (s) return nice(s);
+  if (e) return nice(e);
+  return [fmt(startRaw), fmt(endRaw)].filter(Boolean).join(' – ');
+}
+
+function setStatus(msg, isError=false){
+  const st = document.getElementById('status');
+  st.textContent = msg;
+  st.className = isError ? 'error' : 'loading';
+}
+
+/* ============== CORE LOGIC ============== */
+async function init(){
+  try{
+    setStatus('Loading data…');
+
+    // Fetch all sheets
+    const [playersRaw, scoresRaw, scheduleRaw, datesRaw] = await Promise.all([
+      loadCSV(CSV.Players),
+      loadCSV(CSV.Scores),
+      loadCSV(CSV.Schedule),
+      loadCSV(CSV.Dates)
+    ]);
+
+    // --- Dates header:
+    const roundRow = datesRaw.find(r => Number(r.Round) === Number(ROUND));
+    if (roundRow){
+      const span = fmtDateRange(roundRow.Start, roundRow.End);
+      const type = fmt(roundRow.Type);
+      const meta = document.getElementById('roundMeta');
+      meta.textContent = '';
+      const a = document.createElement('span');
+      a.textContent = span || '';
+      meta.appendChild(a);
+      if (type){
+        const dot = document.createElement('span'); dot.className = 'dot';
+        dot.textContent = type;
+        meta.appendChild(dot);
+      }
+    }
+
+    // --- Build ranking from Players
+    const pointsCol = `Round${ROUND}Points`;
+    const pctCol    = `Round${ROUND}Percent`;
+
+    // Coerce and copy
+    const players = playersRaw.map(r => ({
+      Participant: fmt(r.Participant),
+      Points: num(r[pointsCol]),
+      Percent: num(r[pctCol]),
+      _last: lastName(r.Participant)
+    }));
+
+    // Sort: Points desc, Percent desc, Last name asc
+    players.sort((a,b)=>{
+      const p = (isNaN(a.Points)?-Infinity:a.Points) - (isNaN(b.Points)?-Infinity:b.Points);
+      if (p!==0) return p>0 ? -1 : 1;
+      const q = (isNaN(a.Percent)?-Infinity:a.Percent) - (isNaN(b.Percent)?-Infinity:b.Percent);
+      if (q!==0) return q>0 ? -1 : 1;
+      return a._last.localeCompare(b._last, undefined, {sensitivity:'base'});
+    });
+
+    // Assign ranks and maps
+    const rankByName = {};
+    const nameByRank = {};
+    players.forEach((p,i)=>{
+      p.Rank = i+1;
+      rankByName[nameKey(p.Participant)] = p.Rank;
+      nameByRank[p.Rank] = p.Participant;
+    });
+
+    // --- Schedule map: rank -> opponentRank for this ROUND
+    const scheduleCol = `Round ${ROUND}`;
+    const scheduleMap = {};
+    scheduleRaw.forEach(r=>{
+      const rnk = Number(r.Ranking);
+      const opp = Number(r[scheduleCol]);
+      if (!isNaN(rnk) && !isNaN(opp)){
+        scheduleMap[rnk] = opp;
+      }
+    });
+
+    // --- Scores index by player & match type
+    // We create quick lookups: for each player (by nameKey), the single match result string for
+    // MatchType "Scheduled" and for "Challenge" for this ROUND (if any).
+    const scheduledByPlayer = new Map();  // nameKey -> string
+    const challengeByPlayer = new Map();
+
+    function resultString(row, perspective){ // perspective: 'winner' or 'opponent'
+      // Resolve names & ranks
+      const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
+      const wRank = rankByName[nameKey(winner)] || '?';
+      const oRank = rankByName[nameKey(opponent)] || '?';
+
+      const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
+      const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
+      const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
+
+      const set1 = `${W1}-${O1}`;
+      const set2 = `${W2}-${O2}`;
+      const set3 = (W3!=='' || O3!=='') ? ` ${W3}-${O3}` : '';
+
+      if (perspective === 'winner'){
+        return `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`;
+      }else{
+        // show from opponent perspective (they lost)
+        const s1 = `${O1}-${W1}`;
+        const s2 = `${O2}-${W2}`;
+        const s3 = (W3!=='' || O3!=='') ? ` ${O3}-${W3}` : '';
+        return `Lost to #${wRank} ${winner} ${s1} ${s2}${s3}`;
+      }
+    }
+
+    scoresRaw.forEach(r=>{
+      const rRound = Number(r.Round);
+      if (rRound !== Number(ROUND)) return;
+      const type = String(r.MatchType||'').trim();
+      if (type !== 'Scheduled' && type !== 'Challenge') return;
+
+      const wKey = nameKey(r.Winner);
+      const oKey = nameKey(r.Opponent);
+
+      const winStr = resultString(r, 'winner');
+      const loseStr = resultString(r, 'opponent');
+
+      if (type === 'Scheduled'){
+        if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
+        if (!scheduledByPlayer.has(oKey)) scheduledByPlayer.set(oKey, loseStr);
+      }else{
+        if (!challengeByPlayer.has(wKey)) challengeByPlayer.set(wKey, winStr);
+        if (!challengeByPlayer.has(oKey)) challengeByPlayer.set(oKey, loseStr);
+      }
+    });
+
+    // --- Render table
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+
+    players.forEach(p=>{
+      const tr = document.createElement('tr');
+
+      // Rank
+      const tdRank = document.createElement('td');
+      tdRank.className = 'rank';
+      tdRank.textContent = `#${p.Rank}`;
+      tr.appendChild(tdRank);
+
+      // Participant
+      const tdName = document.createElement('td');
+      tdName.className = 'name';
+      tdName.textContent = p.Participant;
+      tr.appendChild(tdName);
+
+      // Points
+      const tdPts = document.createElement('td');
+      tdPts.className = 'points';
+      tdPts.textContent = isNaN(p.Points) ? '' : p.Points;
+      tr.appendChild(tdPts);
+
+      // Scheduled Opponent / Result
+      const tdSched = document.createElement('td');
+      const meKey = nameKey(p.Participant);
+      const schedRes = scheduledByPlayer.get(meKey);
+
+      if (schedRes){
+        const span = document.createElement('span');
+        span.className = 'result ' + (schedRes.startsWith('Beat') ? 'won' : 'lost');
+        span.textContent = schedRes;
+        tdSched.appendChild(span);
+      }else{
+        // Show who they SHOULD play based on Schedule
+        const oppRank = scheduleMap[p.Rank];
+        if (oppRank){
+          const oppName = nameByRank[oppRank] || '';
+          const span = document.createElement('span');
+          span.innerHTML = `<span class="badge">Scheduled</span> #${oppRank} ${oppName || ''}`;
+          tdSched.appendChild(span);
+        }else{
+          tdSched.textContent = ''; // no opponent mapped
+        }
+      }
+      tr.appendChild(tdSched);
+
+      // Challenge Opponent / Result
+      const tdChal = document.createElement('td');
+      const chalRes = challengeByPlayer.get(meKey);
+      if (chalRes){
+        const span = document.createElement('span');
+        span.className = 'result ' + (chalRes.startsWith('Beat') ? 'won' : 'lost');
+        span.textContent = chalRes;
+        tdChal.appendChild(span);
+      }else{
+        // Per requirements: leave blank if no result
+        tdChal.textContent = '';
+      }
+      tr.appendChild(tdChal);
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('ladder').style.display = '';
+    setStatus(''); // hide status
+    document.getElementById('status').style.display = 'none';
+
+  }catch(err){
+    console.error(err);
+    setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
