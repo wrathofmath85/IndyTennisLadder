@@ -26,7 +26,13 @@
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
   .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
   table{ width:100%; border-collapse:collapse; font-size:14px; }
-  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px;}
+  thead th{
+    text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521;
+    border-bottom:1px solid var(--rule); padding:12px;
+    /* Sticky header on desktop */
+    position: sticky; top: 0; z-index: 2;
+    box-shadow: 0 2px 0 0 var(--rule);
+  }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
   tbody tr:hover{ background:#0e1420;}
   .rank{ width:56px; color:#cdd8e6; }
@@ -37,12 +43,18 @@
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
   .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:var(--muted);}
-  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
+
+  /* Pills: HIDE by default (desktop) */
+  .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
+          background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
+
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
+
+  /* Mobile layout */
   @media (max-width:720px){
-    thead{ display:none; }
+    thead{ display:none; } /* keep mobile cards look, no sticky header */
     table, tbody, tr, td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; }
     tbody td{ border:0; padding:4px 0; }
@@ -50,6 +62,8 @@
     .name{ order:-2; font-size:16px; }
     .points{ order:-1; }
     .cell-label{ display:inline-block; width:150px; color:#91a3bb;}
+    /* SHOW pills on mobile */
+    .badge{ display:inline-block; }
   }
 </style>
 </head>
@@ -60,9 +74,7 @@
       <h1>Indy Tennis Ladder</h1>
       <span class="round-pill" id="roundPill">Round 1</span>
     </div>
-    <div class="meta" id="roundMeta">
-      <!-- Filled with: Aug 12 – Aug 18 • Even up 1 -->
-    </div>
+    <div class="meta" id="roundMeta"></div>
   </header>
 
   <div class="panel">
@@ -86,30 +98,7 @@
 
 <script>
 /* ============== CONFIG ==============
-
 Publish each tab as CSV and paste the links here.
-Required columns:
-
-Players:
-- Participant
-- Round1Points, Round2Points, ... Round10Points
-- Round1Percent, Round2Percent, ... Round10Percent
-
-Scores:
-- Round (number)
-- MatchType ("Scheduled" or "Challenge")
-- Winner, Opponent
-- S1_W, S1_O, S2_W, S2_O, S3_W, S3_O  (numbers or blank)
-
-Schedule:
-- Ranking (1..N)
-- "Round 1", "Round 2", ... "Round 10"  (value is the opponent's rank)
-
-Dates:
-- Round (number)
-- Start (date or text), End (date or text)
-- Type (e.g., "Even up 1")
-
 */
 const CSV = {
   Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
@@ -148,12 +137,9 @@ const num = v => (v===null || v===undefined || v==='') ? NaN : +String(v).toStri
 const fmt = (v) => v===undefined || v===null ? '' : String(v);
 
 function fmtDateRange(startRaw, endRaw){
-  // Try to format friendly; fall back to raw strings if parsing fails.
   const tryParse = (val) => {
     if (val === undefined || val === null || val === '') return null;
-    // Handle Google numeric date serials if present
     if (/^\d+(\.\d+)?$/.test(String(val))) {
-      // Excel serial date, assume days since 1899-12-30
       const days = Number(val);
       const base = new Date(Date.UTC(1899,11,30));
       const d = new Date(base.getTime() + days*86400000);
@@ -181,7 +167,6 @@ async function init(){
   try{
     setStatus('Loading data…');
 
-    // Fetch all sheets
     const [playersRaw, scoresRaw, scheduleRaw, datesRaw] = await Promise.all([
       loadCSV(CSV.Players),
       loadCSV(CSV.Scores),
@@ -189,7 +174,7 @@ async function init(){
       loadCSV(CSV.Dates)
     ]);
 
-    // --- Dates header:
+    // Dates header
     const roundRow = datesRaw.find(r => Number(r.Round) === Number(ROUND));
     if (roundRow){
       const span = fmtDateRange(roundRow.Start, roundRow.End);
@@ -206,7 +191,7 @@ async function init(){
       }
     }
 
-    // --- Build ranking from Players
+    // Build ranking from Players
     const pointsCol = `Round${ROUND}Points`;
     const pctCol    = `Round${ROUND}Percent`;
 
@@ -233,7 +218,7 @@ async function init(){
       nameByRank[p.Rank] = p.Participant;
     });
 
-    // --- Schedule map: rank -> opponentRank for this ROUND
+    // Schedule map: rank -> opponentRank for this ROUND
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     scheduleRaw.forEach(r=>{
@@ -244,23 +229,20 @@ async function init(){
       }
     });
 
-    // --- Scores index by player & match type
+    // Scores index by player & match type
     const scheduledByPlayer = new Map();  // nameKey -> string
     const challengeByPlayer = new Map();
 
-    function resultString(row, perspective){ // 'winner' | 'opponent'
+    function resultString(row, perspective){
       const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
       const wRank = rankByName[nameKey(winner)] || '?';
       const oRank = rankByName[nameKey(opponent)] || '?';
-
       const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
       const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
       const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
-
       const set1 = `${W1}-${O1}`;
       const set2 = `${W2}-${O2}`;
       const set3 = (W3!=='' || O3!=='') ? ` ${W3}-${O3}` : '';
-
       if (perspective === 'winner'){
         return `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`;
       }else{
@@ -279,7 +261,6 @@ async function init(){
 
       const wKey = nameKey(r.Winner);
       const oKey = nameKey(r.Opponent);
-
       const winStr = resultString(r, 'winner');
       const loseStr = resultString(r, 'opponent');
 
@@ -292,7 +273,7 @@ async function init(){
       }
     });
 
-    // --- Render table
+    // Render table
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
@@ -323,7 +304,7 @@ async function init(){
       const schedRes = scheduledByPlayer.get(meKey);
 
       if (schedRes){
-        // NEW: Keep the Scheduled pill even when a result exists
+        // Keep the pill in DOM (for mobile), hidden on desktop via CSS
         const pill = document.createElement('span');
         pill.className = 'badge badge-scheduled';
         pill.textContent = 'Scheduled';
@@ -334,7 +315,6 @@ async function init(){
         span.textContent = schedRes;
         tdSched.appendChild(span);
       }else{
-        // Show who they SHOULD play based on Schedule
         const oppRank = scheduleMap[p.Rank];
         if (oppRank){
           const oppName = nameByRank[oppRank] || '';
@@ -342,7 +322,7 @@ async function init(){
           span.innerHTML = `<span class="badge badge-scheduled">Scheduled</span> #${oppRank} ${oppName || ''}`;
           tdSched.appendChild(span);
         }else{
-          tdSched.textContent = ''; // no opponent mapped
+          tdSched.textContent = '';
         }
       }
       tr.appendChild(tdSched);
@@ -351,7 +331,6 @@ async function init(){
       const tdChal = document.createElement('td');
       const chalRes = challengeByPlayer.get(meKey);
       if (chalRes){
-        // NEW: Add a Challenge pill when a challenge score exists
         const pill = document.createElement('span');
         pill.className = 'badge badge-challenge';
         pill.textContent = 'Challenge';
@@ -362,7 +341,6 @@ async function init(){
         span.textContent = chalRes;
         tdChal.appendChild(span);
       }else{
-        // Per requirements: leave blank if no result
         tdChal.textContent = '';
       }
       tr.appendChild(tdChal);
