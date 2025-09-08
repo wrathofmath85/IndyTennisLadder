@@ -41,7 +41,6 @@
     margin:16px 0;
     box-shadow: 0 10px 30px rgba(0,0,0,.25);
   }
-  /* Hide the Players legend visually, keep it for a11y */
   legend.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
   fieldset{ border: none; margin:0; padding:0; }
 
@@ -55,6 +54,7 @@
     color:var(--text);
     outline:none;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    font-size:16px;
   }
   input[readonly]{ opacity:.8; }
 
@@ -121,7 +121,7 @@
   }
   .rank-badge .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; }
 
-  .tight-num{
+  .tight-num{ /* shared look for selects/inputs in score strip */
     width:100%;
     text-align:center;
     padding:10px 0;
@@ -139,7 +139,7 @@
   .triple{ display:flex; gap:0; }
   .triple .tight-num{
     border-radius:0; border-right:1px solid var(--line);
-    max-width:none; /* allow full stretch */
+    max-width:none;
   }
   .triple .tight-num:first-child{
     border-top-left-radius:10px; border-bottom-left-radius:10px;
@@ -172,17 +172,13 @@
 
   <section class="card">
     <fieldset>
-      <!-- VISUALLY HIDDEN legend (removes red text) -->
       <legend class="sr-only">Players</legend>
       <div class="grid">
-        <!-- Match Type: CHIPS -->
         <label>Match Type</label>
         <div class="chips" id="matchTypeChips" role="tablist" aria-label="Match type">
           <span class="chip active" data-type="Scheduled" role="button" tabindex="0">Scheduled</span>
           <span class="chip" data-type="Challenge" role="button" tabindex="0">Challenge</span>
         </div>
-
-        <!-- Removed the explanatory line about winner selection -->
         <div></div><div></div>
       </div>
       <p id="playersError" class="error" style="display:none;"></p>
@@ -206,7 +202,7 @@
         <label class="row-inline" for="isTb" style="gap:10px;">
           <input id="isTb" type="checkbox" /> Use 10-point <b>match</b> tiebreak instead of full third set
         </label>
-        <span class="help">Tiebreak boxes are always visible but only accept input when a set score is 7–6.</span>
+        <span class="help">Tiebreak boxes enable only on 7–6 sets.</span>
       </div>
 
       <!-- ---------- SCORE GRID ---------- -->
@@ -216,7 +212,7 @@
           <div class="col-label" id="col3Header">Scores</div>
         </div>
 
-        <!-- Winner row (select + ONE big box made of 3 joined inputs) -->
+        <!-- Winner row -->
         <div class="scores-row">
           <div id="winnerLabel" class="who">
             <span class="rank-badge"><span class="dot"></span><span>Winner</span></span>
@@ -225,13 +221,25 @@
             </select>
           </div>
           <div class="triple" aria-label="Winner set scores">
-            <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S1" />
-            <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S2" />
-            <input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" placeholder="S3/TB" />
+            <!-- Set 1 -->
+            <select id="s1w" class="tight-num score-dd" aria-label="Winner Set 1">
+              <option value="">S1</option>
+            </select>
+            <!-- Set 2 -->
+            <select id="s2w" class="tight-num score-dd" aria-label="Winner Set 2">
+              <option value="">S2</option>
+            </select>
+            <!-- Set 3: dropdown (full set) OR input (match TB) -->
+            <div style="flex:1;">
+              <select id="s3wSel" class="tight-num score-dd" aria-label="Winner Set 3 (full set)">
+                <option value="">S3</option>
+              </select>
+              <input id="s3w" class="tight-num hidden" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" aria-label="Winner Match TB" />
+            </div>
           </div>
         </div>
 
-        <!-- Opponent row (name/select + ONE big box of 3 joined inputs) -->
+        <!-- Opponent row -->
         <div class="scores-row">
           <div id="opponentLabel" class="who">
             <span class="rank-badge"><span class="dot"></span>
@@ -242,13 +250,25 @@
             </select>
           </div>
           <div class="triple" aria-label="Opponent set scores">
-            <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S1" />
-            <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S2" />
-            <input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" placeholder="S3/TB" />
+            <!-- Set 1 -->
+            <select id="s1o" class="tight-num score-dd" aria-label="Opponent Set 1">
+              <option value="">S1</option>
+            </select>
+            <!-- Set 2 -->
+            <select id="s2o" class="tight-num score-dd" aria-label="Opponent Set 2">
+              <option value="">S2</option>
+            </select>
+            <!-- Set 3: dropdown (full set) OR input (match TB) -->
+            <div style="flex:1;">
+              <select id="s3oSel" class="tight-num score-dd" aria-label="Opponent Set 3 (full set)">
+                <option value="">S3</option>
+              </select>
+              <input id="s3o" class="tight-num hidden" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" aria-label="Opponent Match TB" />
+            </div>
           </div>
         </div>
 
-        <!-- Tie-break row (joined into one big box too) -->
+        <!-- Tie-break row -->
         <div class="scores-row">
           <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
           <div class="triple" aria-label="Tie-breaks">
@@ -313,6 +333,17 @@ function parseCSV(text){
 }
 
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
+
+/* Populate 0–7 options for all score dropdowns */
+function fillScoreDropdown(sel){
+  if (!sel) return;
+  if (sel.options.length > 1) return; // already filled
+  for (let i=0;i<=7;i++){
+    const opt=document.createElement('option');
+    opt.value=String(i); opt.textContent=String(i);
+    sel.appendChild(opt);
+  }
+}
 
 /* ---------- Data loading ---------- */
 async function loadPlayers(){
@@ -399,28 +430,37 @@ function setStatusChip(newStatus){
     if (el.dataset.status===newStatus) el.classList.add('active'); else el.classList.remove('active');
   }
   const disabled=(newStatus==='Walkover');
-  ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','isTb']
+  ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','isTb']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=disabled; });
   document.getElementById('msg').textContent='';
 }
 
 function toggleTBUI(isTB){
   document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Scores';
+  // Show TB inputs for set 3, hide dropdowns when TB; reverse when full set
+  document.getElementById('s3w').classList.toggle('hidden', !isTB);
+  document.getElementById('s3o').classList.toggle('hidden', !isTB);
+  document.getElementById('s3wSel').classList.toggle('hidden', isTB);
+  document.getElementById('s3oSel').classList.toggle('hidden', isTB);
+  // Clear the inactive controls so validation targets only the visible ones
+  if (isTB){ document.getElementById('s3wSel').value=''; document.getElementById('s3oSel').value=''; }
+  else { document.getElementById('s3w').value=''; document.getElementById('s3o').value=''; }
+  // TB box for S3 is never used in match TB mode
   document.getElementById('s3tb').parentElement.classList.toggle('hidden', isTB);
+  refreshTBEnabled();
 }
 
 function refreshTBEnabled(){
   const isTB = document.getElementById('isTb').checked;
-  // S1/S2 TB enabled if 7–6 occurs; S3 TB disabled in match TB mode
   const sets=[1,2,3];
   sets.forEach(k=>{
-    const w=document.getElementById(`s${k}w`);
-    const o=document.getElementById(`s${k}o`);
+    const w = getScoreValueEl(k===3 ? (isTB?'s3w':'s3wSel') : `s${k}w`);
+    const o = getScoreValueEl(k===3 ? (isTB?'s3o':'s3oSel') : `s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
     if (!w || !o || !tb) return;
     if (k===3 && isTB){ tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return; }
-    const a=Number(w.value), b=Number(o.value);
-    const need=((a===7&&b===6)||(a===6&&b===7));
+    const a = parseNum(w.value), b = parseNum(o.value);
+    const need = (a===7&&b===6) || (a===6&&b===7);
     tb.disabled = !need;
     tb.classList.toggle('disabled-like', !need);
     if(!need) tb.value='';
@@ -433,8 +473,12 @@ function clearInvalids(){
     el.removeAttribute('aria-invalid');
   });
 }
-function markInvalid(id){
-  const el = document.getElementById(id);
+function markInvalidActive(id){ // marks visible control for s3; others directly
+  let el = document.getElementById(id);
+  if (id==='s3w' || id==='s3o'){
+    const isTB = document.getElementById('isTb').checked;
+    el = document.getElementById(isTB ? id : id+'Sel');
+  }
   if (!el) return;
   el.classList.add('invalid');
   el.setAttribute('aria-invalid','true');
@@ -511,14 +555,22 @@ function recomputeOpponentForMode(){
   updateRowLabels();
 }
 
-/* Reading & validation helpers */
-function readCell(id){
-  const el=document.getElementById(id);
-  if(!el) return '';
-  const v=el.value.trim();
-  if (v==='') return '';
-  const n=Number(v);
+/* -------- Reading / validation -------- */
+function parseNum(v){
+  if (v==='' || v==null) return '';
+  const n = Number(v);
   return Number.isNaN(n) ? '' : n;
+}
+function getScoreValueEl(id){ return document.getElementById(id); }
+function readScore(id){ // handles s3 (dropdown vs input) seamlessly
+  if (id==='s3w' || id==='s3o'){
+    const isTB = document.getElementById('isTb').checked;
+    const activeId = isTB ? id : id+'Sel';
+    const el = document.getElementById(activeId);
+    return parseNum(el ? el.value.trim() : '');
+  }
+  const el = document.getElementById(id);
+  return parseNum(el ? el.value.trim() : '');
 }
 function isAllowedWinnerPair(win, lose){
   if (win===6 && lose>=0 && lose<=4) return true;
@@ -527,18 +579,18 @@ function isAllowedWinnerPair(win, lose){
 }
 function validateSetPair(a,b,setName, topId, bottomId){
   if (a==='' || b===''){
-    markInvalid(topId); markInvalid(bottomId);
+    markInvalidActive(topId); markInvalidActive(bottomId);
     return {ok:false, msg:`Enter both scores for ${setName}.`};
   }
   if (a===b){
-    markInvalid(topId); markInvalid(bottomId);
+    markInvalidActive(topId); markInvalidActive(bottomId);
     return {ok:false, msg:`${setName}: ties are not allowed.`};
   }
   const topWins = a>b;
   const win = topWins ? a : b;
   const lose = topWins ? b : a;
   if (!isAllowedWinnerPair(win, lose)){
-    markInvalid(topId); markInvalid(bottomId);
+    markInvalidActive(topId); markInvalidActive(bottomId);
     return {ok:false, msg:`${setName}: invalid tennis score.`};
   }
   const needTB = (win===7 && lose===6);
@@ -554,30 +606,30 @@ function validateScores(){
   const winner = document.getElementById('winner').value;
   const opponent = getOpponentValue();
 
-  if (!winner){ msg.textContent='Pick a winner.'; markInvalid('winner'); focusFirstInvalid(); return false; }
+  if (!winner){ msg.textContent='Pick a winner.'; markInvalidActive('winner'); focusFirstInvalid(); return false; }
   if (matchType==='Challenge'){
-    if (!opponent){ msg.textContent='Pick an opponent for the Challenge Match.'; markInvalid('opponentSelect'); focusFirstInvalid(); return false; }
-    if (opponent === winner){ msg.textContent='Opponent cannot be the same as the winner.'; markInvalid('opponentSelect'); focusFirstInvalid(); return false; }
+    if (!opponent){ msg.textContent='Pick an opponent for the Challenge Match.'; markInvalidActive('opponentSelect'); focusFirstInvalid(); return false; }
+    if (opponent === winner){ msg.textContent='Opponent cannot be the same as the winner.'; markInvalidActive('opponentSelect'); focusFirstInvalid(); return false; }
   } else {
     if (!opponent || /not found|no round 1/i.test(opponent)){
-      msg.textContent='Opponent not found yet.'; markInvalid('winner'); focusFirstInvalid(); return false;
+      msg.textContent='Opponent not found yet.'; markInvalidActive('winner'); focusFirstInvalid(); return false;
     }
   }
 
   const isTB=document.getElementById('isTb').checked;
 
-  const s1w=readCell('s1w'), s1o=readCell('s1o');
-  const s2w=readCell('s2w'), s2o=readCell('s2o');
-  const s3w=readCell('s3w'), s3o=readCell('s3o');
+  const s1w=readScore('s1w'), s1o=readScore('s1o');
+  const s2w=readScore('s2w'), s2o=readScore('s2o');
+  const s3w=readScore('s3w'), s3o=readScore('s3o');
 
-  const s1tb=readCell('s1tb'), s2tb=readCell('s2tb'), s3tb=readCell('s3tb');
+  const s1tb=readScore('s1tb'), s2tb=readScore('s2tb'), s3tb=readScore('s3tb');
 
   if (status==='Retired'){
     if (s1w!==''||s1o!==''||s2w!==''||s2o!==''||s3w!==''||s3o!==''){
       return true;
     }
     msg.textContent='Please enter whatever score progress existed before retirement.';
-    markInvalid('s1w'); markInvalid('s1o'); markInvalid('s2w'); markInvalid('s2o');
+    markInvalidActive('s1w'); markInvalidActive('s1o'); markInvalidActive('s2w'); markInvalidActive('s2o');
     focusFirstInvalid();
     return false;
   }
@@ -585,8 +637,8 @@ function validateScores(){
   const v1 = validateSetPair(s1w,s1o,'Set 1','s1w','s1o'); if(!v1.ok){ msg.textContent=v1.msg; focusFirstInvalid(); return false; }
   const v2 = validateSetPair(s2w,s2o,'Set 2','s2w','s2o'); if(!v2.ok){ msg.textContent=v2.msg; focusFirstInvalid(); return false; }
 
-  if (v1.needTB && s1tb===''){ msg.textContent='Enter tie-break points for Set 1.'; markInvalid('s1tb'); focusFirstInvalid(); return false; }
-  if (v2.needTB && s2tb===''){ msg.textContent='Enter tie-break points for Set 2.'; markInvalid('s2tb'); focusFirstInvalid(); return false; }
+  if (v1.needTB && s1tb===''){ msg.textContent='Enter tie-break points for Set 1.'; markInvalidActive('s1tb'); focusFirstInvalid(); return false; }
+  if (v2.needTB && s2tb===''){ msg.textContent='Enter tie-break points for Set 2.'; markInvalidActive('s2tb'); focusFirstInvalid(); return false; }
 
   let won=0, lost=0;
   won += v1.winnerIsTop ? 1 : 0;
@@ -597,9 +649,8 @@ function validateScores(){
   if (won===2){
     if (s3w!=='' || s3o!=='' || s3tb!==''){
       msg.textContent='Leave Set 3 blank when the match ends in two sets.';
-      if (s3w!=='') markInvalid('s3w');
-      if (s3o!=='') markInvalid('s3o');
-      if (s3tb!=='') markInvalid('s3tb');
+      markInvalidActive('s3w'); markInvalidActive('s3o');
+      if (s3tb!=='') markInvalidActive('s3tb');
       focusFirstInvalid();
       return false;
     }
@@ -610,43 +661,34 @@ function validateScores(){
     if (isTB){
       if (s3w==='' || s3o===''){
         msg.textContent='Enter the match tiebreak score in the Set 3 boxes.';
-        if (s3w==='') markInvalid('s3w');
-        if (s3o==='') markInvalid('s3o');
-        focusFirstInvalid();
-        return false;
+        markInvalidActive('s3w'); markInvalidActive('s3o'); focusFirstInvalid(); return false;
       }
       const w = Number(s3w), o = Number(s3o);
       if (w < 10 || (w - o) < 2){
         msg.textContent='Match tiebreak must be at least 10 and win by 2 for the winner.';
-        markInvalid('s3w'); markInvalid('s3o');
-        focusFirstInvalid();
-        return false;
+        markInvalidActive('s3w'); markInvalidActive('s3o'); focusFirstInvalid(); return false;
       }
-      if (s3tb!==''){
+      if (document.getElementById('s3tb').value !== ''){
         msg.textContent='Do not fill the Set 3 tiebreak box when using a match tiebreak.';
-        markInvalid('s3tb');
-        focusFirstInvalid();
-        return false;
+        markInvalidActive('s3tb'); focusFirstInvalid(); return false;
       }
       return true;
     } else {
       const v3 = validateSetPair(s3w,s3o,'Set 3','s3w','s3o'); if(!v3.ok){ msg.textContent=v3.msg; focusFirstInvalid(); return false; }
       if (!v3.winnerIsTop){
         msg.textContent='Winner must win Set 3.';
-        markInvalid('s3w'); markInvalid('s3o');
-        focusFirstInvalid();
-        return false;
+        markInvalidActive('s3w'); markInvalidActive('s3o'); focusFirstInvalid(); return false;
       }
       if (v3.needTB && s3tb===''){
         msg.textContent='Enter tie-break points for Set 3.';
-        markInvalid('s3tb'); focusFirstInvalid(); return false;
+        markInvalidActive('s3tb'); focusFirstInvalid(); return false;
       }
       return true;
     }
   }
 
   msg.textContent='Scores must reflect the selected winner (two sets to one).';
-  markInvalid('s1w'); markInvalid('s1o'); markInvalid('s2w'); markInvalid('s2o');
+  markInvalidActive('s1w'); markInvalidActive('s1o'); markInvalidActive('s2w'); markInvalidActive('s2o');
   focusFirstInvalid();
   return false;
 }
@@ -663,17 +705,17 @@ async function submitForm(){
   const opponent=getOpponentValue();
   const isTB=document.getElementById('isTb').checked;
 
-  const s1w=readCell('s1w'), s1o=readCell('s1o');
-  const s2w=readCell('s2w'), s2o=readCell('s2o');
-  const s3w=readCell('s3w'), s3o=readCell('s3o');
+  const s1w=readScore('s1w'), s1o=readScore('s1o');
+  const s2w=readScore('s2w'), s2o=readScore('s2o');
+  const s3w=readScore('s3w'), s3o=readScore('s3o');
 
   const needTB1 = (s1w!=='' && s1o!=='' && ((s1w===7 && s1o===6) || (s1o===7 && s1w===6)));
   const needTB2 = (s2w!=='' && s2o!=='' && ((s2w===7 && s2o===6) || (s2o===7 && s2w===6)));
   const needTB3 = !isTB && (s3w!=='' && s3o!=='' && ((s3w===7 && s3o===6) || (s3o===7 && s3w===6)));
 
-  const s1tb = readCell('s1tb');
-  const s2tb = readCell('s2tb');
-  const s3tb = readCell('s3tb');
+  const s1tb = readScore('s1tb');
+  const s2tb = readScore('s2tb');
+  const s3tb = readScore('s3tb');
 
   // Encoding rules per spec
   const TB_W = isTB ? s3w : '';
@@ -720,7 +762,8 @@ async function submitForm(){
       mode:'no-cors'
     });
     ok.style.display='inline';
-    ['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb'].forEach(id=>{
+    // Clear visible score controls only
+    ['s1w','s1o','s2w','s2o','s1tb','s2tb','s3tb','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
     clearInvalids();
@@ -733,6 +776,12 @@ async function submitForm(){
 }
 
 /*** wiring ***/
+// Build 0–7 options for dropdowns
+['s1w','s1o','s2w','s2o','s3wSel','s3oSel'].forEach(id=>{
+  const el = document.getElementById(id);
+  if (el && el.tagName==='SELECT') fillScoreDropdown(el);
+});
+
 // Match type chips
 document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
   ch.addEventListener('click', ()=>{
@@ -743,20 +792,23 @@ document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
 });
 
 document.getElementById('isTb').addEventListener('change', e=>{
-  toggleTBUI(e.target.checked); refreshTBEnabled(); clearInvalids();
+  toggleTBUI(e.target.checked); clearInvalids();
 });
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
 
 /* Recompute TB enabled state whenever any set score changes */
-['s1w','s1o','s2w','s2o','s3w','s3o'].forEach(id=>{
+['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
   const el=document.getElementById(id);
-  if (el) el.addEventListener('input', refreshTBEnabled);
+  if (el){
+    const ev = el.tagName==='SELECT' ? 'change' : 'input';
+    el.addEventListener(ev, refreshTBEnabled);
+  }
 });
 
-/* cleanup invalid state on input */
-['s1w','s1o','s2w','s2o','s3w','s3o','s1tb','s2tb','s3tb','winner','opponentSelect'].forEach(id=>{
+/* cleanup invalid state on input/change */
+['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
@@ -784,7 +836,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     setMatchTypeChip('Scheduled');
     recomputeOpponentForMode();
     updateRowLabels();
-    toggleTBUI(false);
+    toggleTBUI(false); // start in full set mode
     setStatusChip('Completed');
     refreshTBEnabled();
     document.getElementById('submitBtn').disabled=false;
