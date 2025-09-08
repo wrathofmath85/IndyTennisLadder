@@ -83,7 +83,7 @@
   }
   button[disabled]{ opacity:.6; cursor:not-allowed; }
 
-  /* ---------- NEW: Responsive score grid ---------- */
+  /* ---------- Responsive score grid ---------- */
   .scores{
     border:1px solid var(--line);
     border-radius:12px;
@@ -112,7 +112,7 @@
   .scores-row{ padding:8px 4px; }
   .scores-row + .scores-row{ border-top:1px solid #172033; }
 
-  .who{ font-weight:700; display:flex; align-items:center; }
+  .who{ font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .rank-badge{
     display:inline-flex; align-items:center; gap:6px;
     background:#0f1b2c; border:1px solid #1e2a42; border-radius:999px; padding:6px 10px; font-weight:700;
@@ -133,29 +133,13 @@
   .disabled-like{ opacity:.5; }
   .hidden{ display:none; }
 
-  /* Mobile layout:
-     - Hide the empty top-left header cell
-     - Labels (Winner/Opponent/Tie-break) span full width
-     - Inputs line up in a clean 3-col row under each label
-  */
   @media (max-width:600px){
-    .scores-head{
-      grid-template-columns: repeat(3, 1fr);
-      text-align:center;
-    }
+    .scores-head{ grid-template-columns: repeat(3, 1fr); text-align:center; }
     .scores-head div:first-child{ display:none; }
-
-    .scores-row{
-      grid-template-columns: repeat(3, 1fr);
-      gap:8px;
-    }
-    .scores-row .who{
-      grid-column: 1 / -1;
-      margin:6px 0 2px;
-    }
+    .scores-row{ grid-template-columns: repeat(3, 1fr); gap:8px; }
+    .scores-row .who{ grid-column: 1 / -1; margin:6px 0 2px; }
     .tight-num{ height:44px; }
   }
-  /* Desktop/tablet: keep compact widths for inputs */
   @media (min-width:601px){
     .tight-num{ max-width:68px; margin-inline:auto; }
   }
@@ -170,29 +154,22 @@
 <div class="wrap">
   <header>
     <h1>Round 1 Score Submission</h1>
-    <p class="muted">Pick the winner, then enter the score. Third set can be a full set or a 10‑point match tiebreak.</p>
+    <p class="muted">Pick the winner, then enter the score. Third set can be a full set or a 10-point match tiebreak.</p>
   </header>
 
   <section class="card">
     <fieldset>
       <legend>Players</legend>
       <div class="grid">
-        <label for="matchType">Match Type</label>
-        <select id="matchType">
-          <option value="Scheduled" selected>Scheduled Match</option>
-          <option value="Challenge">Challenge Match</option>
-        </select>
+        <!-- Match Type: CHIPS (buttons) -->
+        <label>Match Type</label>
+        <div class="chips" id="matchTypeChips" role="tablist" aria-label="Match type">
+          <span class="chip active" data-type="Scheduled" role="button" tabindex="0">Scheduled</span>
+          <span class="chip" data-type="Challenge" role="button" tabindex="0">Challenge</span>
+        </div>
 
-        <label for="winner">Winner</label>
-        <select id="winner" required>
-          <option value="">Loading players…</option>
-        </select>
-
-        <label for="opponent">Opponent</label>
-        <input id="opponentText" type="text" readonly placeholder="Will auto‑fill after you pick a winner" />
-        <select id="opponentSelect" class="hidden">
-          <option value="">Select opponent…</option>
-        </select>
+        <!-- Winner control moved to Scores block (no duplicate here) -->
+        <div></div><div class="muted">Winner is selected below in the score grid.</div>
       </div>
       <p id="playersError" class="error" style="display:none;"></p>
     </fieldset>
@@ -213,12 +190,12 @@
 
       <div class="row-inline" style="margin-bottom:12px;">
         <label class="row-inline" for="isTb" style="gap:10px;">
-          <input id="isTb" type="checkbox" /> Use 10‑point <b>match</b> tiebreak instead of full third set
+          <input id="isTb" type="checkbox" /> Use 10-point <b>match</b> tiebreak instead of full third set
         </label>
         <span class="help">Tiebreak boxes are always visible but only accept input when a set score is 7–6.</span>
       </div>
 
-      <!-- ---------- NEW RESPONSIVE SCORE GRID ---------- -->
+      <!-- ---------- SCORE GRID ---------- -->
       <div class="scores" aria-label="Set scores">
         <div class="scores-head">
           <div></div>
@@ -227,28 +204,43 @@
           <div id="col3Header">Set 3</div>
         </div>
 
+        <!-- Winner row with inline select -->
         <div class="scores-row">
-          <div id="winnerLabel" class="who"><span class="rank-badge"><span class="dot"></span><span>Winner</span></span></div>
+          <div id="winnerLabel" class="who">
+            <span class="rank-badge"><span class="dot"></span><span>Winner</span></span>
+            <select id="winner" required style="min-width:220px; max-width:320px;">
+              <option value="">Loading players…</option>
+            </select>
+          </div>
           <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" />
           <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" />
           <div id="s3wCell"><input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Winner Set 3 or Match TB" /></div>
         </div>
 
+        <!-- Opponent row (label contains inline opponent select/text) -->
         <div class="scores-row">
-          <div id="opponentLabel" class="who"><span class="rank-badge"><span class="dot"></span><span>Opponent</span></span></div>
+          <div id="opponentLabel" class="who">
+            <span class="rank-badge"><span class="dot"></span>
+              <span id="opponentNameText">Opponent</span>
+            </span>
+            <!-- Inline select appears here when Match Type = Challenge -->
+            <select id="opponentSelect" class="hidden" style="max-width:280px;">
+              <option value="">Select opponent…</option>
+            </select>
+          </div>
           <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" />
           <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" />
           <div id="s3oCell"><input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Opponent Set 3 or Match TB" /></div>
         </div>
 
         <div class="scores-row">
-          <div class="who"><b>Tie‑break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
+          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
           <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled />
           <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled />
           <div id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></div>
         </div>
       </div>
-      <!-- ------------------------------------------------ -->
+      <!-- --------------------------------- -->
 
       <div id="msg" class="error" role="alert" aria-live="polite"></div>
     </fieldset>
@@ -278,7 +270,7 @@ const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 /* Robust CSV parser that strips BOM and handles quotes */
 function parseCSV(text){
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const rows=[], curInit=[]; let cur=[], field='', inQuotes=false;
+  const rows=[]; let cur=[]; let field=''; let inQuotes=false;
   for (let i=0;i<text.length;i++){
     const c=text[i];
     if(inQuotes){
@@ -347,7 +339,8 @@ async function loadPlayers(){
       names.map(n=>`<option value="${n}">${n}</option>`).join('');
   }catch(e){
     console.error('loadPlayers error:', e);
-    document.getElementById('winner').innerHTML = '<option value="">Could not load players</option>';
+    const w=document.getElementById('winner');
+    if (w) w.innerHTML = '<option value="">Could not load players</option>';
     const errEl = document.getElementById('playersError');
     errEl.textContent = 'Could not load players. Please check the Google Sheet publish settings and headers.';
     errEl.style.display = 'block';
@@ -367,6 +360,18 @@ async function loadScheduleR1(){
     const vals = headers.map(h=>r[h]);
     const rank=Number(vals[idxRanking]), opp=Number(vals[idxR1]);
     if(!Number.isNaN(rank)&&!Number.isNaN(opp)) scheduleR1.set(rank,opp);
+  });
+}
+
+/* ---------- Match type chips ---------- */
+function getMatchType(){
+  const chips = document.querySelectorAll('#matchTypeChips .chip');
+  for (const c of chips){ if (c.classList.contains('active')) return c.dataset.type; }
+  return 'Scheduled';
+}
+function setMatchTypeChip(type){
+  document.querySelectorAll('#matchTypeChips .chip').forEach(c=>{
+    c.classList.toggle('active', c.dataset.type===type);
   });
 }
 
@@ -428,65 +433,66 @@ function focusFirstInvalid(){
   }
 }
 
-/* Get/set opponent UI based on match type */
-function getMatchType(){ return document.getElementById('matchType').value; }
-function setOpponentUI(mode){
-  const txt = document.getElementById('opponentText');
-  const sel = document.getElementById('opponentSelect');
-  if (mode === 'Challenge'){
-    txt.classList.add('hidden');
-    sel.classList.remove('hidden');
+/* Opponent value helpers */
+function getOpponentValue(){
+  const mode = getMatchType();
+  if (mode==='Challenge'){
+    return document.getElementById('opponentSelect').value || '';
   } else {
-    sel.classList.add('hidden');
-    txt.classList.remove('hidden');
+    return document.getElementById('opponentNameText').textContent || '';
   }
 }
-function getOpponentValue(){
-  return getMatchType()==='Challenge'
-    ? document.getElementById('opponentSelect').value
-    : document.getElementById('opponentText').value;
-}
 function setOpponentValue(val){
-  if (getMatchType()==='Challenge'){
+  const mode = getMatchType();
+  if (mode==='Challenge'){
     const sel = document.getElementById('opponentSelect');
     sel.value = val || '';
-  }else{
-    document.getElementById('opponentText').value = val || '';
+  } else {
+    document.getElementById('opponentNameText').textContent = val || '';
   }
 }
 
+/* Winner/opponent display refresh */
 function updateRowLabels(){
-  const wName = document.getElementById('winner').value;
+  // Winner label just shows "Winner" (selector lives there), opponent text shows name
   const oName = getOpponentValue();
-  const badge = t=>`<span class="rank-badge"><span class="dot"></span><span>${t||''}</span></span>`;
-  document.getElementById('winnerLabel').innerHTML   = badge(wName || 'Winner');
-  document.getElementById('opponentLabel').innerHTML = badge(oName || 'Opponent');
+  document.getElementById('opponentNameText').textContent = oName || (getMatchType()==='Challenge' ? '' : 'Opponent');
 }
 
 /* Scheduled: compute opponent from schedule; Challenge: build list ±5 ranks */
 function recomputeOpponentForMode(){
   const winner=document.getElementById('winner').value;
   setOpponentValue('');
-  if(!winner){ updateRowLabels(); return; }
-  const wRank = rankByName.get(winner);
-  if (!wRank){ setOpponentValue('Rank not found'); updateRowLabels(); return; }
+  const mode = getMatchType();
 
-  if (getMatchType()==='Challenge'){
-    const sel = document.getElementById('opponentSelect');
+  const oppNameText = document.getElementById('opponentNameText');
+  const oppSelect   = document.getElementById('opponentSelect');
+
+  if (!winner){
+    oppSelect.classList.add('hidden');
+    oppNameText.textContent = 'Opponent';
+    updateRowLabels();
+    return;
+  }
+  const wRank = rankByName.get(winner);
+
+  if (mode==='Challenge'){
+    oppSelect.classList.remove('hidden');
     const minR = Math.max(1, wRank - 5);
     const maxR = wRank + 5;
-    const options = [];
-    options.push('<option value="">Select opponent…</option>');
+    const options = ['<option value="">Select opponent…</option>'];
     for (let r=minR; r<=maxR; r++){
       if (r===wRank) continue;
       const name = nameByRank.get(r);
       if (name) options.push(`<option value="${name}">${name}</option>`);
     }
-    sel.innerHTML = options.join('');
-  }else{
+    oppSelect.innerHTML = options.join('');
+    oppNameText.textContent = '';
+  } else {
+    oppSelect.classList.add('hidden');
     const oppRank = scheduleR1.get(wRank);
-    const oppName = nameByRank.get(oppRank) || '';
-    setOpponentValue(oppName || 'No Round 1 opponent found');
+    const oppName = nameByRank.get(oppRank) || 'No Round 1 opponent found';
+    oppNameText.textContent = oppName;
   }
 
   updateRowLabels();
@@ -566,8 +572,8 @@ function validateScores(){
   const v1 = validateSetPair(s1w,s1o,'Set 1','s1w','s1o'); if(!v1.ok){ msg.textContent=v1.msg; focusFirstInvalid(); return false; }
   const v2 = validateSetPair(s2w,s2o,'Set 2','s2w','s2o'); if(!v2.ok){ msg.textContent=v2.msg; focusFirstInvalid(); return false; }
 
-  if (v1.needTB && s1tb===''){ msg.textContent='Enter tie‑break points for Set 1.'; markInvalid('s1tb'); focusFirstInvalid(); return false; }
-  if (v2.needTB && s2tb===''){ msg.textContent='Enter tie‑break points for Set 2.'; markInvalid('s2tb'); focusFirstInvalid(); return false; }
+  if (v1.needTB && s1tb===''){ msg.textContent='Enter tie-break points for Set 1.'; markInvalid('s1tb'); focusFirstInvalid(); return false; }
+  if (v2.needTB && s2tb===''){ msg.textContent='Enter tie-break points for Set 2.'; markInvalid('s2tb'); focusFirstInvalid(); return false; }
 
   let won=0, lost=0;
   won += v1.winnerIsTop ? 1 : 0;
@@ -620,7 +626,7 @@ function validateScores(){
         return false;
       }
       if (v3.needTB && s3tb===''){
-        msg.textContent='Enter tie‑break points for Set 3.';
+        msg.textContent='Enter tie-break points for Set 3.';
         markInvalid('s3tb'); focusFirstInvalid(); return false;
       }
       return true;
@@ -657,8 +663,13 @@ async function submitForm(){
   const s2tb = readCell('s2tb');
   const s3tb = readCell('s3tb');
 
+  // Encoding rules per your spec:
+  // - Match TB: S3_W=1, S3_O=0, TB_W/TB_O = actual TB points, Set3_T blank.
+  // - Full Set: S3_W/S3_O = set-3 games, TB_W/TB_O blank, Set3_T as entered (if needed).
   const TB_W = isTB ? s3w : '';
   const TB_O = isTB ? s3o : '';
+  const S3_W = isTB ? 1   : (s3w === '' ? '' : s3w);
+  const S3_O = isTB ? 0   : (s3o === '' ? '' : s3o);
 
   const matchType = getMatchType();
 
@@ -675,15 +686,22 @@ async function submitForm(){
                     : (rankByName.get(opponent) || '')),
     isTiebreakThird: isTB,
 
+    // Raw set entry fields (kept for transparency/export)
     s1w, s1o,
     s2w, s2o,
-    s3w, s3o,
+    // For match TB we blank the set-3 TB field and can optionally blank s3w/s3o if you prefer.
+    // Leaving them as-is is harmless; we keep them for visibility but Set3_T is blank in TB mode.
+    s3w: isTB ? '' : s3w,
+    s3o: isTB ? '' : s3o,
 
     Set1_T: s1tb,
     Set2_T: s2tb,
-    Set3_T: s3tb,
+    Set3_T: isTB ? '' : s3tb,
 
+    // Authoritative 3rd-set encoding + TB buckets
+    S3_W, S3_O,
     TB_W, TB_O,
+
     needTB1, needTB2, needTB3
   };
 
@@ -709,10 +727,13 @@ async function submitForm(){
 }
 
 /*** wiring ***/
-document.getElementById('matchType').addEventListener('change', ()=>{
-  setOpponentUI(getMatchType());
-  recomputeOpponentForMode();
-  clearInvalids();
+// Match type chips
+document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
+  ch.addEventListener('click', ()=>{
+    setMatchTypeChip(ch.dataset.type);
+    recomputeOpponentForMode();
+    clearInvalids();
+  });
 });
 
 document.getElementById('isTb').addEventListener('change', e=>{
@@ -742,7 +763,11 @@ document.getElementById('winner').addEventListener('change', ()=>{
   updateRowLabels();
 });
 
-document.getElementById('opponentSelect').addEventListener('change', updateRowLabels);
+document.getElementById('opponentSelect').addEventListener('change', ()=>{
+  const name = document.getElementById('opponentSelect').value;
+  document.getElementById('opponentNameText').textContent = name || '';
+  updateRowLabels();
+});
 
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
@@ -750,7 +775,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
 (async function init(){
   try{
     await Promise.all([loadPlayers(), loadScheduleR1()]);
-    setOpponentUI(getMatchType());
+    setMatchTypeChip('Scheduled');
     recomputeOpponentForMode();
     updateRowLabels();
     toggleTBUI(false);
