@@ -41,7 +41,8 @@
     margin:16px 0;
     box-shadow: 0 10px 30px rgba(0,0,0,.25);
   }
-  legend{ font-weight:700; padding:0 6px; }
+  /* Hide the Players legend visually, keep it for a11y */
+  legend.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
   fieldset{ border: none; margin:0; padding:0; }
 
   label{ display:block; margin:8px 0 6px; font-weight:600; }
@@ -83,7 +84,7 @@
   }
   button[disabled]{ opacity:.6; cursor:not-allowed; }
 
-  /* ---------- Responsive score grid ---------- */
+  /* ---------- Scores box ---------- */
   .scores{
     border:1px solid var(--line);
     border-radius:12px;
@@ -94,7 +95,7 @@
   .scores-head,
   .scores-row{
     display:grid;
-    grid-template-columns: 1fr repeat(3, 68px);
+    grid-template-columns: 1fr 1fr; /* label | big box */
     gap:10px;
     align-items:center;
   }
@@ -108,6 +109,7 @@
     margin-bottom:8px;
   }
   .scores-head div:first-child{ text-align:left; }
+  .scores-head .col-label{ text-align:center; }
 
   .scores-row{ padding:8px 4px; }
   .scores-row + .scores-row{ border-top:1px solid #172033; }
@@ -133,15 +135,26 @@
   .disabled-like{ opacity:.5; }
   .hidden{ display:none; }
 
+  /* Make the three set inputs look like ONE big box */
+  .triple{ display:flex; gap:0; }
+  .triple .tight-num{
+    border-radius:0; border-right:1px solid var(--line);
+    max-width:none; /* allow full stretch */
+  }
+  .triple .tight-num:first-child{
+    border-top-left-radius:10px; border-bottom-left-radius:10px;
+  }
+  .triple .tight-num:last-child{
+    border-top-right-radius:10px; border-bottom-right-radius:10px;
+    border-right:1px solid var(--line);
+  }
+
   @media (max-width:600px){
-    .scores-head{ grid-template-columns: repeat(3, 1fr); text-align:center; }
-    .scores-head div:first-child{ display:none; }
-    .scores-row{ grid-template-columns: repeat(3, 1fr); gap:8px; }
-    .scores-row .who{ grid-column: 1 / -1; margin:6px 0 2px; }
+    .scores-head{ grid-template-columns: 1fr 1fr; text-align:center; }
     .tight-num{ height:44px; }
   }
   @media (min-width:601px){
-    .tight-num{ max-width:68px; margin-inline:auto; }
+    .tight-num{ max-width:none; }
   }
 
   .help{ font-size:.9rem; margin-top:8px; color:var(--muted); }
@@ -159,17 +172,18 @@
 
   <section class="card">
     <fieldset>
-      <legend>Players</legend>
+      <!-- VISUALLY HIDDEN legend (removes red text) -->
+      <legend class="sr-only">Players</legend>
       <div class="grid">
-        <!-- Match Type: CHIPS (buttons) -->
+        <!-- Match Type: CHIPS -->
         <label>Match Type</label>
         <div class="chips" id="matchTypeChips" role="tablist" aria-label="Match type">
           <span class="chip active" data-type="Scheduled" role="button" tabindex="0">Scheduled</span>
           <span class="chip" data-type="Challenge" role="button" tabindex="0">Challenge</span>
         </div>
 
-        <!-- Winner control moved to Scores block (no duplicate here) -->
-        <div></div><div class="muted">Winner is selected below in the score grid.</div>
+        <!-- Removed the explanatory line about winner selection -->
+        <div></div><div></div>
       </div>
       <p id="playersError" class="error" style="display:none;"></p>
     </fieldset>
@@ -199,12 +213,10 @@
       <div class="scores" aria-label="Set scores">
         <div class="scores-head">
           <div></div>
-          <div>Set 1</div>
-          <div>Set 2</div>
-          <div id="col3Header">Set 3</div>
+          <div class="col-label" id="col3Header">Scores</div>
         </div>
 
-        <!-- Winner row with inline select -->
+        <!-- Winner row (select + ONE big box made of 3 joined inputs) -->
         <div class="scores-row">
           <div id="winnerLabel" class="who">
             <span class="rank-badge"><span class="dot"></span><span>Winner</span></span>
@@ -212,32 +224,38 @@
               <option value="">Loading players…</option>
             </select>
           </div>
-          <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 1" />
-          <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Winner Set 2" />
-          <div id="s3wCell"><input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Winner Set 3 or Match TB" /></div>
+          <div class="triple" aria-label="Winner set scores">
+            <input id="s1w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S1" />
+            <input id="s2w" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S2" />
+            <input id="s3w" class="tight-num" type="number" min="0" max="15" inputmode="numeric" placeholder="S3/TB" />
+          </div>
         </div>
 
-        <!-- Opponent row (label contains inline opponent select/text) -->
+        <!-- Opponent row (name/select + ONE big box of 3 joined inputs) -->
         <div class="scores-row">
           <div id="opponentLabel" class="who">
             <span class="rank-badge"><span class="dot"></span>
               <span id="opponentNameText">Opponent</span>
             </span>
-            <!-- Inline select appears here when Match Type = Challenge -->
             <select id="opponentSelect" class="hidden" style="max-width:280px;">
               <option value="">Select opponent…</option>
             </select>
           </div>
-          <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 1" />
-          <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" aria-label="Opponent Set 2" />
-          <div id="s3oCell"><input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" aria-label="Opponent Set 3 or Match TB" /></div>
+          <div class="triple" aria-label="Opponent set scores">
+            <input id="s1o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S1" />
+            <input id="s2o" class="tight-num" type="number" min="0" max="7" inputmode="numeric" placeholder="S2" />
+            <input id="s3o" class="tight-num" type="number" min="0" max="15" inputmode="numeric" placeholder="S3/TB" />
+          </div>
         </div>
 
+        <!-- Tie-break row (joined into one big box too) -->
         <div class="scores-row">
           <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
-          <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" aria-label="Set 1 tie-break (winner points)" disabled />
-          <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" aria-label="Set 2 tie-break (winner points)" disabled />
-          <div id="s3tbCell"><input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" aria-label="Set 3 tie-break (winner points)" disabled /></div>
+          <div class="triple" aria-label="Tie-breaks">
+            <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" disabled />
+            <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" disabled />
+            <input id="s3tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S3 TB" disabled />
+          </div>
         </div>
       </div>
       <!-- --------------------------------- -->
@@ -267,7 +285,7 @@ let status = 'Completed';
 
 const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 
-/* Robust CSV parser that strips BOM and handles quotes */
+/* Robust CSV parser */
 function parseCSV(text){
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const rows=[]; let cur=[]; let field=''; let inQuotes=false;
@@ -318,9 +336,7 @@ async function loadPlayers(){
       };
     }).filter(p=>p.name);
 
-    if (!mapped.length){
-      throw new Error('No player names found. Check column header is "Participant" or "Name".');
-    }
+    if (!mapped.length) throw new Error('No player names found.');
 
     const eligible = mapped.filter(p=>p.roundStart<=1 && p.roundEnd>=1);
     eligible.sort((a,b)=>{
@@ -389,15 +405,14 @@ function setStatusChip(newStatus){
 }
 
 function toggleTBUI(isTB){
-  document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Set 3';
-  document.getElementById('s3wCell').classList.toggle('hidden', false);
-  document.getElementById('s3oCell').classList.toggle('hidden', false);
-  document.getElementById('s3tbCell').classList.toggle('hidden', isTB);
+  document.getElementById('col3Header').textContent = isTB ? 'Match TB' : 'Scores';
+  document.getElementById('s3tb').parentElement.classList.toggle('hidden', isTB);
 }
 
 function refreshTBEnabled(){
-  const sets=[1,2,3];
   const isTB = document.getElementById('isTb').checked;
+  // S1/S2 TB enabled if 7–6 occurs; S3 TB disabled in match TB mode
+  const sets=[1,2,3];
   sets.forEach(k=>{
     const w=document.getElementById(`s${k}w`);
     const o=document.getElementById(`s${k}o`);
@@ -433,7 +448,7 @@ function focusFirstInvalid(){
   }
 }
 
-/* Opponent value helpers */
+/* Opponent helpers */
 function getOpponentValue(){
   const mode = getMatchType();
   if (mode==='Challenge'){
@@ -452,14 +467,12 @@ function setOpponentValue(val){
   }
 }
 
-/* Winner/opponent display refresh */
 function updateRowLabels(){
-  // Winner label just shows "Winner" (selector lives there), opponent text shows name
   const oName = getOpponentValue();
   document.getElementById('opponentNameText').textContent = oName || (getMatchType()==='Challenge' ? '' : 'Opponent');
 }
 
-/* Scheduled: compute opponent from schedule; Challenge: build list ±5 ranks */
+/* Scheduled vs Challenge opponent */
 function recomputeOpponentForMode(){
   const winner=document.getElementById('winner').value;
   setOpponentValue('');
@@ -498,7 +511,7 @@ function recomputeOpponentForMode(){
   updateRowLabels();
 }
 
-/* Reading & validation */
+/* Reading & validation helpers */
 function readCell(id){
   const el=document.getElementById(id);
   if(!el) return '';
@@ -594,7 +607,6 @@ function validateScores(){
   }
 
   if (won===1 && lost===1){
-    const isTB=document.getElementById('isTb').checked;
     if (isTB){
       if (s3w==='' || s3o===''){
         msg.textContent='Enter the match tiebreak score in the Set 3 boxes.';
@@ -663,9 +675,7 @@ async function submitForm(){
   const s2tb = readCell('s2tb');
   const s3tb = readCell('s3tb');
 
-  // Encoding rules per your spec:
-  // - Match TB: S3_W=1, S3_O=0, TB_W/TB_O = actual TB points, Set3_T blank.
-  // - Full Set: S3_W/S3_O = set-3 games, TB_W/TB_O blank, Set3_T as entered (if needed).
+  // Encoding rules per spec
   const TB_W = isTB ? s3w : '';
   const TB_O = isTB ? s3o : '';
   const S3_W = isTB ? 1   : (s3w === '' ? '' : s3w);
@@ -686,11 +696,8 @@ async function submitForm(){
                     : (rankByName.get(opponent) || '')),
     isTiebreakThird: isTB,
 
-    // Raw set entry fields (kept for transparency/export)
     s1w, s1o,
     s2w, s2o,
-    // For match TB we blank the set-3 TB field and can optionally blank s3w/s3o if you prefer.
-    // Leaving them as-is is harmless; we keep them for visibility but Set3_T is blank in TB mode.
     s3w: isTB ? '' : s3w,
     s3o: isTB ? '' : s3o,
 
@@ -698,7 +705,6 @@ async function submitForm(){
     Set2_T: s2tb,
     Set3_T: isTB ? '' : s3tb,
 
-    // Authoritative 3rd-set encoding + TB buckets
     S3_W, S3_O,
     TB_W, TB_O,
 
