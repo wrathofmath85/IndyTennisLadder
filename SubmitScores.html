@@ -121,7 +121,8 @@
   }
   .rank-badge .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; }
 
-  .tight-num{ /* shared look for selects/inputs in score strip */
+  /* shared visual for “one big box split in 3” */
+  .tight-num{
     width:100%;
     text-align:center;
     padding:10px 0;
@@ -135,18 +136,33 @@
   .disabled-like{ opacity:.5; }
   .hidden{ display:none; }
 
-  /* Make the three set inputs look like ONE big box */
+  /* Triple layout: make the three pieces look like one control */
   .triple{ display:flex; gap:0; }
-  .triple .tight-num{
+  .triple > .tight-num{
     border-radius:0; border-right:1px solid var(--line);
     max-width:none;
   }
-  .triple .tight-num:first-child{
+  .triple > .tight-num:first-child{
     border-top-left-radius:10px; border-bottom-left-radius:10px;
   }
-  .triple .tight-num:last-child{
+  .triple > .tight-num:last-child{
     border-top-right-radius:10px; border-bottom-right-radius:10px;
     border-right:1px solid var(--line);
+  }
+
+  /* Set 3 “slot” wrappers: keep borders on wrapper; inner control is borderless */
+  .slot{ position:relative; }
+  .slot > select,
+  .slot > input{
+    position:relative;
+    width:100%;
+    height:100%;
+    border:0;              /* wrapper provides the border */
+    background:transparent;/* wrapper provides the bg */
+    padding:10px 0;        /* match .tight-num padding */
+    color:var(--text);
+    border-radius:0;       /* wrapper handles rounding */
+    font-size:16px;
   }
 
   @media (max-width:600px){
@@ -221,20 +237,18 @@
             </select>
           </div>
           <div class="triple" aria-label="Winner set scores">
-            <!-- Set 1 -->
             <select id="s1w" class="tight-num score-dd" aria-label="Winner Set 1">
               <option value="">S1</option>
             </select>
-            <!-- Set 2 -->
             <select id="s2w" class="tight-num score-dd" aria-label="Winner Set 2">
               <option value="">S2</option>
             </select>
-            <!-- Set 3: dropdown (full set) OR input (match TB) -->
-            <div style="flex:1;">
-              <select id="s3wSel" class="tight-num score-dd" aria-label="Winner Set 3 (full set)">
+            <!-- Set 3: wrapper behaves like the third “box” -->
+            <div id="s3wWrap" class="tight-num slot" aria-label="Winner Set 3 (full set or TB)">
+              <select id="s3wSel" class="score-dd" aria-label="Winner Set 3 (full set)">
                 <option value="">S3</option>
               </select>
-              <input id="s3w" class="tight-num hidden" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" aria-label="Winner Match TB" />
+              <input id="s3w" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" class="hidden" aria-label="Winner Match TB" />
             </div>
           </div>
         </div>
@@ -250,20 +264,17 @@
             </select>
           </div>
           <div class="triple" aria-label="Opponent set scores">
-            <!-- Set 1 -->
             <select id="s1o" class="tight-num score-dd" aria-label="Opponent Set 1">
               <option value="">S1</option>
             </select>
-            <!-- Set 2 -->
             <select id="s2o" class="tight-num score-dd" aria-label="Opponent Set 2">
               <option value="">S2</option>
             </select>
-            <!-- Set 3: dropdown (full set) OR input (match TB) -->
-            <div style="flex:1;">
-              <select id="s3oSel" class="tight-num score-dd" aria-label="Opponent Set 3 (full set)">
+            <div id="s3oWrap" class="tight-num slot" aria-label="Opponent Set 3 (full set or TB)">
+              <select id="s3oSel" class="score-dd" aria-label="Opponent Set 3 (full set)">
                 <option value="">S3</option>
               </select>
-              <input id="s3o" class="tight-num hidden" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" aria-label="Opponent Match TB" />
+              <input id="s3o" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" class="hidden" aria-label="Opponent Match TB" />
             </div>
           </div>
         </div>
@@ -305,7 +316,7 @@ let status = 'Completed';
 
 const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 
-/* Robust CSV parser */
+/* CSV parser (robust) */
 function parseCSV(text){
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const rows=[]; let cur=[]; let field=''; let inQuotes=false;
@@ -334,10 +345,10 @@ function parseCSV(text){
 
 function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
-/* Populate 0–7 options for all score dropdowns */
+/* Populate 0–7 options for dropdowns */
 function fillScoreDropdown(sel){
   if (!sel) return;
-  if (sel.options.length > 1) return; // already filled
+  if (sel.options.length > 1) return;
   for (let i=0;i<=7;i++){
     const opt=document.createElement('option');
     opt.value=String(i); opt.textContent=String(i);
@@ -442,7 +453,7 @@ function toggleTBUI(isTB){
   document.getElementById('s3o').classList.toggle('hidden', !isTB);
   document.getElementById('s3wSel').classList.toggle('hidden', isTB);
   document.getElementById('s3oSel').classList.toggle('hidden', isTB);
-  // Clear the inactive controls so validation targets only the visible ones
+  // Clear inactive
   if (isTB){ document.getElementById('s3wSel').value=''; document.getElementById('s3oSel').value=''; }
   else { document.getElementById('s3w').value=''; document.getElementById('s3o').value=''; }
   // TB box for S3 is never used in match TB mode
@@ -473,12 +484,14 @@ function clearInvalids(){
     el.removeAttribute('aria-invalid');
   });
 }
-function markInvalidActive(id){ // marks visible control for s3; others directly
-  let el = document.getElementById(id);
+function markInvalidActive(id){
+  // For Set 3, highlight the wrapper so the red outline is visible
   if (id==='s3w' || id==='s3o'){
-    const isTB = document.getElementById('isTb').checked;
-    el = document.getElementById(isTB ? id : id+'Sel');
+    const wrapId = id==='s3w' ? 's3wWrap' : 's3oWrap';
+    const wrap = document.getElementById(wrapId);
+    if (wrap){ wrap.classList.add('invalid'); wrap.setAttribute('aria-invalid','true'); return wrap; }
   }
+  const el = document.getElementById(id);
   if (!el) return;
   el.classList.add('invalid');
   el.setAttribute('aria-invalid','true');
@@ -562,7 +575,7 @@ function parseNum(v){
   return Number.isNaN(n) ? '' : n;
 }
 function getScoreValueEl(id){ return document.getElementById(id); }
-function readScore(id){ // handles s3 (dropdown vs input) seamlessly
+function readScore(id){
   if (id==='s3w' || id==='s3o'){
     const isTB = document.getElementById('isTb').checked;
     const activeId = isTB ? id : id+'Sel';
@@ -762,7 +775,6 @@ async function submitForm(){
       mode:'no-cors'
     });
     ok.style.display='inline';
-    // Clear visible score controls only
     ['s1w','s1o','s2w','s2o','s1tb','s2tb','s3tb','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
@@ -776,7 +788,6 @@ async function submitForm(){
 }
 
 /*** wiring ***/
-// Build 0–7 options for dropdowns
 ['s1w','s1o','s2w','s2o','s3wSel','s3oSel'].forEach(id=>{
   const el = document.getElementById(id);
   if (el && el.tagName==='SELECT') fillScoreDropdown(el);
@@ -808,7 +819,7 @@ document.getElementById('isTb').addEventListener('change', e=>{
 });
 
 /* cleanup invalid state on input/change */
-['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect'].forEach(id=>{
+['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect','s3wWrap','s3oWrap'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
