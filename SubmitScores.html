@@ -150,19 +150,29 @@
     border-right:1px solid var(--line);
   }
 
-  /* Set 3 “slot” wrappers: keep borders on wrapper; inner control is borderless */
+  /* Set 3 “slot” wrappers: keep borders on wrapper; inner control is borderless
+     (Overridden to ensure dark background on inner control) */
   .slot{ position:relative; }
+
+  /* ✅ Make Set 3 dropdowns/inputs match Sets 1 & 2 (dark bg, white text) */
   .slot > select,
-  .slot > input{
+  .slot > input[type="number"]{
     position:relative;
     width:100%;
     height:100%;
-    border:0;              /* wrapper provides the border */
-    background:transparent;/* wrapper provides the bg */
-    padding:10px 0;        /* match .tight-num padding */
-    color:var(--text);
-    border-radius:0;       /* wrapper handles rounding */
+    border:0;                         /* wrapper provides the border */
+    background:#0e1420 !important;    /* force dark background */
+    color:var(--text) !important;
+    padding:10px 0;                   /* match .tight-num padding */
+    border-radius:0;                  /* wrapper handles rounding */
     font-size:16px;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    appearance:none;
+  }
+  .slot > select option{
+    background:#0e1420;
+    color:var(--text);
   }
 
   @media (max-width:600px){
