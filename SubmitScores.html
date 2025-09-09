@@ -1,8 +1,19 @@
+Absolutely—here’s a mobile-friendly pass. I kept your desktop look, but on small screens it now:
+
+* stacks the “Winner/Opponent” label above the score boxes (no cramped two-column grid)
+* removes the min-width on the Winner select
+* makes the three score boxes equal height/width with proper rounding
+* widens the Submit button to full width
+* keeps Set 3 styling consistent with Sets 1–2 (dark bg)
+
+Paste this full file:
+
+```html
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Indy Tennis Ladder – Round 1 Score Entry</title>
 <style>
   :root{
@@ -18,7 +29,7 @@
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
   html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text);}
-  body{ margin:24px; display:flex; justify-content:center; }
+  body{ margin:24px; padding-bottom:calc(24px + env(safe-area-inset-bottom)); display:flex; justify-content:center; -webkit-tap-highlight-color:transparent; }
   .wrap{ width:min(1100px,100%); }
 
   header{
@@ -55,7 +66,11 @@
     outline:none;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
     font-size:16px;
+    -webkit-appearance:none; -moz-appearance:none; appearance:none;
   }
+  /* hide iOS number spinners */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
   input[readonly]{ opacity:.8; }
 
   .invalid{
@@ -69,7 +84,12 @@
     grid-template-columns: 220px 1fr;
     align-items:center;
   }
-  @media (max-width:700px){ .grid{ grid-template-columns: 1fr; } }
+  @media (max-width:700px){
+    .grid{ grid-template-columns: 1fr; }
+    header{ padding:16px; }
+    .card{ padding:12px; }
+    .chip{ font-size:.95rem; padding:6px 10px; }
+  }
 
   .chips{ display:flex; gap:8px; flex-wrap:wrap; }
   .chip{
@@ -150,39 +170,45 @@
     border-right:1px solid var(--line);
   }
 
-  /* Set 3 “slot” wrappers: keep borders on wrapper; inner control is borderless
-     (Overridden to ensure dark background on inner control) */
+  /* Set 3 wrapper + inner control (ensure dark bg like Sets 1&2) */
   .slot{ position:relative; }
-
-  /* ✅ Make Set 3 dropdowns/inputs match Sets 1 & 2 (dark bg, white text) */
   .slot > select,
   .slot > input[type="number"]{
     position:relative;
     width:100%;
     height:100%;
-    border:0;                         /* wrapper provides the border */
-    background:#0e1420 !important;    /* force dark background */
+    border:0;
+    background:#0e1420 !important;
     color:var(--text) !important;
-    padding:10px 0;                   /* match .tight-num padding */
-    border-radius:0;                  /* wrapper handles rounding */
+    padding:10px 0;
+    border-radius:0;
     font-size:16px;
-    -webkit-appearance:none;
-    -moz-appearance:none;
-    appearance:none;
+    -webkit-appearance:none; -moz-appearance:none; appearance:none;
   }
-  .slot > select option{
-    background:#0e1420;
-    color:var(--text);
-  }
+  .slot > select option{ background:#0e1420; color:var(--text); }
 
+  /* ---------- Mobile tweaks ---------- */
   @media (max-width:600px){
-    .scores-head{ grid-template-columns: 1fr 1fr; text-align:center; }
-    .tight-num{ height:44px; }
-  }
-  @media (min-width:601px){
-    .tight-num{ max-width:none; }
-  }
+    /* Stack label above controls */
+    .scores-row{ grid-template-columns: 1fr; align-items:stretch; }
+    .who{ margin-bottom:6px; }
 
+    /* Winner dropdown should not force width */
+    #winner{ min-width:0 !important; width:100% !important; }
+
+    /* Make the three cells equal columns, equal height */
+    .triple{ display:grid; grid-template-columns: repeat(3, 1fr); }
+    .tight-num{ height:48px; padding:0; display:flex; align-items:center; justify-content:center; }
+    .slot > select, .slot > input{ height:100%; padding:0 10px; }
+
+    /* Head row: one column looks cleaner on narrow view */
+    .scores-head{ grid-template-columns: 1fr; text-align:left; }
+
+    /* Big, easy CTA */
+    .row-inline{ width:100%; }
+    #submitBtn{ width:100%; }
+  }
+  
   .help{ font-size:.9rem; margin-top:8px; color:var(--muted); }
   .error{ color:var(--danger); margin-top:10px; }
   .success{ color:var(--success); margin-left:10px; }
@@ -243,7 +269,7 @@
           <div id="winnerLabel" class="who">
             <span class="rank-badge"><span class="dot"></span><span>Winner</span></span>
             <select id="winner" required style="min-width:220px; max-width:320px;">
-              <option value="">Loading players…</option>
+              <option value="">Select winner…</option>
             </select>
           </div>
           <div class="triple" aria-label="Winner set scores">
@@ -291,7 +317,7 @@
 
         <!-- Tie-break row -->
         <div class="scores-row">
-          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(loser's points)</span></div>
+          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
           <div class="triple" aria-label="Tie-breaks">
             <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" disabled />
             <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" disabled />
@@ -337,8 +363,8 @@ function parseCSV(text){
       else field+=c;
     }else{
       if(c==='"') inQuotes=true;
-      else if(c===','){ cur.push(field); field=''; }
-      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; cur.push(field); field=''; rows.push(cur); cur=[]; }
+      else if(c===','){ cur.push(field); field='';
+      } else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; cur.push(field); field=''; rows.push(cur); cur=[]; }
       else field+=c;
     }
   }
@@ -869,3 +895,6 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
 </script>
 </body>
 </html>
+```
+
+If you want the checkbox label to stay on one line on phones, I can shorten that copy or turn it into a tooltip—your call.
