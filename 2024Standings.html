@@ -483,7 +483,7 @@ async function init(){
         const divisor = hasScheduledMatch ? 2 : 4;
         const divisorMsg = hasScheduledMatch
           ? 'Challenge points reduced by ½ because your scheduled match was played.'
-          : 'Challenge points reduced by ¼ because your scheduled match was not played.';
+          : 'Challenge points reduced by ¼ because your scheduled match has not been played.';
 
         if (isLoss && challengeLoserPts.has(meKey)){
           const base = challengeLoserPts.get(meKey);     // from scores
