@@ -38,7 +38,6 @@
   .rank{ width:56px; color:#cdd8e6; }
   .name{ font-weight:600;}
   .points{ font-variant-numeric: tabular-nums; }
-  .sub{ color:var(--muted); font-weight:500;}
   .result{ font-weight:600;}
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
@@ -58,7 +57,16 @@
   }
   .loser-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
 
-  /* ---------- Modal styles (screenshot-like) ---------- */
+  /* Winner points chip */
+  .winner-pts{
+    display:inline-flex; align-items:center; gap:6px;
+    margin-left:10px; padding:2px 8px; border-radius:999px;
+    background:#12261b; border:1px solid #284c37; color:#c9edd7;
+    font-size:12px; cursor:pointer; user-select:none;
+  }
+  .winner-pts b{ font-variant-numeric:tabular-nums; color:#eafff3; }
+
+  /* ---------- Modal styles ---------- */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -85,7 +93,7 @@
     text-align:center; cursor:pointer;
   }
   .modal-body{ padding:16px; color:#d2deee; }
-  .modal-body p{ margin:0; line-height:1.5; }
+  .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{
     margin-top:10px; font-size:13px; color:#93a6bf;
     border-top:1px dashed #2a3750; padding-top:10px;
@@ -101,9 +109,8 @@
     .rank{ order:-3; font-weight:700; }
     .name{ order:-2; font-size:16px; }
     .points{ order:-1; }
-    .cell-label{ display:inline-block; width:150px; color:#91a3bb;}
     .badge{ display:inline-block; }
-    .loser-pts{ margin-left:0; margin-top:6px; }
+    .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
   }
 </style>
 </head>
@@ -140,12 +147,10 @@
 <div class="backdrop" id="backdrop" aria-hidden="true"></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
   <div class="modal-header">
-    <div class="modal-title" id="modalTitle">Loser Points</div>
+    <div class="modal-title" id="modalTitle">Points</div>
     <button class="modal-close" id="modalClose" aria-label="Close">×</button>
   </div>
-  <div class="modal-body" id="modalBody">
-    <!-- Filled dynamically -->
-  </div>
+  <div class="modal-body" id="modalBody"></div>
 </div>
 
 <script>
@@ -182,6 +187,7 @@ const lastName = s => {
   return parts.length ? parts[parts.length-1] : '';
 };
 const num = v => (v===null || v===undefined || v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
+const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
 const fmt = (v) => v===undefined || v===null ? '' : String(v);
 
 function fmtDateRange(startRaw, endRaw){
@@ -209,7 +215,7 @@ function setStatus(msg, isError=false){
   st.className = isError ? 'error' : 'loading';
 }
 
-/* ============== MODAL LOGIC ============== */
+/* Modal helpers */
 const backdropEl = document.getElementById('backdrop');
 const modalEl = document.getElementById('modal');
 const modalBody = document.getElementById('modalBody');
@@ -217,7 +223,6 @@ const modalTitle = document.getElementById('modalTitle');
 document.getElementById('modalClose').addEventListener('click', closeModal);
 backdropEl.addEventListener('click', closeModal);
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
-
 function openModal(title, html){
   modalTitle.textContent = title || 'Info';
   modalBody.innerHTML = html;
@@ -300,28 +305,48 @@ async function init(){
 
     const rankByName = {};
     const nameByRank = {};
-    players.forEach((p,i)=>{
-      p.Rank = i+1;
-      rankByName[nameKey(p.Participant)] = p.Rank;
-      nameByRank[p.Rank] = p.Participant;
-    });
+    players.forEach((p,i)=>{ p.Rank=i+1; rankByName[nameKey(p.Participant)]=p.Rank; nameByRank[p.Rank]=p.Participant; });
 
-    // Schedule map: rank -> opponentRank for this ROUND
+    // Schedule map
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     scheduleRaw.forEach(r=>{
-      const rnk = Number(r.Ranking);
-      const opp = Number(r[scheduleCol]);
-      if (!isNaN(rnk) && !isNaN(opp)){
-        scheduleMap[rnk] = opp;
-      }
+      const rnk = Number(r.Ranking), opp = Number(r[scheduleCol]);
+      if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // Scores index by player & match type (+ loser points)
-    const scheduledByPlayer = new Map();   // nameKey -> result string
+    // ------- Score helpers -------
+    function parseGameTotals(row){
+      const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
+      const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
+      const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
+      const wGames = W1+W2+W3;
+      const oGames = O1+O2+O3;
+      return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
+    }
+    function computeWinnerPoints(winnerRank, opponentRank, diffGames){
+      const rankDiff = Math.abs((opponentRank||0) - (winnerRank||0));
+      const isUnderdogUpset = (winnerRank||99) - (opponentRank||0) > 1; // winner had worse (larger) rank by >1
+      let points, rule;
+      if (isUnderdogUpset){
+        const raw = 10 + diffGames * ((winnerRank - opponentRank)/2);
+        points = Math.max(15, Math.min(25, Math.round(raw)));
+        rule = `Underdog upset: 10 + (games diff × rank diff / 2), min 15, max 25`;
+      }else{
+        const raw = 10 + diffGames;
+        points = Math.max(11, Math.round(raw));
+        rule = `Standard: 10 + games diff, minimum 11`;
+      }
+      return { points, rule, rankDiff, diffGames, isUnderdogUpset };
+    }
+
+    // Index results by player & match type; store both loser & winner points/chips metadata
+    const scheduledByPlayer = new Map();
     const challengeByPlayer = new Map();
-    const scheduledLoserPts = new Map();   // nameKey -> number
+    const scheduledLoserPts = new Map();   // key -> number
     const challengeLoserPts = new Map();
+    const scheduledWinnerMeta = new Map(); // key -> {points, rule, rankDiff, diffGames}
+    const challengeWinnerMeta = new Map();
 
     function resultString(row, perspective){
       const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
@@ -330,17 +355,10 @@ async function init(){
       const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
       const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
       const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
-      const set1 = `${W1}-${O1}`;
-      const set2 = `${W2}-${O2}`;
-      const set3 = (W3!=='' || O3!=='') ? ` ${W3}-${O3}` : '';
-      if (perspective === 'winner'){
-        return `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`;
-      }else{
-        const s1 = `${O1}-${W1}`;
-        const s2 = `${O2}-${W2}`;
-        const s3 = (W3!=='' || O3!=='') ? ` ${O3}-${W3}` : '';
-        return `Lost to #${wRank} ${winner} ${s1} ${s2}${s3}`;
-      }
+      const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`, set3 = (W3!=='' || O3!=='') ? ` ${W3}-${O3}` : '';
+      return (perspective === 'winner')
+        ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
+        : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${(W3!==''||O3!=='')?` ${O3}-${W3}`:''}`;
     }
 
     scoresRaw.forEach(r=>{
@@ -349,21 +367,27 @@ async function init(){
       const type = String(r.MatchType||'').trim();
       if (type !== 'Scheduled' && type !== 'Challenge') return;
 
-      const wKey = nameKey(r.Winner);
-      const oKey = nameKey(r.Opponent);
-      const winStr = resultString(r, 'winner');
-      const loseStr = resultString(r, 'opponent');
+      const winner = fmt(r.Winner), opponent = fmt(r.Opponent);
+      const wKey = nameKey(winner), oKey = nameKey(opponent);
+      const wRank = rankByName[wKey], oRank = rankByName[oKey];
+
+      const winStr = resultString(r,'winner');
+      const loseStr = resultString(r,'opponent');
 
       const lp = num(r.LoserPoints);
+      const { diff } = parseGameTotals(r);
+      const wMeta = computeWinnerPoints(wRank, oRank, diff);
 
-      if (type === 'Scheduled'){
+      if (type==='Scheduled'){
         if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
         if (!scheduledByPlayer.has(oKey)) scheduledByPlayer.set(oKey, loseStr);
         if (!isNaN(lp)) scheduledLoserPts.set(oKey, lp);
+        scheduledWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
       }else{
         if (!challengeByPlayer.has(wKey)) challengeByPlayer.set(wKey, winStr);
         if (!challengeByPlayer.has(oKey)) challengeByPlayer.set(oKey, loseStr);
         if (!isNaN(lp)) challengeLoserPts.set(oKey, lp);
+        challengeWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
       }
     });
 
@@ -374,19 +398,16 @@ async function init(){
     players.forEach(p=>{
       const tr = document.createElement('tr');
 
-      // Rank
       const tdRank = document.createElement('td');
       tdRank.className = 'rank';
       tdRank.textContent = `#${p.Rank}`;
       tr.appendChild(tdRank);
 
-      // Participant
       const tdName = document.createElement('td');
       tdName.className = 'name';
       tdName.textContent = p.Participant;
       tr.appendChild(tdName);
 
-      // Points
       const tdPts = document.createElement('td');
       tdPts.className = 'points';
       tdPts.textContent = isNaN(p.Points) ? '' : p.Points;
@@ -394,10 +415,9 @@ async function init(){
 
       const meKey = nameKey(p.Participant);
 
-      // Scheduled Opponent / Result (+ loser points chip)
+      // Scheduled cell
       const tdSched = document.createElement('td');
       const schedRes = scheduledByPlayer.get(meKey);
-
       if (schedRes){
         const pill = document.createElement('span');
         pill.className = 'badge badge-scheduled';
@@ -413,11 +433,21 @@ async function init(){
         if (isLoss && scheduledLoserPts.has(meKey)){
           const lp = scheduledLoserPts.get(meKey);
           const badge = document.createElement('button');
-          badge.type = 'button';
-          badge.className = 'loser-pts';
+          badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
           badge.setAttribute('data-points', String(lp));
           badge.innerHTML = `<b>${lp}</b> pts`;
+          tdSched.appendChild(badge);
+        }else if(!isLoss && scheduledWinnerMeta.has(meKey)){
+          const wm = scheduledWinnerMeta.get(meKey);
+          const badge = document.createElement('button');
+          badge.type='button'; badge.className='winner-pts';
+          badge.setAttribute('data-title','Winner Points');
+          badge.setAttribute('data-points', String(wm.points));
+          badge.setAttribute('data-rule', wm.rule);
+          badge.setAttribute('data-rdiff', String(wm.rankDiff));
+          badge.setAttribute('data-gdiff', String(wm.diffGames));
+          badge.innerHTML = `<b>${wm.points}</b> pts`;
           tdSched.appendChild(badge);
         }
       }else{
@@ -427,13 +457,11 @@ async function init(){
           const span = document.createElement('span');
           span.innerHTML = `<span class="badge badge-scheduled">Scheduled</span> #${oppRank} ${oppName || ''}`;
           tdSched.appendChild(span);
-        }else{
-          tdSched.textContent = '';
         }
       }
       tr.appendChild(tdSched);
 
-      // Challenge Opponent / Result (+ loser points chip)
+      // Challenge cell
       const tdChal = document.createElement('td');
       const chalRes = challengeByPlayer.get(meKey);
       if (chalRes){
@@ -451,15 +479,23 @@ async function init(){
         if (isLoss && challengeLoserPts.has(meKey)){
           const lp = challengeLoserPts.get(meKey);
           const badge = document.createElement('button');
-          badge.type = 'button';
-          badge.className = 'loser-pts';
+          badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
           badge.setAttribute('data-points', String(lp));
           badge.innerHTML = `<b>${lp}</b> pts`;
           tdChal.appendChild(badge);
+        }else if(!isLoss && challengeWinnerMeta.has(meKey)){
+          const wm = challengeWinnerMeta.get(meKey);
+          const badge = document.createElement('button');
+          badge.type='button'; badge.className='winner-pts';
+          badge.setAttribute('data-title','Winner Points');
+          badge.setAttribute('data-points', String(wm.points));
+          badge.setAttribute('data-rule', wm.rule);
+          badge.setAttribute('data-rdiff', String(wm.rankDiff));
+          badge.setAttribute('data-gdiff', String(wm.diffGames));
+          badge.innerHTML = `<b>${wm.points}</b> pts`;
+          tdChal.appendChild(badge);
         }
-      }else{
-        tdChal.textContent = '';
       }
       tr.appendChild(tdChal);
 
@@ -476,18 +512,31 @@ async function init(){
   }
 }
 
-/* Open the styled modal when loser-points chip is clicked */
+/* Click handlers for chips -> modal */
 document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('.loser-pts');
-  if (btn){
+  const loserBtn = e.target.closest('.loser-pts');
+  if (loserBtn){
     e.preventDefault();
-    const lp = btn.getAttribute('data-points') || '';
-    const msg = btn.getAttribute('data-info') || 'Losers receive the number of games won, but no more than 10';
+    const lp = loserBtn.getAttribute('data-points') || '';
+    const msg = 'Losers receive the number of games won, but no more than 10';
     const html = `
       <p><strong>${lp}</strong> points were awarded for this loss.</p>
-      <p class="tip">${msg}</p>
-    `;
+      <p class="tip">${msg}</p>`;
     openModal('Loser Points', html);
+    return;
+  }
+  const winnerBtn = e.target.closest('.winner-pts');
+  if (winnerBtn){
+    e.preventDefault();
+    const pts = winnerBtn.getAttribute('data-points') || '';
+    const rule = winnerBtn.getAttribute('data-rule') || '';
+    const rdiff = winnerBtn.getAttribute('data-rdiff') || '';
+    const gdiff = winnerBtn.getAttribute('data-gdiff') || '';
+    const html = `
+      <p><strong>${pts}</strong> points were awarded for this win.</p>
+      <p>Inputs: rank difference <strong>${rdiff}</strong>, games difference <strong>${gdiff}</strong>.</p>
+      <p class="tip"><em>${rule}</em></p>`;
+    openModal('Winner Points', html);
   }
 });
 
