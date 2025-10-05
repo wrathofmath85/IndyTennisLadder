@@ -29,7 +29,6 @@
   thead th{
     text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521;
     border-bottom:1px solid var(--rule); padding:12px;
-    /* Sticky header on desktop */
     position: sticky; top: 0; z-index: 2;
     box-shadow: 0 2px 0 0 var(--rule);
   }
@@ -44,7 +43,6 @@
   .lost{ color:var(--bad); }
   .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:var(--muted);}
 
-  /* Pills: HIDE by default (desktop) */
   .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
           background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
@@ -52,9 +50,8 @@
 
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
 
-  /* Mobile layout */
   @media (max-width:720px){
-    thead{ display:none; } /* keep mobile cards look, no sticky header */
+    thead{ display:none; }
     table, tbody, tr, td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; }
     tbody td{ border:0; padding:4px 0; }
@@ -62,7 +59,6 @@
     .name{ order:-2; font-size:16px; }
     .points{ order:-1; }
     .cell-label{ display:inline-block; width:150px; color:#91a3bb;}
-    /* SHOW pills on mobile */
     .badge{ display:inline-block; }
   }
 </style>
@@ -97,9 +93,7 @@
 </div>
 
 <script>
-/* ============== CONFIG ==============
-Publish each tab as CSV and paste the links here.
-*/
+/* ============== CONFIG ============== */
 const CSV = {
   Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
   Scores: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=551333593&single=true&output=csv',
@@ -107,14 +101,13 @@ const CSV = {
   Dates: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv'
 };
 
-// Active round: you can override via ?round=#
+// Active round: override via ?round=#
 const ROUND = (() => {
   const u = new URLSearchParams(location.search);
   const q = parseInt(u.get('round'),10);
   if (!isNaN(q) && q>=1 && q<=10) return q;
-  return 1; // default
+  return 1;
 })();
-
 document.getElementById('roundPill').textContent = `Round ${ROUND}`;
 
 /* ============== HELPERS ============== */
@@ -191,11 +184,29 @@ async function init(){
       }
     }
 
-    // Build ranking from Players
+    // ---------- FILTER BY ACTIVE ROUND (Players CSV: ROUNDSTART/ROUNDEND) ----------
+    const getBound = (row, keys, defVal) => {
+      for (const k of keys){
+        if (row.hasOwnProperty(k) && row[k] !== '') {
+          const v = num(row[k]);
+          if (!isNaN(v)) return v;
+        }
+      }
+      return defVal;
+    };
+    const activePlayersRaw = playersRaw.filter(r => {
+      const start = getBound(r, ['ROUNDSTART','RoundStart','ROUND START','StartRound','Start'], -Infinity);
+      const end   = getBound(r, ['ROUNDEND','RoundEnd','ROUND END','EndRound','End'], Infinity);
+      const rr = Number(ROUND);
+      return start <= rr && end >= rr;
+    });
+    // ------------------------------------------------------------------------------
+
+    // Build ranking from ACTIVE players only
     const pointsCol = `Round${ROUND}Points`;
     const pctCol    = `Round${ROUND}Percent`;
 
-    const players = playersRaw.map(r => ({
+    const players = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
       Points: num(r[pointsCol]),
       Percent: num(r[pctCol]),
@@ -304,7 +315,6 @@ async function init(){
       const schedRes = scheduledByPlayer.get(meKey);
 
       if (schedRes){
-        // Keep the pill in DOM (for mobile), hidden on desktop via CSS
         const pill = document.createElement('span');
         pill.className = 'badge badge-scheduled';
         pill.textContent = 'Scheduled';
@@ -349,7 +359,7 @@ async function init(){
     });
 
     document.getElementById('ladder').style.display = '';
-    setStatus(''); // hide status
+    setStatus('');
     document.getElementById('status').style.display = 'none';
 
   }catch(err){
