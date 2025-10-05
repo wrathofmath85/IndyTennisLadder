@@ -48,6 +48,15 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
+  /* Loser points badge */
+  .loser-pts{
+    display:inline-flex; align-items:center; gap:6px;
+    margin-left:10px; padding:2px 8px; border-radius:999px;
+    background:#1a2230; border:1px solid #2a3548; color:#bcd0e5;
+    font-size:12px; cursor:pointer; user-select:none;
+  }
+  .loser-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
 
   @media (max-width:720px){
@@ -60,6 +69,7 @@
     .points{ order:-1; }
     .cell-label{ display:inline-block; width:150px; color:#91a3bb;}
     .badge{ display:inline-block; }
+    .loser-pts{ margin-left:0; margin-top:6px; }
   }
 </style>
 </head>
@@ -241,8 +251,10 @@ async function init(){
     });
 
     // Scores index by player & match type
-    const scheduledByPlayer = new Map();  // nameKey -> string
+    const scheduledByPlayer = new Map();   // nameKey -> result string (their perspective)
     const challengeByPlayer = new Map();
+    const scheduledLoserPts = new Map();   // nameKey -> number
+    const challengeLoserPts = new Map();
 
     function resultString(row, perspective){
       const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
@@ -275,12 +287,16 @@ async function init(){
       const winStr = resultString(r, 'winner');
       const loseStr = resultString(r, 'opponent');
 
+      const lp = num(r.LoserPoints);
+
       if (type === 'Scheduled'){
         if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
         if (!scheduledByPlayer.has(oKey)) scheduledByPlayer.set(oKey, loseStr);
+        if (!isNaN(lp)) scheduledLoserPts.set(oKey, lp);
       }else{
         if (!challengeByPlayer.has(wKey)) challengeByPlayer.set(wKey, winStr);
         if (!challengeByPlayer.has(oKey)) challengeByPlayer.set(oKey, loseStr);
+        if (!isNaN(lp)) challengeLoserPts.set(oKey, lp);
       }
     });
 
@@ -309,9 +325,10 @@ async function init(){
       tdPts.textContent = isNaN(p.Points) ? '' : p.Points;
       tr.appendChild(tdPts);
 
-      // Scheduled Opponent / Result
-      const tdSched = document.createElement('td');
       const meKey = nameKey(p.Participant);
+
+      // Scheduled Opponent / Result (with loser points if applicable)
+      const tdSched = document.createElement('td');
       const schedRes = scheduledByPlayer.get(meKey);
 
       if (schedRes){
@@ -321,9 +338,21 @@ async function init(){
         tdSched.appendChild(pill);
 
         const span = document.createElement('span');
-        span.className = 'result ' + (schedRes.startsWith('Beat') ? 'won' : 'lost');
+        const isLoss = schedRes.startsWith('Lost');
+        span.className = 'result ' + (isLoss ? 'lost' : 'won');
         span.textContent = schedRes;
         tdSched.appendChild(span);
+
+        // If they lost, show clickable loser points badge
+        if (isLoss && scheduledLoserPts.has(meKey)){
+          const lp = scheduledLoserPts.get(meKey);
+          const badge = document.createElement('button');
+          badge.type = 'button';
+          badge.className = 'loser-pts';
+          badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
+          badge.innerHTML = `<b>${lp}</b> pts`;
+          tdSched.appendChild(badge);
+        }
       }else{
         const oppRank = scheduleMap[p.Rank];
         if (oppRank){
@@ -337,7 +366,7 @@ async function init(){
       }
       tr.appendChild(tdSched);
 
-      // Challenge Opponent / Result
+      // Challenge Opponent / Result (with loser points if applicable)
       const tdChal = document.createElement('td');
       const chalRes = challengeByPlayer.get(meKey);
       if (chalRes){
@@ -347,9 +376,20 @@ async function init(){
         tdChal.appendChild(pill);
 
         const span = document.createElement('span');
-        span.className = 'result ' + (chalRes.startsWith('Beat') ? 'won' : 'lost');
+        const isLoss = chalRes.startsWith('Lost');
+        span.className = 'result ' + (isLoss ? 'lost' : 'won');
         span.textContent = chalRes;
         tdChal.appendChild(span);
+
+        if (isLoss && challengeLoserPts.has(meKey)){
+          const lp = challengeLoserPts.get(meKey);
+          const badge = document.createElement('button');
+          badge.type = 'button';
+          badge.className = 'loser-pts';
+          badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
+          badge.innerHTML = `<b>${lp}</b> pts`;
+          tdChal.appendChild(badge);
+        }
       }else{
         tdChal.textContent = '';
       }
@@ -367,6 +407,16 @@ async function init(){
     setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
   }
 }
+
+// Simple delegated click to show the required message
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.loser-pts');
+  if (btn){
+    e.preventDefault();
+    const msg = btn.getAttribute('data-info') || 'Losers receive the number of games won, but no more than 10';
+    alert(msg);
+  }
+});
 
 init();
 </script>
