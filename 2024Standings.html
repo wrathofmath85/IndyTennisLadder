@@ -13,6 +13,7 @@
     --chip:#1a2332; --chipBorder:#2a364a;
     --chipBlue:#173049; --chipBlueBorder:#284564;
     --chipPurple:#251e42; --chipPurpleBorder:#3b2f6a;
+    --shadow: 0 20px 60px rgba(0,0,0,.45);
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
   html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
@@ -48,7 +49,7 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  /* Loser points badge */
+  /* Loser points chip */
   .loser-pts{
     display:inline-flex; align-items:center; gap:6px;
     margin-left:10px; padding:2px 8px; border-radius:999px;
@@ -56,6 +57,39 @@
     font-size:12px; cursor:pointer; user-select:none;
   }
   .loser-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+
+  /* ---------- Modal styles (screenshot-like) ---------- */
+  .backdrop{
+    position:fixed; inset:0; background:rgba(8,12,20,.55);
+    opacity:0; pointer-events:none; transition:opacity .15s ease;
+  }
+  .backdrop.show{ opacity:1; pointer-events:auto; }
+  .modal{
+    position:fixed; left:50%; top:50%;
+    transform:translate(-50%,-46%) scale(.98);
+    background:#0f1521; border:1px solid var(--rule);
+    border-radius:16px; box-shadow:var(--shadow);
+    width:min(92vw,560px);
+    opacity:0; transition:opacity .15s ease, transform .18s ease;
+  }
+  .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--rule);
+    background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px;
+  }
+  .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
+  .modal-close{
+    appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6;
+    border-radius:8px; width:28px; height:28px; font-size:16px; line-height:26px;
+    text-align:center; cursor:pointer;
+  }
+  .modal-body{ padding:16px; color:#d2deee; }
+  .modal-body p{ margin:0; line-height:1.5; }
+  .modal-body .tip{
+    margin-top:10px; font-size:13px; color:#93a6bf;
+    border-top:1px dashed #2a3750; padding-top:10px;
+  }
 
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
 
@@ -102,13 +136,25 @@
   <div class="footer-note">Tip: Add <code>?round=2</code> to the page URL while testing different rounds.</div>
 </div>
 
+<!-- ---------- Modal markup ---------- -->
+<div class="backdrop" id="backdrop" aria-hidden="true"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-header">
+    <div class="modal-title" id="modalTitle">Loser Points</div>
+    <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+  </div>
+  <div class="modal-body" id="modalBody">
+    <!-- Filled dynamically -->
+  </div>
+</div>
+
 <script>
 /* ============== CONFIG ============== */
 const CSV = {
   Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
-  Scores: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=551333593&single=true&output=csv',
-  Schedule: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
-  Dates: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv'
+  Scores:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=551333593&single=true&output=csv',
+  Schedule:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
+  Dates:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv'
 };
 
 // Active round: override via ?round=#
@@ -123,8 +169,7 @@ document.getElementById('roundPill').textContent = `Round ${ROUND}`;
 /* ============== HELPERS ============== */
 function loadCSV(url){
   return new Promise((resolve, reject) => {
-    Papa.parse(url, {
-      download: true, header: true, skipEmptyLines: 'greedy',
+    Papa.parse(url, { download: true, header: true, skipEmptyLines: 'greedy',
       complete: (res) => resolve(res.data || []),
       error: (err) => reject(err)
     });
@@ -145,8 +190,7 @@ function fmtDateRange(startRaw, endRaw){
     if (/^\d+(\.\d+)?$/.test(String(val))) {
       const days = Number(val);
       const base = new Date(Date.UTC(1899,11,30));
-      const d = new Date(base.getTime() + days*86400000);
-      return d;
+      return new Date(base.getTime() + days*86400000);
     }
     const d = new Date(val);
     return isNaN(d) ? null : d;
@@ -163,6 +207,30 @@ function setStatus(msg, isError=false){
   const st = document.getElementById('status');
   st.textContent = msg;
   st.className = isError ? 'error' : 'loading';
+}
+
+/* ============== MODAL LOGIC ============== */
+const backdropEl = document.getElementById('backdrop');
+const modalEl = document.getElementById('modal');
+const modalBody = document.getElementById('modalBody');
+const modalTitle = document.getElementById('modalTitle');
+document.getElementById('modalClose').addEventListener('click', closeModal);
+backdropEl.addEventListener('click', closeModal);
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
+
+function openModal(title, html){
+  modalTitle.textContent = title || 'Info';
+  modalBody.innerHTML = html;
+  backdropEl.classList.add('show');
+  modalEl.classList.add('show');
+  backdropEl.setAttribute('aria-hidden','false');
+  modalEl.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  modalEl.classList.remove('show');
+  backdropEl.classList.remove('show');
+  backdropEl.setAttribute('aria-hidden','true');
+  modalEl.setAttribute('aria-hidden','true');
 }
 
 /* ============== CORE LOGIC ============== */
@@ -194,7 +262,7 @@ async function init(){
       }
     }
 
-    // ---------- FILTER BY ACTIVE ROUND (Players CSV: ROUNDSTART/ROUNDEND) ----------
+    // ---------- FILTER BY ACTIVE ROUND ----------
     const getBound = (row, keys, defVal) => {
       for (const k of keys){
         if (row.hasOwnProperty(k) && row[k] !== '') {
@@ -210,7 +278,6 @@ async function init(){
       const rr = Number(ROUND);
       return start <= rr && end >= rr;
     });
-    // ------------------------------------------------------------------------------
 
     // Build ranking from ACTIVE players only
     const pointsCol = `Round${ROUND}Points`;
@@ -250,8 +317,8 @@ async function init(){
       }
     });
 
-    // Scores index by player & match type
-    const scheduledByPlayer = new Map();   // nameKey -> result string (their perspective)
+    // Scores index by player & match type (+ loser points)
+    const scheduledByPlayer = new Map();   // nameKey -> result string
     const challengeByPlayer = new Map();
     const scheduledLoserPts = new Map();   // nameKey -> number
     const challengeLoserPts = new Map();
@@ -327,7 +394,7 @@ async function init(){
 
       const meKey = nameKey(p.Participant);
 
-      // Scheduled Opponent / Result (with loser points if applicable)
+      // Scheduled Opponent / Result (+ loser points chip)
       const tdSched = document.createElement('td');
       const schedRes = scheduledByPlayer.get(meKey);
 
@@ -343,13 +410,13 @@ async function init(){
         span.textContent = schedRes;
         tdSched.appendChild(span);
 
-        // If they lost, show clickable loser points badge
         if (isLoss && scheduledLoserPts.has(meKey)){
           const lp = scheduledLoserPts.get(meKey);
           const badge = document.createElement('button');
           badge.type = 'button';
           badge.className = 'loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
+          badge.setAttribute('data-points', String(lp));
           badge.innerHTML = `<b>${lp}</b> pts`;
           tdSched.appendChild(badge);
         }
@@ -366,7 +433,7 @@ async function init(){
       }
       tr.appendChild(tdSched);
 
-      // Challenge Opponent / Result (with loser points if applicable)
+      // Challenge Opponent / Result (+ loser points chip)
       const tdChal = document.createElement('td');
       const chalRes = challengeByPlayer.get(meKey);
       if (chalRes){
@@ -387,6 +454,7 @@ async function init(){
           badge.type = 'button';
           badge.className = 'loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
+          badge.setAttribute('data-points', String(lp));
           badge.innerHTML = `<b>${lp}</b> pts`;
           tdChal.appendChild(badge);
         }
@@ -408,13 +476,18 @@ async function init(){
   }
 }
 
-// Simple delegated click to show the required message
+/* Open the styled modal when loser-points chip is clicked */
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('.loser-pts');
   if (btn){
     e.preventDefault();
+    const lp = btn.getAttribute('data-points') || '';
     const msg = btn.getAttribute('data-info') || 'Losers receive the number of games won, but no more than 10';
-    alert(msg);
+    const html = `
+      <p><strong>${lp}</strong> points were awarded for this loss.</p>
+      <p class="tip">${msg}</p>
+    `;
+    openModal('Loser Points', html);
   }
 });
 
