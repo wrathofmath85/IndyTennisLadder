@@ -331,13 +331,18 @@ async function init(){
       }
       return { points, rule, rankDiff, diffGames, isUnderdogUpset };
     }
+    // Loser base points (computed from scores): games won, capped at 10
+    function computeLoserBasePoints(row){
+      const { oGames } = parseGameTotals(row); // opponent is the loser in the row
+      return Math.min(10, oGames);
+    }
 
-    // Index results
+    // Index results (now computing loser points from scores)
     const scheduledByPlayer = new Map();
     const challengeByPlayer = new Map();
-    const scheduledLoserPts = new Map();   // key -> base number
-    const challengeLoserPts = new Map();   // key -> base number
-    const scheduledWinnerMeta = new Map(); // key -> base {points, rule, ...}
+    const scheduledLoserPts = new Map();   // key -> base number (from scores)
+    const challengeLoserPts = new Map();   // key -> base number (from scores)
+    const scheduledWinnerMeta = new Map();
     const challengeWinnerMeta = new Map();
 
     function resultString(row, perspective){
@@ -366,19 +371,19 @@ async function init(){
       const winStr = resultString(r,'winner');
       const loseStr = resultString(r,'opponent');
 
-      const lp = num(r.LoserPoints);
       const { diff } = parseGameTotals(r);
-      const wMeta = computeWinnerPoints(wRank, oRank, diff); // BASE winner points
+      const wMeta = computeWinnerPoints(wRank, oRank, diff);    // BASE winner points
+      const loserBase = computeLoserBasePoints(r);              // BASE loser points (from scores)
 
       if (type==='Scheduled'){
         if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
         if (!scheduledByPlayer.has(oKey)) scheduledByPlayer.set(oKey, loseStr);
-        if (!isNaN(lp)) scheduledLoserPts.set(oKey, lp);
+        scheduledLoserPts.set(oKey, loserBase);
         scheduledWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
       }else{
         if (!challengeByPlayer.has(wKey)) challengeByPlayer.set(wKey, winStr);
         if (!challengeByPlayer.has(oKey)) challengeByPlayer.set(oKey, loseStr);
-        if (!isNaN(lp)) challengeLoserPts.set(oKey, lp);
+        challengeLoserPts.set(oKey, loserBase);
         challengeWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
       }
     });
@@ -423,21 +428,22 @@ async function init(){
         tdSched.appendChild(span);
 
         if (isLoss && scheduledLoserPts.has(meKey)){
-          const lp = scheduledLoserPts.get(meKey);
+          const base = scheduledLoserPts.get(meKey);     // from scores
+          const finalPts = Math.round(base);             // scheduled => no divisor
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
-          badge.setAttribute('data-points', String(lp));         // final = base for Scheduled
-          badge.setAttribute('data-base', String(lp));
+          badge.setAttribute('data-points', String(finalPts));
+          badge.setAttribute('data-base', String(base));
           badge.setAttribute('data-divisor', '1');
-          badge.innerHTML = `<b>${lp}</b> pts`;
+          badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdSched.appendChild(badge);
         }else if(!isLoss && scheduledWinnerMeta.has(meKey)){
-          const wm = scheduledWinnerMeta.get(meKey);             // base for Scheduled
+          const wm = scheduledWinnerMeta.get(meKey);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
           badge.setAttribute('data-title','Winner Points');
-          badge.setAttribute('data-points', String(wm.points));  // final = base for Scheduled
+          badge.setAttribute('data-points', String(wm.points));
           badge.setAttribute('data-base', String(wm.points));
           badge.setAttribute('data-divisor', '1');
           badge.setAttribute('data-rule', wm.rule);
@@ -480,7 +486,7 @@ async function init(){
           : 'Challenge points reduced by ¼ because your scheduled match was not played.';
 
         if (isLoss && challengeLoserPts.has(meKey)){
-          const base = challengeLoserPts.get(meKey);
+          const base = challengeLoserPts.get(meKey);     // from scores
           const finalPts = Math.round(base / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
@@ -492,7 +498,7 @@ async function init(){
           badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdChal.appendChild(badge);
         }else if(!isLoss && challengeWinnerMeta.has(meKey)){
-          const wm = challengeWinnerMeta.get(meKey);     // base winner points
+          const wm = challengeWinnerMeta.get(meKey);
           const finalPts = Math.round(wm.points / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
