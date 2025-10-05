@@ -551,7 +551,7 @@ document.addEventListener('click', (e)=>{
     const gdiff = winnerBtn.getAttribute('data-gdiff') || '';
     const div  = winnerBtn.getAttribute('data-divisor') || '1';
     const chal = winnerBtn.getAttribute('data-chalmsg') || '';
-    const adjust = (div !== '1') ? `<p>Base winner points <strong>${base</strong>} (rule below) ÷ ${div} ➝ <strong>${pts}</strong>.</p>` : '';
+    const adjust = (div !== '1') ? `<p>Base winner points <strong>${base}</strong> (rule below) ÷ ${div} ➝ <strong>${pts}</strong>.</p>` : '';
     const html = `
       <p><strong>${pts}</strong> points were awarded for this win.</p>
       ${adjust}
