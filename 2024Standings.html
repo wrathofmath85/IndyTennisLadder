@@ -48,25 +48,17 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  /* Loser points chip */
-  .loser-pts{
+  /* Loser & Winner points chips */
+  .loser-pts, .winner-pts{
     display:inline-flex; align-items:center; gap:6px;
     margin-left:10px; padding:2px 8px; border-radius:999px;
-    background:#1a2230; border:1px solid #2a3548; color:#bcd0e5;
     font-size:12px; cursor:pointer; user-select:none;
   }
-  .loser-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+  .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
+  .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
+  .loser-pts b, .winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
 
-  /* Winner points chip */
-  .winner-pts{
-    display:inline-flex; align-items:center; gap:6px;
-    margin-left:10px; padding:2px 8px; border-radius:999px;
-    background:#12261b; border:1px solid #284c37; color:#c9edd7;
-    font-size:12px; cursor:pointer; user-select:none;
-  }
-  .winner-pts b{ font-variant-numeric:tabular-nums; color:#eafff3; }
-
-  /* ---------- Modal styles ---------- */
+  /* Modal */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -143,7 +135,7 @@
   <div class="footer-note">Tip: Add <code>?round=2</code> to the page URL while testing different rounds.</div>
 </div>
 
-<!-- ---------- Modal markup ---------- -->
+<!-- Modal -->
 <div class="backdrop" id="backdrop" aria-hidden="true"></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
   <div class="modal-header">
@@ -340,12 +332,12 @@ async function init(){
       return { points, rule, rankDiff, diffGames, isUnderdogUpset };
     }
 
-    // Index results by player & match type; store both loser & winner points/chips metadata
+    // Index results
     const scheduledByPlayer = new Map();
     const challengeByPlayer = new Map();
-    const scheduledLoserPts = new Map();   // key -> number
-    const challengeLoserPts = new Map();
-    const scheduledWinnerMeta = new Map(); // key -> {points, rule, rankDiff, diffGames}
+    const scheduledLoserPts = new Map();   // key -> base number
+    const challengeLoserPts = new Map();   // key -> base number
+    const scheduledWinnerMeta = new Map(); // key -> base {points, rule, ...}
     const challengeWinnerMeta = new Map();
 
     function resultString(row, perspective){
@@ -376,7 +368,7 @@ async function init(){
 
       const lp = num(r.LoserPoints);
       const { diff } = parseGameTotals(r);
-      const wMeta = computeWinnerPoints(wRank, oRank, diff);
+      const wMeta = computeWinnerPoints(wRank, oRank, diff); // BASE winner points
 
       if (type==='Scheduled'){
         if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
@@ -415,7 +407,7 @@ async function init(){
 
       const meKey = nameKey(p.Participant);
 
-      // Scheduled cell
+      // Scheduled cell (no division)
       const tdSched = document.createElement('td');
       const schedRes = scheduledByPlayer.get(meKey);
       if (schedRes){
@@ -435,15 +427,19 @@ async function init(){
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
-          badge.setAttribute('data-points', String(lp));
+          badge.setAttribute('data-points', String(lp));         // final = base for Scheduled
+          badge.setAttribute('data-base', String(lp));
+          badge.setAttribute('data-divisor', '1');
           badge.innerHTML = `<b>${lp}</b> pts`;
           tdSched.appendChild(badge);
         }else if(!isLoss && scheduledWinnerMeta.has(meKey)){
-          const wm = scheduledWinnerMeta.get(meKey);
+          const wm = scheduledWinnerMeta.get(meKey);             // base for Scheduled
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
           badge.setAttribute('data-title','Winner Points');
-          badge.setAttribute('data-points', String(wm.points));
+          badge.setAttribute('data-points', String(wm.points));  // final = base for Scheduled
+          badge.setAttribute('data-base', String(wm.points));
+          badge.setAttribute('data-divisor', '1');
           badge.setAttribute('data-rule', wm.rule);
           badge.setAttribute('data-rdiff', String(wm.rankDiff));
           badge.setAttribute('data-gdiff', String(wm.diffGames));
@@ -461,7 +457,7 @@ async function init(){
       }
       tr.appendChild(tdSched);
 
-      // Challenge cell
+      // Challenge cell (apply division rule)
       const tdChal = document.createElement('td');
       const chalRes = challengeByPlayer.get(meKey);
       if (chalRes){
@@ -476,24 +472,39 @@ async function init(){
         span.textContent = chalRes;
         tdChal.appendChild(span);
 
+        // Determine divisor based on whether scheduled match was played
+        const hasScheduledMatch = scheduledByPlayer.has(meKey);
+        const divisor = hasScheduledMatch ? 2 : 4;
+        const divisorMsg = hasScheduledMatch
+          ? 'Challenge points reduced by ½ because your scheduled match was played.'
+          : 'Challenge points reduced by ¼ because your scheduled match was not played.';
+
         if (isLoss && challengeLoserPts.has(meKey)){
-          const lp = challengeLoserPts.get(meKey);
+          const base = challengeLoserPts.get(meKey);
+          const finalPts = Math.round(base / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
-          badge.setAttribute('data-points', String(lp));
-          badge.innerHTML = `<b>${lp}</b> pts`;
+          badge.setAttribute('data-points', String(finalPts));
+          badge.setAttribute('data-base', String(base));
+          badge.setAttribute('data-divisor', String(divisor));
+          badge.setAttribute('data-chalmsg', divisorMsg);
+          badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdChal.appendChild(badge);
         }else if(!isLoss && challengeWinnerMeta.has(meKey)){
-          const wm = challengeWinnerMeta.get(meKey);
+          const wm = challengeWinnerMeta.get(meKey);     // base winner points
+          const finalPts = Math.round(wm.points / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
           badge.setAttribute('data-title','Winner Points');
-          badge.setAttribute('data-points', String(wm.points));
+          badge.setAttribute('data-points', String(finalPts));
+          badge.setAttribute('data-base', String(wm.points));
+          badge.setAttribute('data-divisor', String(divisor));
           badge.setAttribute('data-rule', wm.rule);
           badge.setAttribute('data-rdiff', String(wm.rankDiff));
           badge.setAttribute('data-gdiff', String(wm.diffGames));
-          badge.innerHTML = `<b>${wm.points}</b> pts`;
+          badge.setAttribute('data-chalmsg', divisorMsg);
+          badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdChal.appendChild(badge);
         }
       }
@@ -517,11 +528,16 @@ document.addEventListener('click', (e)=>{
   const loserBtn = e.target.closest('.loser-pts');
   if (loserBtn){
     e.preventDefault();
-    const lp = loserBtn.getAttribute('data-points') || '';
-    const msg = 'Losers receive the number of games won, but no more than 10';
+    const pts = loserBtn.getAttribute('data-points') || '';
+    const base = loserBtn.getAttribute('data-base') || '';
+    const div  = loserBtn.getAttribute('data-divisor') || '1';
+    const chal = loserBtn.getAttribute('data-chalmsg') || '';
+    const baseLine = (div !== '1') ? `<p>Base points <strong>${base}</strong> ÷ ${div} ➝ <strong>${pts}</strong>.</p>` : '';
     const html = `
-      <p><strong>${lp}</strong> points were awarded for this loss.</p>
-      <p class="tip">${msg}</p>`;
+      <p><strong>${pts}</strong> points were awarded for this loss.</p>
+      ${baseLine}
+      ${chal ? `<p class="tip">${chal}</p>` : '<p class="tip">Losers receive the number of games won, but no more than 10.</p>'}
+    `;
     openModal('Loser Points', html);
     return;
   }
@@ -529,13 +545,19 @@ document.addEventListener('click', (e)=>{
   if (winnerBtn){
     e.preventDefault();
     const pts = winnerBtn.getAttribute('data-points') || '';
+    const base = winnerBtn.getAttribute('data-base') || '';
     const rule = winnerBtn.getAttribute('data-rule') || '';
     const rdiff = winnerBtn.getAttribute('data-rdiff') || '';
     const gdiff = winnerBtn.getAttribute('data-gdiff') || '';
+    const div  = winnerBtn.getAttribute('data-divisor') || '1';
+    const chal = winnerBtn.getAttribute('data-chalmsg') || '';
+    const adjust = (div !== '1') ? `<p>Base winner points <strong>${base</strong>} (rule below) ÷ ${div} ➝ <strong>${pts}</strong>.</p>` : '';
     const html = `
       <p><strong>${pts}</strong> points were awarded for this win.</p>
+      ${adjust}
       <p>Inputs: rank difference <strong>${rdiff}</strong>, games difference <strong>${gdiff}</strong>.</p>
-      <p class="tip"><em>${rule}</em></p>`;
+      <p class="tip"><em>${rule}</em></p>
+      ${chal ? `<p class="tip">${chal}</p>` : ''}`;
     openModal('Winner Points', html);
   }
 });
