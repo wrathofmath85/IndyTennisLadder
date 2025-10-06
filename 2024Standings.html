@@ -230,6 +230,26 @@ function closeModal(){
   modalEl.setAttribute('aria-hidden','true');
 }
 
+/* ====== TENNIS-SPECIFIC HELPERS (UPDATED FOR 3rd-SET MTB) ====== */
+// Detect a 3rd-set match tiebreak to 10 (commonly ≥10 points on one side)
+function isThirdSetMatchTB(W3, O3){
+  const a = safeNum(W3), b = safeNum(O3);
+  return (a >= 10 || b >= 10);
+}
+
+// Pretty-print the third set, labeling MTB if applicable, from either perspective.
+// If perspective === 'winner', score is W3-O3; else 'opponent' uses O3-W3.
+function formatThirdSet(W3, O3, perspective){
+  const a = fmt(W3), b = fmt(O3);
+  if (a === '' && b === '') return '';
+  const mtb = isThirdSetMatchTB(W3, O3);
+  if (perspective === 'winner'){
+    return mtb ? ` [MTB ${a}-${b}]` : ` ${a}-${b}`;
+  }else{
+    return mtb ? ` [MTB ${b}-${a}]` : ` ${b}-${a}`;
+  }
+}
+
 /* ============== CORE LOGIC ============== */
 async function init(){
   try{
@@ -307,15 +327,36 @@ async function init(){
       if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // ------- Score helpers -------
+    // ------- Score helpers (UPDATED) -------
     function parseGameTotals(row){
       const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
       const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
       const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
-      const wGames = W1+W2+W3;
-      const oGames = O1+O2+O3;
+
+      // Sets 1 & 2 count as-is
+      let wGames = W1 + W2;
+      let oGames = O1 + O2;
+
+      // Third set: if match tiebreak, count 1 game for winner, 0 for loser; else add games as-is
+      if (W3 !== 0 || O3 !== 0){
+        if (isThirdSetMatchTB(W3, O3)){
+          if (W3 > O3){
+            wGames += 1;
+            oGames += 0;
+          }else if (O3 > W3){
+            // Defensive: in case data has "Winner" mislabeled (shouldn't happen)
+            wGames += 0;
+            oGames += 1;
+          } // ties shouldn't occur in valid data
+        }else{
+          wGames += W3;
+          oGames += O3;
+        }
+      }
+
       return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
     }
+
     function computeWinnerPoints(winnerRank, opponentRank, diffGames){
       const rankDiff = Math.abs((opponentRank||0) - (winnerRank||0));
       const isUnderdogUpset = (winnerRank||99) - (opponentRank||0) > 1; // winner had worse (larger) rank by >1
@@ -331,6 +372,7 @@ async function init(){
       }
       return { points, rule, rankDiff, diffGames, isUnderdogUpset };
     }
+
     // Loser base points (computed from scores): games won, capped at 10
     function computeLoserBasePoints(row){
       const { oGames } = parseGameTotals(row); // opponent is the loser in the row
@@ -352,10 +394,13 @@ async function init(){
       const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
       const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
       const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
-      const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`, set3 = (W3!=='' || O3!=='') ? ` ${W3}-${O3}` : '';
+
+      const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
+      const set3 = formatThirdSet(W3, O3, perspective);
+
       return (perspective === 'winner')
         ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
-        : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${(W3!==''||O3!=='')?` ${O3}-${W3}`:''}`;
+        : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdSet(W3, O3, 'opponent')}`;
     }
 
     scoresRaw.forEach(r=>{
@@ -372,8 +417,8 @@ async function init(){
       const loseStr = resultString(r,'opponent');
 
       const { diff } = parseGameTotals(r);
-      const wMeta = computeWinnerPoints(wRank, oRank, diff);    // BASE winner points
-      const loserBase = computeLoserBasePoints(r);              // BASE loser points (from scores)
+      const wMeta = computeWinnerPoints(wRank, oRank, diff);    // BASE winner points (after MTB handling)
+      const loserBase = computeLoserBasePoints(r);              // BASE loser points (after MTB handling)
 
       if (type==='Scheduled'){
         if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
