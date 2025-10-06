@@ -230,13 +230,12 @@ function closeModal(){
   modalEl.setAttribute('aria-hidden','true');
 }
 
-/* ====== TENNIS-SPECIFIC HELPERS (TB based on TB_W/TB_O) ====== */
+/* ====== TENNIS-SPECIFIC HELPERS ====== */
 function hasThirdSetTB(row){
   return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== '';
 }
 
 // Format the 3rd entry: if TB exists, use TB_W/TB_O; else use S3_W/S3_O.
-// perspective: 'winner' prints W-O; 'opponent' prints O-W.
 function formatThirdEntry(row, perspective){
   if (hasThirdSetTB(row)){
     const a = fmt(row.TB_W), b = fmt(row.TB_O);
@@ -318,7 +317,7 @@ async function init(){
     const nameByRank = {};
     players.forEach((p,i)=>{ p.Rank=i+1; rankByName[nameKey(p.Participant)]=p.Rank; nameByRank[p.Rank]=p.Participant; });
 
-    // Schedule map
+    // Schedule map (for upcoming matches display)
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     scheduleRaw.forEach(r=>{
@@ -326,25 +325,20 @@ async function init(){
       if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // ------- Score helpers (TB uses TB_W/TB_O) -------
+    // ------- Game/Points helpers (TB uses TB_W/TB_O) -------
     function parseGameTotals(row){
       const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
       const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
       const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
       const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
 
-      // Sets 1 & 2 count as-is
       let wGames = W1 + W2;
       let oGames = O1 + O2;
 
-      // Third entry: prefer super TB if present; else add S3 games as-is
       if (hasThirdSetTB(row)){
         if (TBW > TBO){
-          wGames += 1; // winner gets 1 game for the super TB
-          oGames += 0;
+          wGames += 1;
         }else if (TBO > TBW){
-          // Defensive guard (shouldn't really occur if Winner column aligns)
-          wGames += 0;
           oGames += 1;
         }
       }else if (W3 !== 0 || O3 !== 0){
@@ -357,7 +351,7 @@ async function init(){
 
     function computeWinnerPoints(winnerRank, opponentRank, diffGames){
       const rankDiff = Math.abs((opponentRank||0) - (winnerRank||0));
-      const isUnderdogUpset = (winnerRank||99) - (opponentRank||0) > 1; // winner had worse (larger) rank by >1
+      const isUnderdogUpset = (winnerRank||99) - (opponentRank||0) > 1;
       let points, rule;
       if (isUnderdogUpset){
         const raw = 10 + diffGames * ((winnerRank - opponentRank)/2);
@@ -371,19 +365,15 @@ async function init(){
       return { points, rule, rankDiff, diffGames, isUnderdogUpset };
     }
 
-    // Loser base points (computed from scores): games won, capped at 10
     function computeLoserBasePoints(row){
-      const { oGames } = parseGameTotals(row); // opponent is the loser in the row
+      const { oGames } = parseGameTotals(row);
       return Math.min(10, oGames);
     }
 
-    // Index results
-    const scheduledByPlayer = new Map();
-    const challengeByPlayer = new Map();
-    const scheduledLoserPts = new Map();
-    const challengeLoserPts = new Map();
-    const scheduledWinnerMeta = new Map();
-    const challengeWinnerMeta = new Map();
+    // ===== UNIFIED RESULT+META MAPS =====
+    // Each value: { text, isLoss, loserPts?, winnerMeta? }
+    const scheduled = new Map();
+    const challenge = new Map();
 
     function resultString(row, perspective){
       const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
@@ -400,6 +390,7 @@ async function init(){
         : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
     }
 
+    // Index rows -> overwrite so the last entry for a player/type is the canonical one
     scoresRaw.forEach(r=>{
       const rRound = Number(r.Round);
       if (rRound !== Number(ROUND)) return;
@@ -410,24 +401,28 @@ async function init(){
       const wKey = nameKey(winner), oKey = nameKey(opponent);
       const wRank = rankByName[wKey], oRank = rankByName[oKey];
 
-      const winStr = resultString(r,'winner');
-      const loseStr = resultString(r,'opponent');
-
       const { diff } = parseGameTotals(r);
       const wMeta = computeWinnerPoints(wRank, oRank, diff);
-      const loserBase = computeLoserBasePoints(r);
+      const lPts  = computeLoserBasePoints(r);
 
-      if (type==='Scheduled'){
-        if (!scheduledByPlayer.has(wKey)) scheduledByPlayer.set(wKey, winStr);
-        if (!scheduledByPlayer.has(oKey)) scheduledByPlayer.set(oKey, loseStr);
-        scheduledLoserPts.set(oKey, loserBase);
-        scheduledWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
-      }else{
-        if (!challengeByPlayer.has(wKey)) challengeByPlayer.set(wKey, winStr);
-        if (!challengeByPlayer.has(oKey)) challengeByPlayer.set(oKey, loseStr);
-        challengeLoserPts.set(oKey, loserBase);
-        challengeWinnerMeta.set(wKey, { ...wMeta, opponentRank:oRank, winnerRank:wRank });
-      }
+      const winStr  = resultString(r,'winner');
+      const loseStr = resultString(r,'opponent');
+
+      const target = (type === 'Scheduled') ? scheduled : challenge;
+
+      // Store winner view (with winnerMeta)
+      target.set(wKey, {
+        text: winStr,
+        isLoss: false,
+        winnerMeta: { ...wMeta }
+      });
+
+      // Store loser view (with loser points)
+      target.set(oKey, {
+        text: loseStr,
+        isLoss: true,
+        loserPts: lPts
+      });
     });
 
     // Render table
@@ -454,34 +449,32 @@ async function init(){
 
       const meKey = nameKey(p.Participant);
 
-      // Scheduled cell (no division)
+      // -------- Scheduled cell --------
       const tdSched = document.createElement('td');
-      const schedRes = scheduledByPlayer.get(meKey);
-      if (schedRes){
+      const schedRec = scheduled.get(meKey);
+      if (schedRec){
         const pill = document.createElement('span');
         pill.className = 'badge badge-scheduled';
         pill.textContent = 'Scheduled';
         tdSched.appendChild(pill);
 
         const span = document.createElement('span');
-        const isLoss = schedRes.startsWith('Lost');
-        span.className = 'result ' + (isLoss ? 'lost' : 'won');
-        span.textContent = schedRes;
+        span.className = 'result ' + (schedRec.isLoss ? 'lost' : 'won');
+        span.textContent = schedRec.text;
         tdSched.appendChild(span);
 
-        if (isLoss && scheduledLoserPts.has(meKey)){
-          const base = scheduledLoserPts.get(meKey);
-          const finalPts = Math.round(base);
+        if (schedRec.isLoss && typeof schedRec.loserPts === 'number'){
+          const finalPts = Math.round(schedRec.loserPts);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
           badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
           badge.setAttribute('data-points', String(finalPts));
-          badge.setAttribute('data-base', String(base));
+          badge.setAttribute('data-base', String(schedRec.loserPts));
           badge.setAttribute('data-divisor', '1');
           badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdSched.appendChild(badge);
-        }else if(!isLoss && scheduledWinnerMeta.has(meKey)){
-          const wm = scheduledWinnerMeta.get(meKey);
+        }else if(!schedRec.isLoss && schedRec.winnerMeta){
+          const wm = schedRec.winnerMeta;
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
           badge.setAttribute('data-title','Winner Points');
@@ -495,6 +488,7 @@ async function init(){
           tdSched.appendChild(badge);
         }
       }else{
+        // No result yet — show scheduled opponent if any
         const oppRank = scheduleMap[p.Rank];
         if (oppRank){
           const oppName = nameByRank[oppRank] || '';
@@ -505,29 +499,28 @@ async function init(){
       }
       tr.appendChild(tdSched);
 
-      // Challenge cell (apply division rule)
+      // -------- Challenge cell --------
       const tdChal = document.createElement('td');
-      const chalRes = challengeByPlayer.get(meKey);
-      if (chalRes){
+      const chalRec = challenge.get(meKey);
+      if (chalRec){
         const pill = document.createElement('span');
         pill.className = 'badge badge-challenge';
         pill.textContent = 'Challenge';
         tdChal.appendChild(pill);
 
         const span = document.createElement('span');
-        const isLoss = chalRes.startsWith('Lost');
-        span.className = 'result ' + (isLoss ? 'lost' : 'won');
-        span.textContent = chalRes;
+        span.className = 'result ' + (chalRec.isLoss ? 'lost' : 'won');
+        span.textContent = chalRec.text;
         tdChal.appendChild(span);
 
-        const hasScheduledMatch = scheduledByPlayer.has(meKey);
+        const hasScheduledMatch = scheduled.has(meKey);
         const divisor = hasScheduledMatch ? 2 : 4;
         const divisorMsg = hasScheduledMatch
           ? 'Challenge points reduced by ½ because your scheduled match was played.'
           : 'Challenge points reduced by ¼ because your scheduled match has not been played.';
 
-        if (isLoss && challengeLoserPts.has(meKey)){
-          const base = challengeLoserPts.get(meKey);
+        if (chalRec.isLoss && typeof chalRec.loserPts === 'number'){
+          const base = chalRec.loserPts;
           const finalPts = Math.round(base / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='loser-pts';
@@ -538,8 +531,8 @@ async function init(){
           badge.setAttribute('data-chalmsg', divisorMsg);
           badge.innerHTML = `<b>${finalPts}</b> pts`;
           tdChal.appendChild(badge);
-        }else if(!isLoss && challengeWinnerMeta.has(meKey)){
-          const wm = challengeWinnerMeta.get(meKey);
+        }else if(!chalRec.isLoss && chalRec.winnerMeta){
+          const wm = chalRec.winnerMeta;
           const finalPts = Math.round(wm.points / divisor);
           const badge = document.createElement('button');
           badge.type='button'; badge.className='winner-pts';
