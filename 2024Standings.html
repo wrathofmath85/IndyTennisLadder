@@ -40,10 +40,24 @@
   .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
-  .loser-pts,.winner-pts{ display:inline-flex; align-items:center; gap:6px; margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px; cursor:pointer; user-select:none; }
+
+  /* --- MAKE POINT PILLS ALWAYS CLICKABLE --- */
+  .winner-pts, .loser-pts{
+    display:inline-flex; align-items:center; gap:6px;
+    margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px;
+    cursor:pointer; user-select:none;
+    position:relative; z-index:3; pointer-events:auto; /* key bits */
+  }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
   .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+
+  .result, .badge{ position:relative; z-index:1; } /* ensure below pills */
+  .panel table *{ pointer-events:auto; }           /* no rogue none */
+
+  /* If sticky thead ever overlaps top-row cells while at scrollTop=0 */
+  /* tbody td{ position:relative; z-index:3; } */  /* uncomment if needed */
+
   .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; }
   .backdrop.show{ opacity:1; pointer-events:auto; }
   .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule); border-radius:16px; box-shadow:var(--shadow); width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease; }
@@ -55,6 +69,7 @@
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
+
   @media (max-width:720px){
     thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
@@ -299,7 +314,7 @@ async function init(round){
     });
 
     // Round CSV (filter if it still carries a "Round" column)
-    const scoresRawAllFiltered = (await loadCSV(CSV[roundKey])).filter(r => {
+    const scoresRaw = (scoresRawAll||[]).filter(r => {
       const rr = Number(r.Round);
       return isNaN(rr) || rr === Number(ROUND);
     });
@@ -321,7 +336,7 @@ async function init(round){
         : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
     }
 
-    scoresRawAllFiltered.forEach(r=>{
+    scoresRaw.forEach(r=>{
       const type = String(r.MatchType||'').trim();
       if (type !== 'Scheduled' && type !== 'Challenge') return;
 
@@ -491,11 +506,16 @@ function buildRoundSelect(){
   });
 }
 
-/* ===== Modal copy (unchanged) ===== */
-document.addEventListener('click', (e)=>{
-  const loserBtn = e.target.closest('.loser-pts');
+/* ===== Unified handler bound to both click & pointerup ===== */
+function handlePointsClick(e){
+  const loserBtn  = e.target.closest('.loser-pts');
+  const winnerBtn = e.target.closest('.winner-pts');
+  if (!loserBtn && !winnerBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
   if (loserBtn){
-    e.preventDefault();
     const pts  = loserBtn.getAttribute('data-points') || '';
     const gw   = loserBtn.getAttribute('data-gameswon') || '0';
     const div  = loserBtn.getAttribute('data-chaldiv') || '';
@@ -514,9 +534,7 @@ document.addEventListener('click', (e)=>{
     return;
   }
 
-  const winnerBtn = e.target.closest('.winner-pts');
   if (winnerBtn){
-    e.preventDefault();
     const pts   = winnerBtn.getAttribute('data-points') || '';
     const upset = (winnerBtn.getAttribute('data-upset') || 'NO').toUpperCase();
     const gw    = winnerBtn.getAttribute('data-gw') || '0';
@@ -527,7 +545,6 @@ document.addEventListener('click', (e)=>{
     const rdiff = (wr && orr) ? Math.abs(Number(wr)-Number(orr)) : '';
     const div   = winnerBtn.getAttribute('data-chaldiv') || '';
     const isChallenge = div && div !== '' && div !== '1';
-
     const topAlert = (upset === 'YES') ? `<p><strong>UPSET ALERT!</strong></p>` : ``;
 
     const body = (upset === 'YES')
@@ -550,10 +567,12 @@ document.addEventListener('click', (e)=>{
           ` : ``}
           <p class="tip">Winners receive 10 + (difference in games won/lost), minimum 11.</p>
         `;
-
     openModal('Winner Points', `${topAlert}${body}`);
   }
-});
+}
+
+document.addEventListener('click', handlePointsClick, { capture:false });
+document.addEventListener('pointerup', handlePointsClick, { capture:false });
 
 /* Boot */
 buildRoundSelect();
