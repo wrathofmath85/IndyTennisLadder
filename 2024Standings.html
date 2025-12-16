@@ -30,13 +30,13 @@
   thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
   tbody tr:hover{ background:#0e1420;}
-  .rank{ width:56px; color:#cdd8e6; }
+  .rank{ width:76px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
   .name{ font-weight:600;}
   .points{ font-variant-numeric: tabular-nums; }
   .result{ font-weight:600;}
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
-  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:var(--muted);}
+  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4;}
   .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
@@ -58,7 +58,9 @@
   @media (max-width:720px){
     thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
-    .rank{ order:-3; font-weight:700; } .name{ order:-2; font-size:16px; } .points{ order:-1; }
+    .rank-current{ order:-4; font-weight:700; }
+    .rank-begin{ order:-3; font-weight:700; }
+    .name{ order:-2; font-size:16px; } .points{ order:-1; }
     .badge{ display:inline-block; } .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
   }
 </style>
@@ -78,7 +80,8 @@
     <table id="ladder" style="display:none;">
       <thead>
         <tr>
-          <th class="rank">#</th>
+          <th class="rank">Current Ranking</th>
+          <th class="rank">Beginning of Round Ranking</th>
           <th>Participant</th>
           <th class="points">Points</th>
           <th>Scheduled Opponent / Result</th>
@@ -248,35 +251,46 @@ async function init(round){
       if (type){ const dot = document.createElement('span'); dot.className = 'dot'; dot.textContent = type; meta.appendChild(dot); }
     }
 
-    // Active filter (RStart ≤ round ≤ REnd)
+    // Active this round
     const activePlayersRaw = playersRaw.filter(r => {
       const start = num(r.RStart), end = num(r.REnd), rr = Number(ROUND);
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // ===== BEGINNING-OF-ROUND RANKS (dynamic R#Pts/R#Perc) =====
+    // ---- Current Ranking (always R8Pts/R8Perc) ----
+    const currentPlayers = activePlayersRaw.map(r => ({
+      Participant: fmt(r.Participant),
+      CurrPts: num(r.R8Pts),
+      CurrPerc: num(r.R8Perc),
+    })).sort((a,b)=>{
+      const pA = isNaN(a.CurrPts)?-Infinity:a.CurrPts, pB = isNaN(b.CurrPts)?-Infinity:b.CurrPts;
+      if (pA !== pB) return pB - pA;
+      const qA = isNaN(a.CurrPerc)?-Infinity:a.CurrPerc, qB = isNaN(b.CurrPerc)?-Infinity:b.CurrPerc;
+      if (qA !== qB) return qB - qA;
+      return a.Participant.localeCompare(b.Participant, undefined, {sensitivity:'base'});
+    });
+    const currentRankByName = {};
+    currentPlayers.forEach((p,i)=> currentRankByName[nameKey(p.Participant)] = i+1);
+
+    // ---- Beginning-of-Round Ranking (R#Pts/R#Perc) ----
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
-    const players = activePlayersRaw.map(r => ({
+    const beginPlayers = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
-      Points: num(r[ptsLabel]),
-      Percent: num(r[percLabel]),
-      _last: lastName(r.Participant)
+      BeginPts: num(r[ptsLabel]),
+      BeginPerc: num(r[percLabel]),
     })).sort((a,b)=>{
-      const pA = isNaN(a.Points) ? -Infinity : a.Points;
-      const pB = isNaN(b.Points) ? -Infinity : b.Points;
+      const pA = isNaN(a.BeginPts)?-Infinity:a.BeginPts, pB = isNaN(b.BeginPts)?-Infinity:b.BeginPts;
       if (pA !== pB) return pB - pA;
-      const qA = isNaN(a.Percent) ? -Infinity : a.Percent;
-      const qB = isNaN(b.Percent) ? -Infinity : b.Percent;
+      const qA = isNaN(a.BeginPerc)?-Infinity:a.BeginPerc, qB = isNaN(b.BeginPerc)?-Infinity:b.BeginPerc;
       if (qA !== qB) return qB - qA;
       return a.Participant.localeCompare(b.Participant, undefined, {sensitivity:'base'});
     });
 
-    // name <-> rank for THIS round's starting ranks (used in notes)
-    const rankByName = {}, nameByRank = {};
-    players.forEach((p,i)=>{ p.Rank=i+1; rankByName[nameKey(p.Participant)]=p.Rank; nameByRank[p.Rank]=p.Participant; });
+    const beginRankByName = {}, nameByBeginRank = {};
+    beginPlayers.forEach((p,i)=>{ p.BeginRank=i+1; beginRankByName[nameKey(p.Participant)]=p.BeginRank; nameByBeginRank[p.BeginRank]=p.Participant; });
 
-    // Schedule map (for "no result yet" line)
+    // Schedule map uses beginning-of-round ranks
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     (scheduleRaw||[]).forEach(r=>{
@@ -285,19 +299,19 @@ async function init(round){
     });
 
     // Round CSV (filter if it still carries a "Round" column)
-    const scoresRaw = (scoresRawAll||[]).filter(r => {
+    const scoresRawAllFiltered = (await loadCSV(CSV[roundKey])).filter(r => {
       const rr = Number(r.Round);
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // Index results (store ranks from rankByName so modals use start-of-round ranks)
+    // Build result indices; notes use beginning-of-round ranks
     const scheduled = new Map();
     const challenge = new Map();
 
     function resultString(row, perspective){
       const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
-      const wRank = rankByName[nameKey(winner)] || '?';
-      const oRank = rankByName[nameKey(opponent)] || '?';
+      const wRank = beginRankByName[nameKey(winner)] || '?';
+      const oRank = beginRankByName[nameKey(opponent)] || '?';
       const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
       const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
       const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
@@ -307,49 +321,50 @@ async function init(round){
         : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
     }
 
-    scoresRaw.forEach(r=>{
+    scoresRawAllFiltered.forEach(r=>{
       const type = String(r.MatchType||'').trim();
       if (type !== 'Scheduled' && type !== 'Challenge') return;
 
       const winner = fmt(r.Winner), opponent = fmt(r.Opponent);
       const wKey = nameKey(winner), oKey = nameKey(opponent);
-      const wRank = rankByName[wKey], oRank = rankByName[oKey];
+      const wRank = beginRankByName[wKey], oRank = beginRankByName[oKey];
 
       const { wGames, oGames, diff } = parseGameTotals(r);
       const upset = String(r.Upset||'').toUpperCase() === 'YES' ? 'YES' : 'NO';
 
       const target = (type === 'Scheduled') ? scheduled : challenge;
 
-      // winner record (notes will use wRank/oRank captured here)
-      target.set(wKey, {
-        text: resultString(r,'winner'),
-        isLoss:false,
-        row:r, wRank, oRank, upset, type,
-        gw:wGames, gl:oGames, gdiff:diff
-      });
+      target.set(wKey, { text: resultString(r,'winner'), isLoss:false, row:r,
+                         wRank, oRank, upset, type, gw:wGames, gl:oGames, gdiff:diff });
 
-      // loser record
-      target.set(oKey, {
-        text: resultString(r,'opponent'),
-        isLoss:true,
-        row:r, wRank:oRank, oRank:wRank, upset:'NO', type,
-        gw:oGames, gl:wGames, gdiff:Math.max(0,oGames - wGames)
-      });
+      target.set(oKey, { text: resultString(r,'opponent'), isLoss:true, row:r,
+                         wRank:oRank, oRank:wRank, upset:'NO', type, gw:oGames, gl:wGames,
+                         gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // ------- Render -------
+    // ------- Render by CURRENT ranking -------
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
-    players.forEach(p=>{
+    currentPlayers.forEach((cp, idx)=>{
       const tr = document.createElement('tr');
 
-      const tdRank = document.createElement('td'); tdRank.className='rank'; tdRank.textContent = `#${p.Rank}`; tr.appendChild(tdRank);
-      const tdName = document.createElement('td'); tdName.className='name'; tdName.textContent = p.Participant; tr.appendChild(tdName);
-      const tdPts  = document.createElement('td'); tdPts.className='points'; tdPts.textContent = isNaN(p.Points)? '' : p.Points; tr.appendChild(tdPts);
+      const meKey = nameKey(cp.Participant);
+      const currentRank = idx + 1; // already sorted by current
+      const beginRank = beginRankByName[meKey] || '';
 
-      const meKey = nameKey(p.Participant);
+      // Current and Beginning-of-round rank columns
+      const tdCurr = document.createElement('td'); tdCurr.className='rank rank-current'; tdCurr.textContent = `#${currentRank}`; tr.appendChild(tdCurr);
+      const tdBegin = document.createElement('td'); tdBegin.className='rank rank-begin'; tdBegin.textContent = beginRank ? `#${beginRank}` : ''; tr.appendChild(tdBegin);
 
-      // Scheduled cell
+      // Name
+      const tdName = document.createElement('td'); tdName.className='name'; tdName.textContent = cp.Participant; tr.appendChild(tdName);
+
+      // Points (show current points to match sort basis)
+      const tdPts  = document.createElement('td'); tdPts.className='points';
+      tdPts.textContent = !isNaN(cp.CurrPts) ? cp.CurrPts : '';
+      tr.appendChild(tdPts);
+
+      // Scheduled cell (use begin-of-round ranks to locate schedule)
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
@@ -359,7 +374,7 @@ async function init(round){
         if (sr.isLoss){
           const baseGames = sr.gw;
           const base = 'LosePoints' in sr.row ? safeNum(sr.row.LosePoints) : Math.min(10, baseGames);
-          const final = base; // divisor 1
+          const final = base;
 
           const btn = document.createElement('button');
           btn.type='button'; btn.className='loser-pts';
@@ -374,7 +389,7 @@ async function init(round){
                                                : (sr.upset==='YES'
                                                   ? Math.max(15, Math.min(25, Math.round(10 + sr.gdiff * ((sr.wRank - sr.oRank)/2))))
                                                   : Math.max(11, Math.round(10 + sr.gdiff)));
-          const final = base; // divisor 1
+          const final = base;
 
           const btn = document.createElement('button');
           btn.type='button'; btn.className='winner-pts';
@@ -391,9 +406,9 @@ async function init(round){
           tdSched.appendChild(btn);
         }
       }else{
-        const oppRank = scheduleMap[p.Rank];
+        const oppRank = beginRank ? scheduleMap[beginRank] : undefined;
         if (oppRank){
-          const oppName = nameByRank[oppRank] || '';
+          const oppName = nameByBeginRank[oppRank] || '';
           const span = document.createElement('span');
           span.innerHTML = `<span class="badge badge-scheduled">Scheduled</span> #${oppRank} ${oppName || ''}`;
           tdSched.appendChild(span);
@@ -408,7 +423,6 @@ async function init(round){
         const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; tdChal.appendChild(pill);
         const span = document.createElement('span'); span.className='result ' + (cr.isLoss ? 'lost' : 'won'); span.textContent=cr.text; tdChal.appendChild(span);
 
-        // “Has scheduled match been played?” If player has a Scheduled record, ÷2; else ÷4
         const hasScheduled = scheduled.has(meKey);
         const divisor = hasScheduled ? 2 : 4;
 
@@ -477,7 +491,7 @@ function buildRoundSelect(){
   });
 }
 
-/* ===== Modal copy per your spec ===== */
+/* ===== Modal copy (unchanged) ===== */
 document.addEventListener('click', (e)=>{
   const loserBtn = e.target.closest('.loser-pts');
   if (loserBtn){
