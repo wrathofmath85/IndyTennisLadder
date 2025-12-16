@@ -22,7 +22,16 @@
   header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule); border-radius:14px; padding:18px 18px 14px; box-shadow: 0 6px 30px rgba(0,0,0,.35);}
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
-  .round-pill{ font-size:12px; padding:4px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted);}
+
+  /* Round pill -> dropdown */
+  .round-select{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    font-size:12px; padding:6px 28px 6px 10px; border-radius:999px;
+    background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted);
+    cursor:pointer; position:relative; line-height:1.1;
+  }
+  .round-select:focus{ outline:2px solid #2c4564; outline-offset:2px; }
+
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
   .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
@@ -48,7 +57,6 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  /* Loser & Winner points chips */
   .loser-pts, .winner-pts{
     display:inline-flex; align-items:center; gap:6px;
     margin-left:10px; padding:2px 8px; border-radius:999px;
@@ -58,7 +66,6 @@
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
   .loser-pts b, .winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
 
-  /* Modal */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -111,7 +118,8 @@
   <header>
     <div class="title">
       <h1>Indy Tennis Ladder</h1>
-      <span class="round-pill" id="roundPill">Round 1</span>
+      <!-- Round dropdown (styled like a pill) -->
+      <select id="roundSelect" class="round-select" aria-label="Select round"></select>
     </div>
     <div class="meta" id="roundMeta"></div>
   </header>
@@ -132,7 +140,7 @@
     </table>
   </div>
 
-  <div class="footer-note">Tip: Add <code>?round=2</code> to the page URL while testing different rounds.</div>
+  <div class="footer-note">Tip: you can also use <code>?round=2</code> while testing.</div>
 </div>
 
 <!-- Modal -->
@@ -147,37 +155,46 @@
 
 <script>
 /* ============== CONFIG ============== */
+const CurrentRound = 1; // <-- update as the ladder progresses
+
 const CSV = {
-  Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
-  Scores:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=551333593&single=true&output=csv',
-  Schedule:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
-  Dates:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv'
+  Players:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
+  Schedule: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
+  Dates:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv',
+
+  // === 10 per-round Scores CSVs ===
+  ScoresRound1:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1813586077&single=true&output=csv',
+  ScoresRound2:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=667416587&single=true&output=csv',
+  ScoresRound3:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1340896382&single=true&output=csv',
+  ScoresRound4:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1779797386&single=true&output=csv',
+  ScoresRound5:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1138515130&single=true&output=csv',
+  ScoresRound6:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=2117392535&single=true&output=csv',
+  ScoresRound7:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=454354939&single=true&output=csv',
+  ScoresRound8:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1429948565&single=true&output=csv',
+  ScoresRound9:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=656808017&single=true&output=csv',
+  ScoresRound10: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1886048839&single=true&output=csv'
 };
 
-// Active round: override via ?round=#
-const ROUND = (() => {
+// Resolve initial round: ?round overrides but cannot exceed CurrentRound
+let ROUND = (() => {
   const u = new URLSearchParams(location.search);
-  const q = parseInt(u.get('round'),10);
-  if (!isNaN(q) && q>=1 && q<=10) return q;
-  return 1;
+  const q = parseInt(u.get('round'), 10);
+  if (!isNaN(q) && q >= 1 && q <= CurrentRound) return q;
+  return CurrentRound;
 })();
-document.getElementById('roundPill').textContent = `Round ${ROUND}`;
 
 /* ============== HELPERS ============== */
 function loadCSV(url){
   return new Promise((resolve, reject) => {
+    if (!url || url === 'CHANGE_ME') return resolve([]);
     Papa.parse(url, { download: true, header: true, skipEmptyLines: 'greedy',
       complete: (res) => resolve(res.data || []),
       error: (err) => reject(err)
     });
   });
 }
-
 const nameKey = s => String(s||'').trim().toLowerCase();
-const lastName = s => {
-  const parts = String(s||'').trim().split(/\s+/);
-  return parts.length ? parts[parts.length-1] : '';
-};
+const lastName = s => { const parts = String(s||'').trim().split(/\s+/); return parts.length ? parts[parts.length-1] : ''; };
 const num = v => (v===null || v===undefined || v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
 const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
 const fmt = (v) => v===undefined || v===null ? '' : String(v);
@@ -200,7 +217,6 @@ function fmtDateRange(startRaw, endRaw){
   if (e) return nice(e);
   return [fmt(startRaw), fmt(endRaw)].filter(Boolean).join(' – ');
 }
-
 function setStatus(msg, isError=false){
   const st = document.getElementById('status');
   st.textContent = msg;
@@ -218,24 +234,16 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); }
 function openModal(title, html){
   modalTitle.textContent = title || 'Info';
   modalBody.innerHTML = html;
-  backdropEl.classList.add('show');
-  modalEl.classList.add('show');
-  backdropEl.setAttribute('aria-hidden','false');
-  modalEl.setAttribute('aria-hidden','false');
+  backdropEl.classList.add('show'); modalEl.classList.add('show');
+  backdropEl.setAttribute('aria-hidden','false'); modalEl.setAttribute('aria-hidden','false');
 }
 function closeModal(){
-  modalEl.classList.remove('show');
-  backdropEl.classList.remove('show');
-  backdropEl.setAttribute('aria-hidden','true');
-  modalEl.setAttribute('aria-hidden','true');
+  modalEl.classList.remove('show'); backdropEl.classList.remove('show');
+  backdropEl.setAttribute('aria-hidden','true'); modalEl.setAttribute('aria-hidden','true');
 }
 
 /* ====== TENNIS-SPECIFIC HELPERS ====== */
-function hasThirdSetTB(row){
-  return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== '';
-}
-
-// Format the 3rd entry: if TB exists, use TB_W/TB_O; else use S3_W/S3_O.
+function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
 function formatThirdEntry(row, perspective){
   if (hasThirdSetTB(row)){
     const a = fmt(row.TB_W), b = fmt(row.TB_O);
@@ -248,14 +256,25 @@ function formatThirdEntry(row, perspective){
   }
 }
 
-/* ============== CORE LOGIC ============== */
-async function init(){
+/* ============== CORE ============== */
+async function init(round){
+  ROUND = round;
+
+  // update select UI and URL (keeps default limited to CurrentRound)
+  const sel = document.getElementById('roundSelect');
+  if (sel.value !== String(ROUND)) sel.value = String(ROUND);
+  const url = new URL(location.href);
+  url.searchParams.set('round', String(ROUND));
+  history.replaceState(null, '', url);
+
   try{
     setStatus('Loading data…');
+    document.getElementById('ladder').style.display = 'none';
 
-    const [playersRaw, scoresRaw, scheduleRaw, datesRaw] = await Promise.all([
+    const roundKey = `ScoresRound${ROUND}`;
+    const [playersRaw, scoresRawAll, scheduleRaw, datesRaw] = await Promise.all([
       loadCSV(CSV.Players),
-      loadCSV(CSV.Scores),
+      loadCSV(CSV[roundKey]),
       loadCSV(CSV.Schedule),
       loadCSV(CSV.Dates)
     ]);
@@ -277,7 +296,7 @@ async function init(){
       }
     }
 
-    // ---------- FILTER BY ACTIVE ROUND ----------
+    // Filter active players by Start/End round
     const getBound = (row, keys, defVal) => {
       for (const k of keys){
         if (row.hasOwnProperty(k) && row[k] !== '') {
@@ -294,17 +313,15 @@ async function init(){
       return start <= rr && end >= rr;
     });
 
-    // Build ranking from ACTIVE players only
+    // Ranking columns for the round
     const pointsCol = `Round${ROUND}Points`;
     const pctCol    = `Round${ROUND}Percent`;
-
     const players = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
       Points: num(r[pointsCol]),
       Percent: num(r[pctCol]),
       _last: lastName(r.Participant)
     }));
-
     players.sort((a,b)=>{
       const p = (isNaN(a.Points)?-Infinity:a.Points) - (isNaN(b.Points)?-Infinity:b.Points);
       if (p!==0) return p>0 ? -1 : 1;
@@ -312,66 +329,78 @@ async function init(){
       if (q!==0) return q>0 ? -1 : 1;
       return a._last.localeCompare(b._last, undefined, {sensitivity:'base'});
     });
-
-    const rankByName = {};
-    const nameByRank = {};
+    const rankByName = {}, nameByRank = {};
     players.forEach((p,i)=>{ p.Rank=i+1; rankByName[nameKey(p.Participant)]=p.Rank; nameByRank[p.Rank]=p.Participant; });
 
-    // Schedule map (for upcoming matches display)
+    // Schedule (for “no result yet” line)
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
-    scheduleRaw.forEach(r=>{
+    (scheduleRaw||[]).forEach(r=>{
       const rnk = Number(r.Ranking), opp = Number(r[scheduleCol]);
       if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // ------- Game/Points helpers (TB uses TB_W/TB_O) -------
+    // If your round CSV still has a Round column, keep only this round.
+    const scoresRaw = (scoresRawAll||[]).filter(r => {
+      const rr = Number(r.Round);
+      if (isNaN(rr)) return true;        // no Round column: accept
+      return rr === Number(ROUND);       // filter when present
+    });
+
+    // Helpers: optionally use precomputed columns if present in the CSV
     function parseGameTotals(row){
+      if ('GamesWon' in row && 'GamesLost' in row){
+        const w = safeNum(row.GamesWon), o = safeNum(row.GamesLost);
+        return { wGames:w, oGames:o, diff: Math.max(0, w - o) };
+      }
+      // fallback compute from set scores
       const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
       const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
       const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
       const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
-
-      let wGames = W1 + W2;
-      let oGames = O1 + O2;
-
+      let wGames = W1 + W2, oGames = O1 + O2;
       if (hasThirdSetTB(row)){
-        if (TBW > TBO){
-          wGames += 1;
-        }else if (TBO > TBW){
-          oGames += 1;
-        }
+        if (TBW > TBO){ wGames += 1; } else if (TBO > TBW){ oGames += 1; }
       }else if (W3 !== 0 || O3 !== 0){
-        wGames += W3;
-        oGames += O3;
+        wGames += W3; oGames += O3;
       }
-
       return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
     }
-
-    function computeWinnerPoints(winnerRank, opponentRank, diffGames){
-      const rankDiff = Math.abs((opponentRank||0) - (winnerRank||0));
-      const isUnderdogUpset = (winnerRank||99) - (opponentRank||0) > 1;
+    function computeWinnerPoints(wRank, oRank, diffGames){
+      // If CSV has WinPoints, prefer those
+      return {points:null, rule:'', rankDiff:Math.abs((oRank||0)-(wRank||0)), diffGames, isUnderdogUpset:false};
+    }
+    function loserBaseFromCSV(row, divisor){
+      if ('LosePoints' in row){
+        const base = safeNum(row.LosePoints);
+        return { base, final: Math.round(base / (divisor||1)) };
+      }
+      const { oGames } = parseGameTotals(row);
+      const base = Math.min(10, oGames);
+      return { base, final: Math.round(base / (divisor||1)) };
+    }
+    function winnerFromCSV(row, divisor, wRank, oRank){
+      if ('WinPoints' in row){
+        const base = safeNum(row.WinPoints);
+        return { base, final: Math.round(base / (divisor||1)), rankDiff:Math.abs((oRank||0)-(wRank||0)) };
+      }
+      // fall back to the original site calculation
+      const rankDiff = Math.abs((oRank||0) - (wRank||0));
+      const isUnderdogUpset = (wRank||99) - (oRank||0) > 1;
+      const { diff } = parseGameTotals(row);
       let points, rule;
       if (isUnderdogUpset){
-        const raw = 10 + diffGames * ((winnerRank - opponentRank)/2);
+        const raw = 10 + diff * ((wRank - oRank)/2);
         points = Math.max(15, Math.min(25, Math.round(raw)));
         rule = `Underdog upset: 10 + (games diff × rank diff / 2), min 15, max 25`;
       }else{
-        const raw = 10 + diffGames;
+        const raw = 10 + diff;
         points = Math.max(11, Math.round(raw));
         rule = `Standard: 10 + games diff, minimum 11`;
       }
-      return { points, rule, rankDiff, diffGames, isUnderdogUpset };
+      return { base: points, final: Math.round(points / (divisor||1)), rankDiff, rule, diffGames: diff };
     }
 
-    function computeLoserBasePoints(row){
-      const { oGames } = parseGameTotals(row);
-      return Math.min(10, oGames);
-    }
-
-    // ===== UNIFIED RESULT+META MAPS =====
-    // Each value: { text, isLoss, loserPts?, winnerMeta? }
     const scheduled = new Map();
     const challenge = new Map();
 
@@ -381,19 +410,14 @@ async function init(){
       const oRank = rankByName[nameKey(opponent)] || '?';
       const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
       const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
-
       const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
       const set3 = formatThirdEntry(row, perspective);
-
       return (perspective === 'winner')
         ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
         : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
     }
 
-    // Index rows -> overwrite so the last entry for a player/type is the canonical one
     scoresRaw.forEach(r=>{
-      const rRound = Number(r.Round);
-      if (rRound !== Number(ROUND)) return;
       const type = String(r.MatchType||'').trim();
       if (type !== 'Scheduled' && type !== 'Challenge') return;
 
@@ -401,94 +425,62 @@ async function init(){
       const wKey = nameKey(winner), oKey = nameKey(opponent);
       const wRank = rankByName[wKey], oRank = rankByName[oKey];
 
-      const { diff } = parseGameTotals(r);
-      const wMeta = computeWinnerPoints(wRank, oRank, diff);
-      const lPts  = computeLoserBasePoints(r);
-
       const winStr  = resultString(r,'winner');
       const loseStr = resultString(r,'opponent');
 
       const target = (type === 'Scheduled') ? scheduled : challenge;
+      const hasScheduledMatch = scheduled.has(wKey) || scheduled.has(oKey); // used for challenge divisor later (for winners/losers independently)
 
-      // Store winner view (with winnerMeta)
-      target.set(wKey, {
-        text: winStr,
-        isLoss: false,
-        winnerMeta: { ...wMeta }
-      });
+      // winner (store)
+      target.set(wKey, { text: winStr, isLoss:false, row:r, wRank, oRank, hasScheduledMatch });
 
-      // Store loser view (with loser points)
-      target.set(oKey, {
-        text: loseStr,
-        isLoss: true,
-        loserPts: lPts
-      });
+      // loser (store)
+      target.set(oKey,  { text: loseStr, isLoss:true, row:r, wRank:oRank, oRank:wRank, hasScheduledMatch });
     });
 
     // Render table
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
-
     players.forEach(p=>{
       const tr = document.createElement('tr');
 
-      const tdRank = document.createElement('td');
-      tdRank.className = 'rank';
-      tdRank.textContent = `#${p.Rank}`;
-      tr.appendChild(tdRank);
-
-      const tdName = document.createElement('td');
-      tdName.className = 'name';
-      tdName.textContent = p.Participant;
-      tr.appendChild(tdName);
-
-      const tdPts = document.createElement('td');
-      tdPts.className = 'points';
-      tdPts.textContent = isNaN(p.Points) ? '' : p.Points;
-      tr.appendChild(tdPts);
+      const tdRank = document.createElement('td'); tdRank.className='rank'; tdRank.textContent = `#${p.Rank}`; tr.appendChild(tdRank);
+      const tdName = document.createElement('td'); tdName.className='name'; tdName.textContent = p.Participant; tr.appendChild(tdName);
+      const tdPts  = document.createElement('td'); tdPts.className='points'; tdPts.textContent = isNaN(p.Points)? '' : p.Points; tr.appendChild(tdPts);
 
       const meKey = nameKey(p.Participant);
 
-      // -------- Scheduled cell --------
+      // Scheduled cell
       const tdSched = document.createElement('td');
       const schedRec = scheduled.get(meKey);
       if (schedRec){
-        const pill = document.createElement('span');
-        pill.className = 'badge badge-scheduled';
-        pill.textContent = 'Scheduled';
-        tdSched.appendChild(pill);
+        const pill = document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; tdSched.appendChild(pill);
+        const span = document.createElement('span'); span.className='result ' + (schedRec.isLoss ? 'lost' : 'won'); span.textContent=schedRec.text; tdSched.appendChild(span);
 
-        const span = document.createElement('span');
-        span.className = 'result ' + (schedRec.isLoss ? 'lost' : 'won');
-        span.textContent = schedRec.text;
-        tdSched.appendChild(span);
-
-        if (schedRec.isLoss && typeof schedRec.loserPts === 'number'){
-          const finalPts = Math.round(schedRec.loserPts);
-          const badge = document.createElement('button');
-          badge.type='button'; badge.className='loser-pts';
-          badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
-          badge.setAttribute('data-points', String(finalPts));
-          badge.setAttribute('data-base', String(schedRec.loserPts));
-          badge.setAttribute('data-divisor', '1');
-          badge.innerHTML = `<b>${finalPts}</b> pts`;
-          tdSched.appendChild(badge);
-        }else if(!schedRec.isLoss && schedRec.winnerMeta){
-          const wm = schedRec.winnerMeta;
-          const badge = document.createElement('button');
-          badge.type='button'; badge.className='winner-pts';
-          badge.setAttribute('data-title','Winner Points');
-          badge.setAttribute('data-points', String(wm.points));
-          badge.setAttribute('data-base', String(wm.points));
-          badge.setAttribute('data-divisor', '1');
-          badge.setAttribute('data-rule', wm.rule);
-          badge.setAttribute('data-rdiff', String(wm.rankDiff));
-          badge.setAttribute('data-gdiff', String(wm.diffGames));
-          badge.innerHTML = `<b>${wm.points}</b> pts`;
-          tdSched.appendChild(badge);
+        if (schedRec.isLoss){
+          const { base, final } = loserBaseFromCSV(schedRec.row, 1);
+          const btn = document.createElement('button');
+          btn.type='button'; btn.className='loser-pts';
+          btn.setAttribute('data-points', String(final));
+          btn.setAttribute('data-base', String(base));
+          btn.setAttribute('data-divisor', '1');
+          btn.innerHTML = `<b>${final}</b> pts`;
+          tdSched.appendChild(btn);
+        }else{
+          const win = winnerFromCSV(schedRec.row, 1, schedRec.wRank, schedRec.oRank);
+          const btn = document.createElement('button');
+          btn.type='button'; btn.className='winner-pts';
+          btn.setAttribute('data-title','Winner Points');
+          btn.setAttribute('data-points', String(win.final));
+          btn.setAttribute('data-base', String(win.base));
+          btn.setAttribute('data-divisor', '1');
+          btn.setAttribute('data-rule', win.rule || '');
+          btn.setAttribute('data-rdiff', String(win.rankDiff||''));
+          btn.setAttribute('data-gdiff', String(win.diffGames||''));
+          btn.innerHTML = `<b>${win.final}</b> pts`;
+          tdSched.appendChild(btn);
         }
       }else{
-        // No result yet — show scheduled opponent if any
         const oppRank = scheduleMap[p.Rank];
         if (oppRank){
           const oppName = nameByRank[oppRank] || '';
@@ -499,53 +491,43 @@ async function init(){
       }
       tr.appendChild(tdSched);
 
-      // -------- Challenge cell --------
+      // Challenge cell
       const tdChal = document.createElement('td');
       const chalRec = challenge.get(meKey);
       if (chalRec){
-        const pill = document.createElement('span');
-        pill.className = 'badge badge-challenge';
-        pill.textContent = 'Challenge';
-        tdChal.appendChild(pill);
+        const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; tdChal.appendChild(pill);
+        const span = document.createElement('span'); span.className='result ' + (chalRec.isLoss ? 'lost' : 'won'); span.textContent=chalRec.text; tdChal.appendChild(span);
 
-        const span = document.createElement('span');
-        span.className = 'result ' + (chalRec.isLoss ? 'lost' : 'won');
-        span.textContent = chalRec.text;
-        tdChal.appendChild(span);
-
-        const hasScheduledMatch = scheduled.has(meKey);
-        const divisor = hasScheduledMatch ? 2 : 4;
-        const divisorMsg = hasScheduledMatch
+        const hasScheduled = scheduled.has(meKey);
+        const divisor = hasScheduled ? 2 : 4;
+        const divisorMsg = hasScheduled
           ? 'Challenge points reduced by ½ because your scheduled match was played.'
           : 'Challenge points reduced by ¼ because your scheduled match has not been played.';
 
-        if (chalRec.isLoss && typeof chalRec.loserPts === 'number'){
-          const base = chalRec.loserPts;
-          const finalPts = Math.round(base / divisor);
-          const badge = document.createElement('button');
-          badge.type='button'; badge.className='loser-pts';
-          badge.setAttribute('data-info','Losers receive the number of games won, but no more than 10');
-          badge.setAttribute('data-points', String(finalPts));
-          badge.setAttribute('data-base', String(base));
-          badge.setAttribute('data-divisor', String(divisor));
-          badge.setAttribute('data-chalmsg', divisorMsg);
-          badge.innerHTML = `<b>${finalPts}</b> pts`;
-          tdChal.appendChild(badge);
-        }else if(!chalRec.isLoss && chalRec.winnerMeta){
-          const wm = chalRec.winnerMeta;
-          const finalPts = Math.round(wm.points / divisor);
-          const badge = document.createElement('button');
-          badge.type='button'; badge.className='winner-pts';
-          badge.setAttribute('data-title','Winner Points');
-          badge.setAttribute('data-points', String(finalPts));
-          badge.setAttribute('data-base', String(wm.points));
-          badge.setAttribute('data-divisor', String(divisor));
-          badge.setAttribute('data-rule', wm.rule);
-          badge.setAttribute('data-rdiff', String(wm.rankDiff));
-          badge.setAttribute('data-gdiff', String(wm.diffGames));
-          badge.setAttribute('data-chalmsg', divisorMsg);
-          badge.innerHTML = `<b>${finalPts}</b> pts`;
-          tdChal.appendChild(badge);
+        if (chalRec.isLoss){
+          const { base, final } = loserBaseFromCSV(chalRec.row, divisor);
+          const btn = document.createElement('button');
+          btn.type='button'; btn.className='loser-pts';
+          btn.setAttribute('data-points', String(final));
+          btn.setAttribute('data-base', String(base));
+          btn.setAttribute('data-divisor', String(divisor));
+          btn.setAttribute('data-chalmsg', divisorMsg);
+          btn.innerHTML = `<b>${final}</b> pts`;
+          tdChal.appendChild(btn);
+        }else{
+          const win = winnerFromCSV(chalRec.row, divisor, chalRec.wRank, chalRec.oRank);
+          const btn = document.createElement('button');
+          btn.type='button'; btn.className='winner-pts';
+          btn.setAttribute('data-title','Winner Points');
+          btn.setAttribute('data-points', String(win.final));
+          btn.setAttribute('data-base', String(win.base));
+          btn.setAttribute('data-divisor', String(divisor));
+          btn.setAttribute('data-rule', win.rule || '');
+          btn.setAttribute('data-rdiff', String(win.rankDiff||''));
+          btn.setAttribute('data-gdiff', String(win.diffGames||''));
+          btn.setAttribute('data-chalmsg', divisorMsg);
+          btn.innerHTML = `<b>${win.final}</b> pts`;
+          tdChal.appendChild(btn);
         }
       }
       tr.appendChild(tdChal);
@@ -554,16 +536,33 @@ async function init(){
     });
 
     document.getElementById('ladder').style.display = '';
-    setStatus('');
-    document.getElementById('status').style.display = 'none';
-
+    setStatus(''); document.getElementById('status').style.display = 'none';
   }catch(err){
     console.error(err);
     setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
   }
 }
 
-/* Click handlers for chips -> modal */
+/* ============== UI: Round dropdown build & events ============== */
+function buildRoundSelect(){
+  const sel = document.getElementById('roundSelect');
+  sel.innerHTML = '';
+  for (let r=1; r<=CurrentRound; r++){
+    const opt = document.createElement('option');
+    opt.value = String(r);
+    opt.textContent = `Round ${r}`;
+    sel.appendChild(opt);
+  }
+  sel.value = String(ROUND);
+  sel.addEventListener('change', () => {
+    const r = parseInt(sel.value,10);
+    if (!isNaN(r) && r>=1 && r<=CurrentRound){
+      init(r);
+    }
+  });
+}
+
+/* Click handlers for points chips -> modal */
 document.addEventListener('click', (e)=>{
   const loserBtn = e.target.closest('.loser-pts');
   if (loserBtn){
@@ -595,14 +594,15 @@ document.addEventListener('click', (e)=>{
     const html = `
       <p><strong>${pts}</strong> points were awarded for this win.</p>
       ${adjust}
-      <p>Inputs: rank difference <strong>${rdiff}</strong>, games difference <strong>${gdiff}</strong>.</p>
-      <p class="tip"><em>${rule}</em></p>
+      ${rule ? `<p>Inputs: rank difference <strong>${rdiff}</strong>${gdiff?`, games difference <strong>${gdiff}</strong>`:''}.</p><p class="tip"><em>${rule}</em></p>` : ''}
       ${chal ? `<p class="tip">${chal}</p>` : ''}`;
     openModal('Winner Points', html);
   }
 });
 
-init();
+/* Boot */
+buildRoundSelect();
+init(ROUND);
 </script>
 </body>
 </html>
