@@ -19,24 +19,15 @@
   html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
   body{ margin:24px; display:flex; justify-content:center; }
   .wrap{ width:100%; max-width:1100px; }
-  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule); border-radius:14px; padding:18px 18px 14px; box-shadow: 0 6px 30px rgba(0,0,0,.35);}
+  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule); border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
-
-  .round-select{
-    appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px;
-    background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer;
-  }
+  .round-select{ appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
   .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
   table{ width:100%; border-collapse:collapse; font-size:14px; }
-  thead th{
-    text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521;
-    border-bottom:1px solid var(--rule); padding:12px;
-    position: sticky; top: 0; z-index: 2;
-    box-shadow: 0 2px 0 0 var(--rule);
-  }
+  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
   tbody tr:hover{ background:#0e1420;}
   .rank{ width:56px; color:#cdd8e6; }
@@ -46,56 +37,29 @@
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
   .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:var(--muted);}
-
-  .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
-          background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
+  .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
-
-  .loser-pts, .winner-pts{
-    display:inline-flex; align-items:center; gap:6px;
-    margin-left:10px; padding:2px 8px; border-radius:999px;
-    font-size:12px; cursor:pointer; user-select:none;
-  }
+  .loser-pts,.winner-pts{ display:inline-flex; align-items:center; gap:6px; margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px; cursor:pointer; user-select:none; }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
-  .loser-pts b, .winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
-
+  .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
   .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; }
   .backdrop.show{ opacity:1; pointer-events:auto; }
-  .modal{
-    position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98);
-    background:#0f1521; border:1px solid var(--rule); border-radius:16px; box-shadow:var(--shadow);
-    width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease;
-  }
+  .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule); border-radius:16px; box-shadow:var(--shadow); width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease; }
   .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-  .modal-header{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px; border-bottom:1px solid var(--rule); background:#11192a;
-    border-top-left-radius:16px; border-top-right-radius:16px;
-  }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule); background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
   .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
-  .modal-close{
-    appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6;
-    border-radius:8px; width:28px; height:28px; font-size:16px; line-height:26px;
-    text-align:center; cursor:pointer;
-  }
+  .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px; font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
   .modal-body{ padding:16px; color:#d2deee; }
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
-
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
-
   @media (max-width:720px){
-    thead{ display:none; }
-    table, tbody, tr, td{ display:block; width:100%; }
-    tbody tr{ padding:12px 12px 6px; }
-    tbody td{ border:0; padding:4px 0; }
-    .rank{ order:-3; font-weight:700; }
-    .name{ order:-2; font-size:16px; }
-    .points{ order:-1; }
-    .badge{ display:inline-block; }
-    .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
+    thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
+    tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
+    .rank{ order:-3; font-weight:700; } .name{ order:-2; font-size:16px; } .points{ order:-1; }
+    .badge{ display:inline-block; } .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
   }
 </style>
 </head>
@@ -290,11 +254,13 @@ async function init(round){
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // Ranking from Players: R8Pts, then R8Perc, then Participant
+    // ===== BEGINNING-OF-ROUND RANKS (dynamic R#Pts/R#Perc) =====
+    const ptsLabel  = `R${ROUND}Pts`;
+    const percLabel = `R${ROUND}Perc`;
     const players = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
-      Points: num(r.R8Pts),
-      Percent: num(r.R8Perc),
+      Points: num(r[ptsLabel]),
+      Percent: num(r[percLabel]),
       _last: lastName(r.Participant)
     })).sort((a,b)=>{
       const pA = isNaN(a.Points) ? -Infinity : a.Points;
@@ -305,10 +271,12 @@ async function init(round){
       if (qA !== qB) return qB - qA;
       return a.Participant.localeCompare(b.Participant, undefined, {sensitivity:'base'});
     });
+
+    // name <-> rank for THIS round's starting ranks (used in notes)
     const rankByName = {}, nameByRank = {};
     players.forEach((p,i)=>{ p.Rank=i+1; rankByName[nameKey(p.Participant)]=p.Rank; nameByRank[p.Rank]=p.Participant; });
 
-    // Schedule map
+    // Schedule map (for "no result yet" line)
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     (scheduleRaw||[]).forEach(r=>{
@@ -322,7 +290,7 @@ async function init(round){
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // Index results
+    // Index results (store ranks from rankByName so modals use start-of-round ranks)
     const scheduled = new Map();
     const challenge = new Map();
 
@@ -352,7 +320,7 @@ async function init(round){
 
       const target = (type === 'Scheduled') ? scheduled : challenge;
 
-      // winner perspective data
+      // winner record (notes will use wRank/oRank captured here)
       target.set(wKey, {
         text: resultString(r,'winner'),
         isLoss:false,
@@ -360,7 +328,7 @@ async function init(round){
         gw:wGames, gl:oGames, gdiff:diff
       });
 
-      // loser perspective data
+      // loser record
       target.set(oKey, {
         text: resultString(r,'opponent'),
         isLoss:true,
@@ -369,7 +337,7 @@ async function init(round){
       });
     });
 
-    // Render
+    // ------- Render -------
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
     players.forEach(p=>{
@@ -381,7 +349,7 @@ async function init(round){
 
       const meKey = nameKey(p.Participant);
 
-      // ------- Scheduled cell -------
+      // Scheduled cell
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
@@ -389,28 +357,24 @@ async function init(round){
         const span = document.createElement('span'); span.className='result ' + (sr.isLoss ? 'lost' : 'won'); span.textContent=sr.text; tdSched.appendChild(span);
 
         if (sr.isLoss){
-          // losers: base from games won (or LosePoints); divisor 1
-          const baseGames = sr.gw; // games won by loser
-          const { base, final } = (function(row){
-            if ('LosePoints' in row) { const b = safeNum(row.LosePoints); return {base:b,final:b}; }
-            const b = Math.min(10, baseGames); return {base:b, final:b};
-          })(sr.row);
+          const baseGames = sr.gw;
+          const base = 'LosePoints' in sr.row ? safeNum(sr.row.LosePoints) : Math.min(10, baseGames);
+          const final = base; // divisor 1
 
           const btn = document.createElement('button');
           btn.type='button'; btn.className='loser-pts';
           btn.setAttribute('data-role','loser');
           btn.setAttribute('data-points', String(final));
           btn.setAttribute('data-gameswon', String(baseGames));
-          btn.setAttribute('data-chaldiv',''); // none for scheduled
+          btn.setAttribute('data-chaldiv','');
           btn.innerHTML = `<b>${final}</b> pts`;
           tdSched.appendChild(btn);
         }else{
-          const divisor = 1;
           const base = ('WinPoints' in sr.row) ? safeNum(sr.row.WinPoints)
                                                : (sr.upset==='YES'
                                                   ? Math.max(15, Math.min(25, Math.round(10 + sr.gdiff * ((sr.wRank - sr.oRank)/2))))
                                                   : Math.max(11, Math.round(10 + sr.gdiff)));
-          const final = Math.round(base / divisor);
+          const final = base; // divisor 1
 
           const btn = document.createElement('button');
           btn.type='button'; btn.className='winner-pts';
@@ -422,7 +386,7 @@ async function init(round){
           btn.setAttribute('data-gdiff', String(sr.gdiff));
           btn.setAttribute('data-wrank', String(sr.wRank||''));
           btn.setAttribute('data-orank', String(sr.oRank||''));
-          btn.setAttribute('data-chaldiv',''); // none
+          btn.setAttribute('data-chaldiv','');
           btn.innerHTML = `<b>${final}</b> pts`;
           tdSched.appendChild(btn);
         }
@@ -437,14 +401,14 @@ async function init(round){
       }
       tr.appendChild(tdSched);
 
-      // ------- Challenge cell -------
+      // Challenge cell
       const tdChal = document.createElement('td');
       const cr = challenge.get(meKey);
       if (cr){
         const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; tdChal.appendChild(pill);
         const span = document.createElement('span'); span.className='result ' + (cr.isLoss ? 'lost' : 'won'); span.textContent=cr.text; tdChal.appendChild(span);
 
-        // “has scheduled match been played?”  If player has a Scheduled record in this map, use ÷2; else ÷4
+        // “Has scheduled match been played?” If player has a Scheduled record, ÷2; else ÷4
         const hasScheduled = scheduled.has(meKey);
         const divisor = hasScheduled ? 2 : 4;
 
