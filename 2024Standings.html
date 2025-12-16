@@ -41,26 +41,37 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  /* --- MAKE POINT PILLS ALWAYS CLICKABLE --- */
+  /* --- CLICKABLE POINT PILLS --- */
   .winner-pts, .loser-pts{
     display:inline-flex; align-items:center; gap:6px;
     margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px;
     cursor:pointer; user-select:none;
-    position:relative; z-index:3; pointer-events:auto; /* key bits */
+    position:relative; z-index:3; pointer-events:auto;
   }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
   .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
 
-  .result, .badge{ position:relative; z-index:1; } /* ensure below pills */
-  .panel table *{ pointer-events:auto; }           /* no rogue none */
+  .result, .badge{ position:relative; z-index:1; }
+  .panel table *{ pointer-events:auto; }
 
-  /* If sticky thead ever overlaps top-row cells while at scrollTop=0 */
-  /* tbody td{ position:relative; z-index:3; } */  /* uncomment if needed */
-
-  .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; }
+  /* --- MODAL + BACKDROP: FORCE ABOVE EVERYTHING --- */
+  .backdrop{
+    position:fixed; inset:0; background:rgba(8,12,20,.55);
+    opacity:0; pointer-events:none; transition:opacity .15s ease;
+    z-index:10000; /* above table/buttons */
+  }
   .backdrop.show{ opacity:1; pointer-events:auto; }
-  .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule); border-radius:16px; box-shadow:var(--shadow); width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease; }
+
+  .modal{
+    position:fixed; left:50%; top:50%;
+    transform:translate(-50%,-46%) scale(.98);
+    background:#0f1521; border:1px solid var(--rule);
+    border-radius:16px; box-shadow:var(--shadow);
+    width:min(92vw,560px); opacity:0;
+    transition:opacity .15s ease, transform .18s ease;
+    z-index:10001; /* above backdrop and pills */
+  }
   .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule); background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
   .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
@@ -199,10 +210,16 @@ function openModal(title, html){
   modalBody.innerHTML = html;
   backdropEl.classList.add('show'); modalEl.classList.add('show');
   backdropEl.setAttribute('aria-hidden','false'); modalEl.setAttribute('aria-hidden','false');
+  // lock scroll while modal is open
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
 }
 function closeModal(){
   modalEl.classList.remove('show'); backdropEl.classList.remove('show');
   backdropEl.setAttribute('aria-hidden','true'); modalEl.setAttribute('aria-hidden','true');
+  // restore scroll
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
 }
 
 /* Tennis helpers */
@@ -367,19 +384,14 @@ async function init(round){
       const currentRank = idx + 1; // already sorted by current
       const beginRank = beginRankByName[meKey] || '';
 
-      // Current and Beginning-of-round rank columns
       const tdCurr = document.createElement('td'); tdCurr.className='rank rank-current'; tdCurr.textContent = `#${currentRank}`; tr.appendChild(tdCurr);
       const tdBegin = document.createElement('td'); tdBegin.className='rank rank-begin'; tdBegin.textContent = beginRank ? `#${beginRank}` : ''; tr.appendChild(tdBegin);
-
-      // Name
       const tdName = document.createElement('td'); tdName.className='name'; tdName.textContent = cp.Participant; tr.appendChild(tdName);
 
-      // Points (show current points to match sort basis)
       const tdPts  = document.createElement('td'); tdPts.className='points';
       tdPts.textContent = !isNaN(cp.CurrPts) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // Scheduled cell (use begin-of-round ranks to locate schedule)
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
@@ -431,7 +443,6 @@ async function init(round){
       }
       tr.appendChild(tdSched);
 
-      // Challenge cell
       const tdChal = document.createElement('td');
       const cr = challenge.get(meKey);
       if (cr){
