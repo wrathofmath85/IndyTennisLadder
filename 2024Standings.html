@@ -37,22 +37,21 @@
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
 
-  /* IMPORTANT: horizontal scroll instead of truncation */
   .panel{
     margin-top:18px;
     background:var(--panel);
     border:1px solid var(--rule);
     border-radius:12px;
-    overflow:auto;               /* <-- scroll */
+    overflow:auto;
     -webkit-overflow-scrolling:touch;
   }
 
   table{
     width:100%;
-    min-width:1250px;            /* <-- ensures there is room; scroll if needed */
+    min-width:1120px;            /* smaller than before to reduce scroll */
     border-collapse:collapse;
     font-size:14px;
-    table-layout:auto;           /* <-- allow natural sizing */
+    table-layout:auto;
   }
 
   thead th{
@@ -66,21 +65,29 @@
     top:0;
     z-index:2;
     box-shadow:0 2px 0 0 var(--rule);
-    white-space:nowrap;
+
+    /* headers can wrap */
+    white-space:normal;
+    line-height:1.15;
   }
 
   tbody td{
     border-bottom:1px solid var(--rule);
     padding:12px;
     vertical-align:middle;
-    white-space:nowrap;          /* <-- always one line */
+    white-space:nowrap;          /* body stays one line */
   }
   tbody tr:hover{ background:#0e1420;}
 
-  .rank{ width:200px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
-  .rank.current{ width:140px; }
-  .points{ width:90px; font-variant-numeric: tabular-nums; }
+  /* Make the first ranking column narrower */
+  .rank{ width:128px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rank.current{ width:110px; }
+  .points{ width:74px; font-variant-numeric: tabular-nums; }
   .name{ font-weight:600; }
+
+  /* 3-line header helper */
+  .th-3line{ display:inline-block; }
+  .th-3line span{ display:block; }
 
   .result{ font-weight:600; }
   .won{ color:var(--ok); }
@@ -105,7 +112,6 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  /* --- CLICKABLE POINT PILLS --- */
   .winner-pts, .loser-pts{
     display:inline-flex; align-items:center; gap:6px;
     margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px;
@@ -120,7 +126,6 @@
   .result, .badge{ position:relative; z-index:1; }
   .panel table *{ pointer-events:auto; }
 
-  /* --- CLICKABLE PLAYER NAME (participant + unplayed opponent) --- */
   .player-link{
     appearance:none;
     border:0;
@@ -137,7 +142,6 @@
   }
   .player-link:hover{ filter:brightness(1.1); }
 
-  /* --- MODAL + BACKDROP --- */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -173,7 +177,7 @@
 
   @media (max-width:720px){
     thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; min-width:0; }
-    .panel{ overflow:visible; } /* mobile uses stacked layout */
+    .panel{ overflow:visible; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; white-space:normal; }
     .rank-begin{ order:-5; font-weight:800; }
     .rank-current{ order:-4; font-weight:800; }
@@ -199,7 +203,13 @@
     <table id="ladder" style="display:none;">
       <thead>
         <tr>
-          <th class="rank">Beginning of Round Ranking</th>
+          <th class="rank">
+            <span class="th-3line">
+              <span>Beginning</span>
+              <span>of Round</span>
+              <span>Ranking</span>
+            </span>
+          </th>
           <th class="rank current">Current Ranking</th>
           <th>Participant</th>
           <th class="points">Points</th>
@@ -347,7 +357,6 @@ function formatThirdEntry(row, perspective){
 async function init(round){
   ROUND = round;
 
-  // update UI + URL
   const sel = document.getElementById('roundSelect');
   if (sel.value !== String(ROUND)) sel.value = String(ROUND);
   const url = new URL(location.href);
@@ -367,7 +376,6 @@ async function init(round){
       loadCSV(CSV.Dates)
     ]);
 
-    // phone map (Players CSV)
     const phoneByName = {};
     (playersRaw||[]).forEach(r=>{
       const nm = fmt(r.Participant);
@@ -375,7 +383,6 @@ async function init(round){
       if (nm) phoneByName[nameKey(nm)] = ph;
     });
 
-    // dates header
     const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
     if (roundRow){
       const span = fmtDateRange(roundRow.Start, roundRow.End);
@@ -386,13 +393,11 @@ async function init(round){
       if (type){ const dot = document.createElement('span'); dot.className = 'dot'; dot.textContent = type; meta.appendChild(dot); }
     }
 
-    // Active this round
     const activePlayersRaw = (playersRaw||[]).filter(r => {
       const start = num(r.RStart), end = num(r.REnd), rr = Number(ROUND);
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // Current ranking list (always R8Pts/R8Perc)
     const currentPlayers = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
       CurrPts: num(r.R8Pts),
@@ -409,7 +414,6 @@ async function init(round){
     const currentByName = {};
     currentPlayers.forEach(p => currentByName[nameKey(p.Participant)] = p);
 
-    // Beginning-of-round ranking (R#Pts/R#Perc) => determines ordering
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
     const beginPlayers = activePlayersRaw.map(r => ({
@@ -427,7 +431,6 @@ async function init(round){
     const beginRankByName = {}, nameByBeginRank = {};
     beginPlayers.forEach((p,i)=>{ p.BeginRank=i+1; beginRankByName[nameKey(p.Participant)]=p.BeginRank; nameByBeginRank[p.BeginRank]=p.Participant; });
 
-    // Schedule map uses beginning-of-round ranks
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     (scheduleRaw||[]).forEach(r=>{
@@ -435,13 +438,11 @@ async function init(round){
       if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // Round CSV
     const scoresRaw = (scoresRawAll||[]).filter(r => {
       const rr = Number(r.Round);
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // Build result indices
     const scheduled = new Map();
     const challenge = new Map();
 
@@ -479,7 +480,6 @@ async function init(round){
                          gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // Render rows in beginning-of-round order
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
@@ -492,22 +492,18 @@ async function init(round){
       const phoneRaw = phoneByName[meKey] || '';
       const phoneTel = digitsForTel(phoneRaw);
 
-      // Begin rank
       const tdBegin = document.createElement('td');
       tdBegin.className = 'rank rank-begin';
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Current rank
       const tdCurr = document.createElement('td');
       tdCurr.className = 'rank current rank-current';
       tdCurr.textContent = currentRank ? `#${currentRank}` : '';
       tr.appendChild(tdCurr);
 
-      // Participant (CLICKABLE to phone)
       const tdName = document.createElement('td');
       tdName.className = 'name';
-
       const nameBtn = document.createElement('button');
       nameBtn.type = 'button';
       nameBtn.className = 'player-link';
@@ -515,18 +511,15 @@ async function init(round){
       nameBtn.setAttribute('data-phone', phoneRaw);
       nameBtn.setAttribute('data-tel', phoneTel);
       nameBtn.textContent = bp.Participant;
-
       tdName.appendChild(nameBtn);
       tr.appendChild(tdName);
 
-      // Points (current points)
       const tdPts = document.createElement('td');
       tdPts.className = 'points';
       const cp = currentByName[meKey];
       tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // Scheduled
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
@@ -568,7 +561,6 @@ async function init(round){
           tdSched.appendChild(btn);
         }
       }else{
-        // unplayed scheduled => clickable opponent name -> phone
         const oppRank = scheduleMap[beginRank];
         if (oppRank){
           const oppName = nameByBeginRank[oppRank] || '';
@@ -586,7 +578,7 @@ async function init(round){
 
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'player-link';   // reuse same handler
+          btn.className = 'player-link';
           btn.setAttribute('data-player', oppName);
           btn.setAttribute('data-phone', oppPhone);
           btn.setAttribute('data-tel', oppTel);
@@ -596,7 +588,6 @@ async function init(round){
       }
       tr.appendChild(tdSched);
 
-      // Challenge
       const tdChal = document.createElement('td');
       const cr = challenge.get(meKey);
       if (cr){
@@ -737,7 +728,7 @@ function handlePointsClick(e){
   }
 }
 
-/* ===== Player phone modal handler (participant + unplayed opponent) ===== */
+/* ===== Player phone modal handler ===== */
 function handlePlayerPhoneClick(e){
   const btn = e.target.closest('.player-link');
   if (!btn) return;
