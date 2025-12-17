@@ -55,8 +55,8 @@
   .result, .badge{ position:relative; z-index:1; }
   .panel table *{ pointer-events:auto; }
 
-  /* --- CLICKABLE PLAYER NAME --- */
-  .player-link{
+  /* --- CLICKABLE OPPONENT NAME (only for unplayed games) --- */
+  .opp-link{
     appearance:none;
     border:0;
     background:transparent;
@@ -69,7 +69,7 @@
     text-decoration:underline;
     text-underline-offset:2px;
   }
-  .player-link:hover{ filter:brightness(1.1); }
+  .opp-link:hover{ filter:brightness(1.1); }
 
   /* --- MODAL + BACKDROP: FORCE ABOVE EVERYTHING --- */
   .backdrop{
@@ -100,7 +100,8 @@
   @media (max-width:720px){
     thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
-    .rank-begin{ order:-4; font-weight:800; }
+    .rank-begin{ order:-5; font-weight:800; }
+    .rank-current{ order:-4; font-weight:800; }
     .name{ order:-3; font-size:16px; }
     .points{ order:-2; }
     .badge{ display:inline-block; }
@@ -123,7 +124,8 @@
     <table id="ladder" style="display:none;">
       <thead>
         <tr>
-          <th class="rank">Ranking (start of round)</th>
+          <th class="rank">Ranking</th>
+          <th class="rank">Current</th>
           <th>Participant</th>
           <th class="points">Points</th>
           <th>Scheduled Opponent / Result</th>
@@ -314,7 +316,22 @@ async function init(round){
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // Beginning-of-round ranking list (this is now THE ranking we display)
+    // ===== Current ranking list (always R8Pts/R8Perc) =====
+    const currentPlayers = activePlayersRaw.map(r => ({
+      Participant: fmt(r.Participant),
+      CurrPts: num(r.R8Pts),
+      CurrPerc: num(r.R8Perc),
+    })).sort((a,b)=>{
+      const pA = isNaN(a.CurrPts)?-Infinity:a.CurrPts, pB = isNaN(b.CurrPts)?-Infinity:b.CurrPts;
+      if (pA !== pB) return pB - pA;
+      const qA = isNaN(a.CurrPerc)?-Infinity:a.CurrPerc, qB = isNaN(b.CurrPerc)?-Infinity:b.CurrPerc;
+      if (qA !== qB) return qB - qA;
+      return a.Participant.localeCompare(b.Participant, undefined, {sensitivity:'base'});
+    });
+    const currentRankByName = {};
+    currentPlayers.forEach((p,i)=> currentRankByName[nameKey(p.Participant)] = i+1);
+
+    // ===== Beginning-of-round ranking (R#Pts/R#Perc) =====
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
     const beginPlayers = activePlayersRaw.map(r => ({
@@ -346,7 +363,7 @@ async function init(round){
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // Build result indices (still keyed by player name)
+    // Build result indices
     const scheduled = new Map();
     const challenge = new Map();
 
@@ -384,52 +401,49 @@ async function init(round){
                          gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // ------- Render by BEGINNING-OF-ROUND ranking -------
+    // ===== Render rows in CURRENT ranking order =====
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
-    beginPlayers.forEach((bp, idx)=>{
+    currentPlayers.forEach((cp, idx)=>{
       const tr = document.createElement('tr');
 
-      const meKey = nameKey(bp.Participant);
-      const beginRank = idx + 1; // sorted by begin
-      const phoneRaw = phoneByName[meKey] || '';
-      const phoneTel = digitsForTel(phoneRaw);
+      const meKey = nameKey(cp.Participant);
+      const beginRank = beginRankByName[meKey] || '';
+      const currentRank = idx + 1;
 
-      // rank (far left)
-      const tdRank = document.createElement('td');
-      tdRank.className = 'rank rank-begin';
-      tdRank.textContent = `#${beginRank}`;
-      tr.appendChild(tdRank);
+      // Column 1: Ranking (start-of-round), but without saying it
+      const tdBegin = document.createElement('td');
+      tdBegin.className = 'rank rank-begin';
+      tdBegin.textContent = beginRank ? `#${beginRank}` : '';
+      tr.appendChild(tdBegin);
 
-      // name (clickable -> phone modal)
+      // Column 2: Current ranking
+      const tdCurr = document.createElement('td');
+      tdCurr.className = 'rank rank-current';
+      tdCurr.textContent = `#${currentRank}`;
+      tr.appendChild(tdCurr);
+
+      // Name (NOT clickable)
       const tdName = document.createElement('td');
       tdName.className = 'name';
-
-      const nameBtn = document.createElement('button');
-      nameBtn.type = 'button';
-      nameBtn.className = 'player-link';
-      nameBtn.setAttribute('data-player', bp.Participant);
-      nameBtn.setAttribute('data-phone', phoneRaw);
-      nameBtn.setAttribute('data-tel', phoneTel);
-      nameBtn.textContent = bp.Participant;
-
-      tdName.appendChild(nameBtn);
+      tdName.textContent = cp.Participant;
       tr.appendChild(tdName);
 
-      // points (use begin-of-round points for display)
-      const tdPts  = document.createElement('td');
-      tdPts.className='points';
-      tdPts.textContent = !isNaN(bp.BeginPts) ? bp.BeginPts : '';
+      // Points (keep current points like before)
+      const tdPts = document.createElement('td');
+      tdPts.className = 'points';
+      tdPts.textContent = !isNaN(cp.CurrPts) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // scheduled
+      // Scheduled column
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
         const pill = document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; tdSched.appendChild(pill);
         const span = document.createElement('span'); span.className='result ' + (sr.isLoss ? 'lost' : 'won'); span.textContent=sr.text; tdSched.appendChild(span);
 
+        // points pills as-is
         if (sr.isLoss){
           const baseGames = sr.gw;
           const base = 'LosePoints' in sr.row ? safeNum(sr.row.LosePoints) : Math.min(10, baseGames);
@@ -465,17 +479,35 @@ async function init(round){
           tdSched.appendChild(btn);
         }
       }else{
-        const oppRank = scheduleMap[beginRank];
+        // unplayed scheduled => clickable opponent name -> phone
+        const oppRank = beginRank ? scheduleMap[beginRank] : undefined;
         if (oppRank){
           const oppName = nameByBeginRank[oppRank] || '';
-          const span = document.createElement('span');
-          span.innerHTML = `<span class="badge badge-scheduled">Scheduled</span> #${oppRank} ${oppName || ''}`;
-          tdSched.appendChild(span);
+          const oppPhone = phoneByName[nameKey(oppName)] || '';
+          const oppTel = digitsForTel(oppPhone);
+
+          const pill = document.createElement('span');
+          pill.className = 'badge badge-scheduled';
+          pill.textContent = 'Scheduled';
+          tdSched.appendChild(pill);
+
+          const pre = document.createElement('span');
+          pre.textContent = ` #${oppRank} `;
+          tdSched.appendChild(pre);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'opp-link';
+          btn.setAttribute('data-player', oppName);
+          btn.setAttribute('data-phone', oppPhone);
+          btn.setAttribute('data-tel', oppTel);
+          btn.textContent = oppName || '';
+          tdSched.appendChild(btn);
         }
       }
       tr.appendChild(tdSched);
 
-      // challenge
+      // Challenge column
       const tdChal = document.createElement('td');
       const cr = challenge.get(meKey);
       if (cr){
@@ -615,9 +647,9 @@ function handlePointsClick(e){
   }
 }
 
-/* ===== Player phone modal handler (ALL names clickable) ===== */
-function handlePlayerClick(e){
-  const btn = e.target.closest('.player-link');
+/* ===== Opponent phone modal handler (only for unplayed games) ===== */
+function handleOpponentPhoneClick(e){
+  const btn = e.target.closest('.opp-link');
   if (!btn) return;
 
   e.preventDefault();
@@ -644,8 +676,8 @@ function handlePlayerClick(e){
 document.addEventListener('click', handlePointsClick, { capture:false });
 document.addEventListener('pointerup', handlePointsClick, { capture:false });
 
-document.addEventListener('click', handlePlayerClick, { capture:false });
-document.addEventListener('pointerup', handlePlayerClick, { capture:false });
+document.addEventListener('click', handleOpponentPhoneClick, { capture:false });
+document.addEventListener('pointerup', handleOpponentPhoneClick, { capture:false });
 
 /* Boot */
 buildRoundSelect();
