@@ -30,7 +30,7 @@
   thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
   tbody tr:hover{ background:#0e1420;}
-  .rank{ width:76px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rank{ width:110px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
   .name{ font-weight:600;}
   .points{ font-variant-numeric: tabular-nums; }
   .result{ font-weight:600;}
@@ -55,8 +55,8 @@
   .result, .badge{ position:relative; z-index:1; }
   .panel table *{ pointer-events:auto; }
 
-  /* --- CLICKABLE OPPONENT NAME (only when match not played) --- */
-  .opp-link{
+  /* --- CLICKABLE PLAYER NAME --- */
+  .player-link{
     appearance:none;
     border:0;
     background:transparent;
@@ -69,13 +69,13 @@
     text-decoration:underline;
     text-underline-offset:2px;
   }
-  .opp-link:hover{ filter:brightness(1.1); }
+  .player-link:hover{ filter:brightness(1.1); }
 
   /* --- MODAL + BACKDROP: FORCE ABOVE EVERYTHING --- */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
-    z-index:10000; /* above table/buttons */
+    z-index:10000;
   }
   .backdrop.show{ opacity:1; pointer-events:auto; }
 
@@ -86,7 +86,7 @@
     border-radius:16px; box-shadow:var(--shadow);
     width:min(92vw,560px); opacity:0;
     transition:opacity .15s ease, transform .18s ease;
-    z-index:10001; /* above backdrop and pills */
+    z-index:10001;
   }
   .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule); background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
@@ -100,10 +100,11 @@
   @media (max-width:720px){
     thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
-    .rank-current{ order:-4; font-weight:700; }
-    .rank-begin{ order:-3; font-weight:700; }
-    .name{ order:-2; font-size:16px; } .points{ order:-1; }
-    .badge{ display:inline-block; } .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
+    .rank-begin{ order:-4; font-weight:800; }
+    .name{ order:-3; font-size:16px; }
+    .points{ order:-2; }
+    .badge{ display:inline-block; }
+    .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
   }
 </style>
 </head>
@@ -122,8 +123,7 @@
     <table id="ladder" style="display:none;">
       <thead>
         <tr>
-          <th class="rank">Current Ranking</th>
-          <th class="rank">Beginning of Round Ranking</th>
+          <th class="rank">Ranking (start of round)</th>
           <th>Participant</th>
           <th class="points">Points</th>
           <th>Scheduled Opponent / Result</th>
@@ -140,7 +140,7 @@
 <div class="backdrop" id="backdrop" aria-hidden="true"></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
   <div class="modal-header">
-    <div class="modal-title" id="modalTitle">Points</div>
+    <div class="modal-title" id="modalTitle">Info</div>
     <button class="modal-close" id="modalClose" aria-label="Close">×</button>
   </div>
   <div class="modal-body" id="modalBody"></div>
@@ -235,6 +235,10 @@ function closeModal(){
   document.body.style.overflow = '';
 }
 
+function digitsForTel(phone){
+  return String(phone||'').trim().replace(/[^\d+]/g,'');
+}
+
 /* Tennis helpers */
 function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
 function parseGameTotals(row){
@@ -285,7 +289,7 @@ async function init(round){
       loadCSV(CSV.Dates)
     ]);
 
-    // ---- build phone map (from Players CSV) ----
+    // phone map (Players CSV)
     const phoneByName = {};
     (playersRaw||[]).forEach(r=>{
       const nm = fmt(r.Participant);
@@ -294,7 +298,7 @@ async function init(round){
     });
 
     // dates header
-    const roundRow = datesRaw.find(r => Number(r.Round) === Number(ROUND));
+    const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
     if (roundRow){
       const span = fmtDateRange(roundRow.Start, roundRow.End);
       const type = fmt(roundRow.Type);
@@ -305,27 +309,12 @@ async function init(round){
     }
 
     // Active this round
-    const activePlayersRaw = playersRaw.filter(r => {
+    const activePlayersRaw = (playersRaw||[]).filter(r => {
       const start = num(r.RStart), end = num(r.REnd), rr = Number(ROUND);
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // ---- Current Ranking (always R8Pts/R8Perc) ----
-    const currentPlayers = activePlayersRaw.map(r => ({
-      Participant: fmt(r.Participant),
-      CurrPts: num(r.R8Pts),
-      CurrPerc: num(r.R8Perc),
-    })).sort((a,b)=>{
-      const pA = isNaN(a.CurrPts)?-Infinity:a.CurrPts, pB = isNaN(b.CurrPts)?-Infinity:b.CurrPts;
-      if (pA !== pB) return pB - pA;
-      const qA = isNaN(a.CurrPerc)?-Infinity:a.CurrPerc, qB = isNaN(b.CurrPerc)?-Infinity:b.CurrPerc;
-      if (qA !== qB) return qB - qA;
-      return a.Participant.localeCompare(b.Participant, undefined, {sensitivity:'base'});
-    });
-    const currentRankByName = {};
-    currentPlayers.forEach((p,i)=> currentRankByName[nameKey(p.Participant)] = i+1);
-
-    // ---- Beginning-of-Round Ranking (R#Pts/R#Perc) ----
+    // Beginning-of-round ranking list (this is now THE ranking we display)
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
     const beginPlayers = activePlayersRaw.map(r => ({
@@ -357,7 +346,7 @@ async function init(round){
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // Build result indices; notes use beginning-of-round ranks
+    // Build result indices (still keyed by player name)
     const scheduled = new Map();
     const challenge = new Map();
 
@@ -395,24 +384,46 @@ async function init(round){
                          gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // ------- Render by CURRENT ranking -------
+    // ------- Render by BEGINNING-OF-ROUND ranking -------
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
-    currentPlayers.forEach((cp, idx)=>{
+
+    beginPlayers.forEach((bp, idx)=>{
       const tr = document.createElement('tr');
 
-      const meKey = nameKey(cp.Participant);
-      const currentRank = idx + 1; // already sorted by current
-      const beginRank = beginRankByName[meKey] || '';
+      const meKey = nameKey(bp.Participant);
+      const beginRank = idx + 1; // sorted by begin
+      const phoneRaw = phoneByName[meKey] || '';
+      const phoneTel = digitsForTel(phoneRaw);
 
-      const tdCurr = document.createElement('td'); tdCurr.className='rank rank-current'; tdCurr.textContent = `#${currentRank}`; tr.appendChild(tdCurr);
-      const tdBegin = document.createElement('td'); tdBegin.className='rank rank-begin'; tdBegin.textContent = beginRank ? `#${beginRank}` : ''; tr.appendChild(tdBegin);
-      const tdName = document.createElement('td'); tdName.className='name'; tdName.textContent = cp.Participant; tr.appendChild(tdName);
+      // rank (far left)
+      const tdRank = document.createElement('td');
+      tdRank.className = 'rank rank-begin';
+      tdRank.textContent = `#${beginRank}`;
+      tr.appendChild(tdRank);
 
-      const tdPts  = document.createElement('td'); tdPts.className='points';
-      tdPts.textContent = !isNaN(cp.CurrPts) ? cp.CurrPts : '';
+      // name (clickable -> phone modal)
+      const tdName = document.createElement('td');
+      tdName.className = 'name';
+
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'player-link';
+      nameBtn.setAttribute('data-player', bp.Participant);
+      nameBtn.setAttribute('data-phone', phoneRaw);
+      nameBtn.setAttribute('data-tel', phoneTel);
+      nameBtn.textContent = bp.Participant;
+
+      tdName.appendChild(nameBtn);
+      tr.appendChild(tdName);
+
+      // points (use begin-of-round points for display)
+      const tdPts  = document.createElement('td');
+      tdPts.className='points';
+      tdPts.textContent = !isNaN(bp.BeginPts) ? bp.BeginPts : '';
       tr.appendChild(tdPts);
 
+      // scheduled
       const tdSched = document.createElement('td');
       const sr = scheduled.get(meKey);
       if (sr){
@@ -454,32 +465,17 @@ async function init(round){
           tdSched.appendChild(btn);
         }
       }else{
-        // not played yet -> show clickable opponent name that pops phone
-        const oppRank = beginRank ? scheduleMap[beginRank] : undefined;
+        const oppRank = scheduleMap[beginRank];
         if (oppRank){
           const oppName = nameByBeginRank[oppRank] || '';
-          const oppPhone = phoneByName[nameKey(oppName)] || '';
-
-          const pill = document.createElement('span');
-          pill.className = 'badge badge-scheduled';
-          pill.textContent = 'Scheduled';
-          tdSched.appendChild(pill);
-
-          const pre = document.createElement('span');
-          pre.textContent = ` #${oppRank} `;
-          tdSched.appendChild(pre);
-
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'opp-link';
-          btn.setAttribute('data-oppname', oppName);
-          btn.setAttribute('data-phone', oppPhone);
-          btn.textContent = oppName || '';
-          tdSched.appendChild(btn);
+          const span = document.createElement('span');
+          span.innerHTML = `<span class="badge badge-scheduled">Scheduled</span> #${oppRank} ${oppName || ''}`;
+          tdSched.appendChild(span);
         }
       }
       tr.appendChild(tdSched);
 
+      // challenge
       const tdChal = document.createElement('td');
       const cr = challenge.get(meKey);
       if (cr){
@@ -619,30 +615,26 @@ function handlePointsClick(e){
   }
 }
 
-/* ===== Opponent phone popup handler (ONLY for unplayed scheduled display) ===== */
-function digitsForTel(phone){
-  // keep + and digits; strip everything else
-  return String(phone||'').trim().replace(/[^\d+]/g,'');
-}
-function handleOpponentClick(e){
-  const btn = e.target.closest('.opp-link');
+/* ===== Player phone modal handler (ALL names clickable) ===== */
+function handlePlayerClick(e){
+  const btn = e.target.closest('.player-link');
   if (!btn) return;
 
   e.preventDefault();
   e.stopPropagation();
 
-  const oppName = btn.getAttribute('data-oppname') || 'Opponent';
+  const name = btn.getAttribute('data-player') || 'Player';
   const phoneRaw = btn.getAttribute('data-phone') || '';
-  const phoneTel = digitsForTel(phoneRaw);
+  const tel = btn.getAttribute('data-tel') || digitsForTel(phoneRaw);
 
   const html = phoneRaw
     ? `
-        <p><strong>${oppName}</strong></p>
-        <p><a href="tel:${phoneTel}" style="color:var(--accent); text-decoration:none; font-weight:700;">${phoneRaw}</a></p>
+        <p><strong>${name}</strong></p>
+        <p><a href="tel:${tel}" style="color:var(--accent); text-decoration:none; font-weight:700;">${phoneRaw}</a></p>
         <p class="tip">Tap the number to call (mobile) or copy it to text.</p>
       `
     : `
-        <p><strong>${oppName}</strong></p>
+        <p><strong>${name}</strong></p>
         <p>(No phone number on file)</p>
         <p class="tip">Add it in the Players CSV “PHONE” column to enable click-to-contact.</p>
       `;
@@ -652,8 +644,8 @@ function handleOpponentClick(e){
 document.addEventListener('click', handlePointsClick, { capture:false });
 document.addEventListener('pointerup', handlePointsClick, { capture:false });
 
-document.addEventListener('click', handleOpponentClick, { capture:false });
-document.addEventListener('pointerup', handleOpponentClick, { capture:false });
+document.addEventListener('click', handlePlayerClick, { capture:false });
+document.addEventListener('pointerup', handlePlayerClick, { capture:false });
 
 /* Boot */
 buildRoundSelect();
