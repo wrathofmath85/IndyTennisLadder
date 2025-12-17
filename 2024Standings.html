@@ -19,40 +19,89 @@
   html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
   body{ margin:24px; display:flex; justify-content:center; }
   .wrap{ width:100%; max-width:1100px; }
-  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule); border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
+
+  header{
+    background:linear-gradient(180deg,#0f1521,#0d131e);
+    border:1px solid var(--rule);
+    border-radius:14px;
+    padding:18px 18px 14px;
+    box-shadow: var(--shadow);
+  }
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
-  .round-select{ appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
+  .round-select{
+    appearance:none; font-size:12px; padding:6px 28px 6px 10px;
+    border-radius:999px; background:var(--chip); border:1px solid var(--chipBorder);
+    color:var(--muted); cursor:pointer;
+  }
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
-  .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
 
-  table{ width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed; }
-  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); }
-  tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
+  /* IMPORTANT: horizontal scroll instead of truncation */
+  .panel{
+    margin-top:18px;
+    background:var(--panel);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    overflow:auto;               /* <-- scroll */
+    -webkit-overflow-scrolling:touch;
+  }
+
+  table{
+    width:100%;
+    min-width:1250px;            /* <-- ensures there is room; scroll if needed */
+    border-collapse:collapse;
+    font-size:14px;
+    table-layout:auto;           /* <-- allow natural sizing */
+  }
+
+  thead th{
+    text-align:left;
+    font-weight:600;
+    color:#b9c6d8;
+    background:#0f1521;
+    border-bottom:1px solid var(--rule);
+    padding:12px;
+    position:sticky;
+    top:0;
+    z-index:2;
+    box-shadow:0 2px 0 0 var(--rule);
+    white-space:nowrap;
+  }
+
+  tbody td{
+    border-bottom:1px solid var(--rule);
+    padding:12px;
+    vertical-align:middle;
+    white-space:nowrap;          /* <-- always one line */
+  }
   tbody tr:hover{ background:#0e1420;}
 
-  .rank{ width:150px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
-  .rank.current{ width:100px; }
-
-  /* shrink-to-fit single-line cells */
-  .nowrap{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    min-width:0;
-  }
-  .cell-sm{ font-size:13px; }
+  .rank{ width:200px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rank.current{ width:140px; }
+  .points{ width:90px; font-variant-numeric: tabular-nums; }
   .name{ font-weight:600; }
-  .points{ font-variant-numeric: tabular-nums; width:90px; }
 
   .result{ font-weight:600; }
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
 
-  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4;}
+  .loading, .error{
+    margin:22px 0; padding:14px 16px; border-radius:10px;
+    background:#0f1521; border:1px solid var(--rule); color:#8ea0b4;
+  }
 
-  .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
+  .badge{
+    display:none;
+    padding:2px 8px;
+    border-radius:999px;
+    border:1px solid var(--chipBorder);
+    background:var(--chip);
+    color:var(--muted);
+    font-size:12px;
+    margin-right:8px;
+    white-space:nowrap;
+  }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
@@ -71,8 +120,8 @@
   .result, .badge{ position:relative; z-index:1; }
   .panel table *{ pointer-events:auto; }
 
-  /* --- CLICKABLE OPPONENT NAME (only for unplayed games) --- */
-  .opp-link{
+  /* --- CLICKABLE PLAYER NAME (participant + unplayed opponent) --- */
+  .player-link{
     appearance:none;
     border:0;
     background:transparent;
@@ -86,9 +135,9 @@
     text-underline-offset:2px;
     white-space:nowrap;
   }
-  .opp-link:hover{ filter:brightness(1.1); }
+  .player-link:hover{ filter:brightness(1.1); }
 
-  /* --- MODAL + BACKDROP: FORCE ABOVE EVERYTHING --- */
+  /* --- MODAL + BACKDROP --- */
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -106,24 +155,32 @@
     z-index:10001;
   }
   .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule); background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--rule);
+    background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px;
+  }
   .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
-  .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px; font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
+  .modal-close{
+    appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6;
+    border-radius:8px; width:28px; height:28px; font-size:16px; line-height:26px;
+    text-align:center; cursor:pointer;
+  }
   .modal-body{ padding:16px; color:#d2deee; }
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
 
   @media (max-width:720px){
-    thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; }
-    tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; }
+    thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; min-width:0; }
+    .panel{ overflow:visible; } /* mobile uses stacked layout */
+    tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; white-space:normal; }
     .rank-begin{ order:-5; font-weight:800; }
     .rank-current{ order:-4; font-weight:800; }
     .name{ order:-3; font-size:16px; }
     .points{ order:-2; }
     .badge{ display:inline-block; }
     .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
-    .nowrap{ white-space:normal; overflow:visible; text-overflow:unset; } /* mobile can wrap */
   }
 </style>
 </head>
@@ -300,6 +357,7 @@ async function init(round){
   try{
     setStatus('Loading data…');
     document.getElementById('ladder').style.display = 'none';
+    document.getElementById('status').style.display = '';
 
     const roundKey = `ScoresRound${ROUND}`;
     const [playersRaw, scoresRawAll, scheduleRaw, datesRaw] = await Promise.all([
@@ -348,8 +406,10 @@ async function init(round){
     });
     const currentRankByName = {};
     currentPlayers.forEach((p,i)=> currentRankByName[nameKey(p.Participant)] = i+1);
+    const currentByName = {};
+    currentPlayers.forEach(p => currentByName[nameKey(p.Participant)] = p);
 
-    // Beginning-of-round ranking (R#Pts/R#Perc) => THIS determines display order
+    // Beginning-of-round ranking (R#Pts/R#Perc) => determines ordering
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
     const beginPlayers = activePlayersRaw.map(r => ({
@@ -375,7 +435,7 @@ async function init(round){
       if (!isNaN(rnk) && !isNaN(opp)) scheduleMap[rnk] = opp;
     });
 
-    // Round CSV (filter if it still carries a "Round" column)
+    // Round CSV
     const scoresRaw = (scoresRawAll||[]).filter(r => {
       const rr = Number(r.Round);
       return isNaN(rr) || rr === Number(ROUND);
@@ -419,7 +479,7 @@ async function init(round){
                          gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // ===== Render rows in BEGINNING-OF-ROUND ranking order =====
+    // Render rows in beginning-of-round order
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
@@ -429,45 +489,49 @@ async function init(round){
       const meKey = nameKey(bp.Participant);
       const beginRank = idx + 1;
       const currentRank = currentRankByName[meKey] || '';
+      const phoneRaw = phoneByName[meKey] || '';
+      const phoneTel = digitsForTel(phoneRaw);
 
-      // Beginning of Round Ranking (left)
+      // Begin rank
       const tdBegin = document.createElement('td');
-      tdBegin.className = 'rank rank-begin nowrap';
+      tdBegin.className = 'rank rank-begin';
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Current ranking (right of it)
+      // Current rank
       const tdCurr = document.createElement('td');
-      tdCurr.className = 'rank current rank-current nowrap';
+      tdCurr.className = 'rank current rank-current';
       tdCurr.textContent = currentRank ? `#${currentRank}` : '';
       tr.appendChild(tdCurr);
 
-      // Participant (single line)
+      // Participant (CLICKABLE to phone)
       const tdName = document.createElement('td');
-      tdName.className = 'name nowrap';
-      tdName.title = bp.Participant;
-      tdName.textContent = bp.Participant;
+      tdName.className = 'name';
+
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'player-link';
+      nameBtn.setAttribute('data-player', bp.Participant);
+      nameBtn.setAttribute('data-phone', phoneRaw);
+      nameBtn.setAttribute('data-tel', phoneTel);
+      nameBtn.textContent = bp.Participant;
+
+      tdName.appendChild(nameBtn);
       tr.appendChild(tdName);
 
-      // Points (keep current points like before, so it matches your existing behavior)
-      // If you want begin-of-round points instead, swap cp lookup.
-      const cp = currentPlayers.find(p => nameKey(p.Participant) === meKey);
+      // Points (current points)
       const tdPts = document.createElement('td');
-      tdPts.className = 'points nowrap';
+      tdPts.className = 'points';
+      const cp = currentByName[meKey];
       tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // Scheduled (single line + ellipsis, opponent clickable if unplayed)
+      // Scheduled
       const tdSched = document.createElement('td');
-      tdSched.className = 'nowrap cell-sm';
       const sr = scheduled.get(meKey);
       if (sr){
         const pill = document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; tdSched.appendChild(pill);
-
-        const span = document.createElement('span');
-        span.className = 'result ' + (sr.isLoss ? 'lost' : 'won');
-        span.textContent = sr.text;
-        tdSched.appendChild(span);
+        const span = document.createElement('span'); span.className='result ' + (sr.isLoss ? 'lost' : 'won'); span.textContent=sr.text; tdSched.appendChild(span);
 
         if (sr.isLoss){
           const baseGames = sr.gw;
@@ -503,10 +567,8 @@ async function init(round){
           btn.innerHTML = `<b>${final}</b> pts`;
           tdSched.appendChild(btn);
         }
-
-        // full text on hover
-        tdSched.title = sr.text;
       }else{
+        // unplayed scheduled => clickable opponent name -> phone
         const oppRank = scheduleMap[beginRank];
         if (oppRank){
           const oppName = nameByBeginRank[oppRank] || '';
@@ -524,29 +586,22 @@ async function init(round){
 
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'opp-link';
+          btn.className = 'player-link';   // reuse same handler
           btn.setAttribute('data-player', oppName);
           btn.setAttribute('data-phone', oppPhone);
           btn.setAttribute('data-tel', oppTel);
           btn.textContent = oppName || '';
           tdSched.appendChild(btn);
-
-          tdSched.title = `#${oppRank} ${oppName}`;
         }
       }
       tr.appendChild(tdSched);
 
-      // Challenge (single line + ellipsis)
+      // Challenge
       const tdChal = document.createElement('td');
-      tdChal.className = 'nowrap cell-sm';
       const cr = challenge.get(meKey);
       if (cr){
         const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; tdChal.appendChild(pill);
-
-        const span = document.createElement('span');
-        span.className = 'result ' + (cr.isLoss ? 'lost' : 'won');
-        span.textContent = cr.text;
-        tdChal.appendChild(span);
+        const span = document.createElement('span'); span.className='result ' + (cr.isLoss ? 'lost' : 'won'); span.textContent=cr.text; tdChal.appendChild(span);
 
         const hasScheduled = scheduled.has(meKey);
         const divisor = hasScheduled ? 2 : 4;
@@ -585,8 +640,6 @@ async function init(round){
           btn.innerHTML = `<b>${final}</b> pts`;
           tdChal.appendChild(btn);
         }
-
-        tdChal.title = cr.text;
       }
       tr.appendChild(tdChal);
 
@@ -594,7 +647,8 @@ async function init(round){
     });
 
     document.getElementById('ladder').style.display = '';
-    setStatus(''); document.getElementById('status').style.display = 'none';
+    document.getElementById('status').style.display = 'none';
+    setStatus('');
   }catch(err){
     console.error(err);
     setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
@@ -683,9 +737,9 @@ function handlePointsClick(e){
   }
 }
 
-/* ===== Opponent phone modal handler (only for unplayed games) ===== */
-function handleOpponentPhoneClick(e){
-  const btn = e.target.closest('.opp-link');
+/* ===== Player phone modal handler (participant + unplayed opponent) ===== */
+function handlePlayerPhoneClick(e){
+  const btn = e.target.closest('.player-link');
   if (!btn) return;
 
   e.preventDefault();
@@ -712,8 +766,8 @@ function handleOpponentPhoneClick(e){
 document.addEventListener('click', handlePointsClick, { capture:false });
 document.addEventListener('pointerup', handlePointsClick, { capture:false });
 
-document.addEventListener('click', handleOpponentPhoneClick, { capture:false });
-document.addEventListener('pointerup', handleOpponentPhoneClick, { capture:false });
+document.addEventListener('click', handlePlayerPhoneClick, { capture:false });
+document.addEventListener('pointerup', handlePlayerPhoneClick, { capture:false });
 
 /* Boot */
 buildRoundSelect();
