@@ -26,17 +26,32 @@
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
   .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
-  table{ width:100%; border-collapse:collapse; font-size:14px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed; }
   thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule); padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:top;}
   tbody tr:hover{ background:#0e1420;}
-  .rank{ width:110px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
-  .name{ font-weight:600;}
-  .points{ font-variant-numeric: tabular-nums; }
-  .result{ font-weight:600;}
+
+  .rank{ width:150px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rank.current{ width:100px; }
+
+  /* shrink-to-fit single-line cells */
+  .nowrap{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+  }
+  .cell-sm{ font-size:13px; }
+  .name{ font-weight:600; }
+  .points{ font-variant-numeric: tabular-nums; width:90px; }
+
+  .result{ font-weight:600; }
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
+
   .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4;}
+
   .badge{ display:none; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder); background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
@@ -47,6 +62,7 @@
     margin-left:10px; padding:2px 8px; border-radius:999px; font-size:12px;
     cursor:pointer; user-select:none;
     position:relative; z-index:3; pointer-events:auto;
+    white-space:nowrap;
   }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
@@ -68,6 +84,7 @@
     cursor:pointer;
     text-decoration:underline;
     text-underline-offset:2px;
+    white-space:nowrap;
   }
   .opp-link:hover{ filter:brightness(1.1); }
 
@@ -106,6 +123,7 @@
     .points{ order:-2; }
     .badge{ display:inline-block; }
     .loser-pts,.winner-pts{ margin-left:0; margin-top:6px; }
+    .nowrap{ white-space:normal; overflow:visible; text-overflow:unset; } /* mobile can wrap */
   }
 </style>
 </head>
@@ -124,8 +142,8 @@
     <table id="ladder" style="display:none;">
       <thead>
         <tr>
-          <th class="rank">Ranking</th>
-          <th class="rank">Current</th>
+          <th class="rank">Beginning of Round Ranking</th>
+          <th class="rank current">Current Ranking</th>
           <th>Participant</th>
           <th class="points">Points</th>
           <th>Scheduled Opponent / Result</th>
@@ -316,7 +334,7 @@ async function init(round){
       return (isNaN(start) || start <= rr) && (isNaN(end) || end >= rr);
     });
 
-    // ===== Current ranking list (always R8Pts/R8Perc) =====
+    // Current ranking list (always R8Pts/R8Perc)
     const currentPlayers = activePlayersRaw.map(r => ({
       Participant: fmt(r.Participant),
       CurrPts: num(r.R8Pts),
@@ -331,7 +349,7 @@ async function init(round){
     const currentRankByName = {};
     currentPlayers.forEach((p,i)=> currentRankByName[nameKey(p.Participant)] = i+1);
 
-    // ===== Beginning-of-round ranking (R#Pts/R#Perc) =====
+    // Beginning-of-round ranking (R#Pts/R#Perc) => THIS determines display order
     const ptsLabel  = `R${ROUND}Pts`;
     const percLabel = `R${ROUND}Perc`;
     const beginPlayers = activePlayersRaw.map(r => ({
@@ -401,49 +419,56 @@ async function init(round){
                          gdiff:Math.max(0,oGames - wGames) });
     });
 
-    // ===== Render rows in CURRENT ranking order =====
+    // ===== Render rows in BEGINNING-OF-ROUND ranking order =====
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
-    currentPlayers.forEach((cp, idx)=>{
+    beginPlayers.forEach((bp, idx)=>{
       const tr = document.createElement('tr');
 
-      const meKey = nameKey(cp.Participant);
-      const beginRank = beginRankByName[meKey] || '';
-      const currentRank = idx + 1;
+      const meKey = nameKey(bp.Participant);
+      const beginRank = idx + 1;
+      const currentRank = currentRankByName[meKey] || '';
 
-      // Column 1: Ranking (start-of-round), but without saying it
+      // Beginning of Round Ranking (left)
       const tdBegin = document.createElement('td');
-      tdBegin.className = 'rank rank-begin';
-      tdBegin.textContent = beginRank ? `#${beginRank}` : '';
+      tdBegin.className = 'rank rank-begin nowrap';
+      tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Column 2: Current ranking
+      // Current ranking (right of it)
       const tdCurr = document.createElement('td');
-      tdCurr.className = 'rank rank-current';
-      tdCurr.textContent = `#${currentRank}`;
+      tdCurr.className = 'rank current rank-current nowrap';
+      tdCurr.textContent = currentRank ? `#${currentRank}` : '';
       tr.appendChild(tdCurr);
 
-      // Name (NOT clickable)
+      // Participant (single line)
       const tdName = document.createElement('td');
-      tdName.className = 'name';
-      tdName.textContent = cp.Participant;
+      tdName.className = 'name nowrap';
+      tdName.title = bp.Participant;
+      tdName.textContent = bp.Participant;
       tr.appendChild(tdName);
 
-      // Points (keep current points like before)
+      // Points (keep current points like before, so it matches your existing behavior)
+      // If you want begin-of-round points instead, swap cp lookup.
+      const cp = currentPlayers.find(p => nameKey(p.Participant) === meKey);
       const tdPts = document.createElement('td');
-      tdPts.className = 'points';
-      tdPts.textContent = !isNaN(cp.CurrPts) ? cp.CurrPts : '';
+      tdPts.className = 'points nowrap';
+      tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // Scheduled column
+      // Scheduled (single line + ellipsis, opponent clickable if unplayed)
       const tdSched = document.createElement('td');
+      tdSched.className = 'nowrap cell-sm';
       const sr = scheduled.get(meKey);
       if (sr){
         const pill = document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; tdSched.appendChild(pill);
-        const span = document.createElement('span'); span.className='result ' + (sr.isLoss ? 'lost' : 'won'); span.textContent=sr.text; tdSched.appendChild(span);
 
-        // points pills as-is
+        const span = document.createElement('span');
+        span.className = 'result ' + (sr.isLoss ? 'lost' : 'won');
+        span.textContent = sr.text;
+        tdSched.appendChild(span);
+
         if (sr.isLoss){
           const baseGames = sr.gw;
           const base = 'LosePoints' in sr.row ? safeNum(sr.row.LosePoints) : Math.min(10, baseGames);
@@ -478,9 +503,11 @@ async function init(round){
           btn.innerHTML = `<b>${final}</b> pts`;
           tdSched.appendChild(btn);
         }
+
+        // full text on hover
+        tdSched.title = sr.text;
       }else{
-        // unplayed scheduled => clickable opponent name -> phone
-        const oppRank = beginRank ? scheduleMap[beginRank] : undefined;
+        const oppRank = scheduleMap[beginRank];
         if (oppRank){
           const oppName = nameByBeginRank[oppRank] || '';
           const oppPhone = phoneByName[nameKey(oppName)] || '';
@@ -492,7 +519,7 @@ async function init(round){
           tdSched.appendChild(pill);
 
           const pre = document.createElement('span');
-          pre.textContent = ` #${oppRank} `;
+          pre.textContent = `#${oppRank} `;
           tdSched.appendChild(pre);
 
           const btn = document.createElement('button');
@@ -503,16 +530,23 @@ async function init(round){
           btn.setAttribute('data-tel', oppTel);
           btn.textContent = oppName || '';
           tdSched.appendChild(btn);
+
+          tdSched.title = `#${oppRank} ${oppName}`;
         }
       }
       tr.appendChild(tdSched);
 
-      // Challenge column
+      // Challenge (single line + ellipsis)
       const tdChal = document.createElement('td');
+      tdChal.className = 'nowrap cell-sm';
       const cr = challenge.get(meKey);
       if (cr){
         const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; tdChal.appendChild(pill);
-        const span = document.createElement('span'); span.className='result ' + (cr.isLoss ? 'lost' : 'won'); span.textContent=cr.text; tdChal.appendChild(span);
+
+        const span = document.createElement('span');
+        span.className = 'result ' + (cr.isLoss ? 'lost' : 'won');
+        span.textContent = cr.text;
+        tdChal.appendChild(span);
 
         const hasScheduled = scheduled.has(meKey);
         const divisor = hasScheduled ? 2 : 4;
@@ -551,6 +585,8 @@ async function init(round){
           btn.innerHTML = `<b>${final}</b> pts`;
           tdChal.appendChild(btn);
         }
+
+        tdChal.title = cr.text;
       }
       tr.appendChild(tdChal);
 
