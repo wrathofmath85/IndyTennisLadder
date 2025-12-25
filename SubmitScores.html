@@ -325,8 +325,11 @@ let status = 'Completed';
 const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 const normKey = k => norm(k).replace(/[\s_]/g,'');
 
-// "Not Played" detector
-const isNotPlayed = v => /^not\s*played$/i.test(String(v ?? '').trim());
+// "Not Played" detector (treat blank as not played too)
+const isNotPlayed = v => {
+  const t = String(v ?? '').trim();
+  return t === '' || /^not\s*played$/i.test(t);
+};
 
 /* CSV parser (robust) */
 function parseCSV(text){
