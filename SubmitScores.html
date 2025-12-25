@@ -889,16 +889,46 @@ document.getElementById('isTb').addEventListener('change', e=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
 
-['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
-  const el=document.getElementById(id);
-  if (el){
-    const ev = el.tagName==='SELECT' ? 'change' : 'input';
-    el.addEventListener(ev, refreshTBEnabled);
-  }
-});
-
 ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect','s3wWrap','s3oWrap'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
-    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-inv
+    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
+  }
+});
+
+document.getElementById('winner').addEventListener('change', ()=>{
+  recomputeOpponentForMode();
+  updateRowLabels();
+});
+
+document.getElementById('opponentSelect').addEventListener('change', ()=>{
+  const name = document.getElementById('opponentSelect').value;
+  document.getElementById('opponentNameText').textContent = name || '';
+  updateRowLabels();
+});
+
+document.getElementById('submitBtn').addEventListener('click', submitForm);
+
+// init
+(async function init(){
+  try{
+    document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
+    await Promise.all([loadPlayers(), loadScheduleForRound()]);
+    setMatchTypeChip('Scheduled');
+    refreshWinnerOptions();
+    recomputeOpponentForMode();
+    updateRowLabels();
+    toggleTBUI(false);
+    setStatusChip('Completed');
+    refreshTBEnabled();
+    document.getElementById('submitBtn').disabled=false;
+  }catch(e){
+    console.error('init error:', e);
+    document.getElementById('msg').textContent='Setup error: '+e.message;
+  }
+})();
+
+</script>
+</body>
+</html>
