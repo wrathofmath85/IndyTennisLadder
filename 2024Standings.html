@@ -344,30 +344,43 @@ function formatThirdEntry(row, perspective){
   return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
 }
 
-/* NEW: walkover detection */
+/* Status helpers */
+function statusText(row){
+  return String(row.Status || row.STATUS || '').trim();
+}
 function isWalkoverStatus(row){
-  const s = String(row.Status || row.STATUS || '').trim().toLowerCase();
+  const s = statusText(row).toLowerCase();
   return s === 'walkover' || s === 'wo' || s === 'w/o' || s.includes('walkover');
 }
+function isRetiredStatus(row){
+  const s = statusText(row).toLowerCase();
+  return s === 'retired' || s === 'ret' || s.includes('retired');
+}
 
-/* UPDATED: result string inserts "walkover" where score would be */
+/* Result string: walkover replaces score; retired appends " Ret" to score */
 function resultString(row, perspective, beginRankByName){
   const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
   const wRank = beginRankByName[nameKey(winner)] || '?';
   const oRank = beginRankByName[nameKey(opponent)] || '?';
 
   const walkover = isWalkoverStatus(row);
-  const scorePart = walkover
-    ? 'walkover'
-    : (() => {
-        const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
-        const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
-        const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
-        const set3 = formatThirdEntry(row, perspective);
-        if (perspective === 'winner') return `${set1} ${set2}${set3}`;
-        // opponent perspective needs reversed scores
-        return `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
-      })();
+  const retired  = isRetiredStatus(row);
+
+  let scorePart;
+  if (walkover){
+    scorePart = 'walkover';
+  } else {
+    const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
+    const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
+    const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
+    const set3 = formatThirdEntry(row, perspective);
+
+    scorePart = (perspective === 'winner')
+      ? `${set1} ${set2}${set3}`
+      : `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
+
+    if (retired) scorePart += ' Ret';
+  }
 
   return (perspective === 'winner')
     ? `Beat #${oRank} ${opponent} ${scorePart}`
@@ -469,7 +482,6 @@ async function init(round){
       return isNaN(rr) || rr === Number(ROUND);
     });
 
-    // store: scheduled is single, challenge is up to 2 per player
     const scheduled = new Map();     // key -> matchObj
     const challenges = new Map();    // key -> [matchObj, matchObj]
 
@@ -575,24 +587,20 @@ async function init(round){
       const beginRank = idx + 1;
       const currentRank = currentRankByName[meKey] || '';
 
-      // Column 1: Round # Ranking
       const tdBegin = document.createElement('td');
       tdBegin.className = 'rank rank-begin';
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Column 2: Participant
       const tdName = document.createElement('td');
       tdName.appendChild(makeParticipantCell(bp.Participant));
       tr.appendChild(tdName);
 
-      // Column 3: Result (3 rows)
       const tdRes = document.createElement('td');
       tdRes.className = 'matches';
 
       const hasScheduledPlayed = scheduled.has(meKey);
 
-      // row 1: scheduled
       const schedLine = document.createElement('div');
       schedLine.className = 'match-line';
       const sr = scheduled.get(meKey);
@@ -623,7 +631,6 @@ async function init(round){
       }
       tdRes.appendChild(schedLine);
 
-      // rows 2 & 3: challenges
       const myChals = challenges.get(meKey) || [];
       for (let i=0; i<2; i++){
         const line = document.createElement('div');
@@ -647,14 +654,12 @@ async function init(round){
 
       tr.appendChild(tdRes);
 
-      // Column 4: Points
       const tdPts = document.createElement('td');
       tdPts.className = 'points';
       const cp = currentByName[meKey];
       tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
-      // Column 5: Current Ranking
       const tdCurr = document.createElement('td');
       tdCurr.className = 'rank current rank-current';
       tdCurr.textContent = currentRank ? `#${currentRank}` : '';
@@ -672,7 +677,6 @@ async function init(round){
   }
 }
 
-/* Round select */
 function buildRoundSelect(){
   const sel = document.getElementById('roundSelect');
   sel.innerHTML = '';
