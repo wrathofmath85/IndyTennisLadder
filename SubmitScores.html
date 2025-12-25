@@ -187,6 +187,64 @@
   .error{ color:var(--danger); margin-top:10px; }
   .success{ color:var(--success); margin-left:10px; }
   .row-inline{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+
+  /* ===== Submitting overlay + popup ===== */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+    padding:24px;
+  }
+  .overlay.show{ display:flex; }
+  .overlay-card{
+    width:min(520px, 100%);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    padding:18px 16px;
+  }
+  .overlay-top{
+    display:flex; align-items:center; gap:12px; margin-bottom:10px;
+  }
+  .spinner{
+    width:18px; height:18px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.25);
+    border-top-color: rgba(255,255,255,.9);
+    animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .overlay-title{ font-weight:900; }
+  .overlay-text{ color:var(--muted); font-size:.95rem; line-height:1.35; }
+
+  .modal{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:10000;
+    padding:24px;
+  }
+  .modal.show{ display:flex; }
+  .modal-card{
+    width:min(620px, 100%);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .modal-title{ font-weight:900; margin:0 0 8px; }
+  .modal-body{ color:var(--text); line-height:1.4; }
+  .modal-actions{ margin-top:14px; display:flex; justify-content:flex-end; gap:10px; }
+  .btn-secondary{
+    background:#0f1724; color:var(--text);
+    border:1px solid var(--line);
+  }
 </style>
 </head>
 <body>
@@ -246,16 +304,10 @@
             </select>
           </div>
           <div class="triple" aria-label="Winner set scores">
-            <select id="s1w" class="tight-num score-dd" aria-label="Winner Set 1">
-              <option value="">S1</option>
-            </select>
-            <select id="s2w" class="tight-num score-dd" aria-label="Winner Set 2">
-              <option value="">S2</option>
-            </select>
+            <select id="s1w" class="tight-num score-dd" aria-label="Winner Set 1"><option value="">S1</option></select>
+            <select id="s2w" class="tight-num score-dd" aria-label="Winner Set 2"><option value="">S2</option></select>
             <div id="s3wWrap" class="tight-num slot" aria-label="Winner Set 3 (full set or TB)">
-              <select id="s3wSel" class="score-dd" aria-label="Winner Set 3 (full set)">
-                <option value="">S3</option>
-              </select>
+              <select id="s3wSel" class="score-dd" aria-label="Winner Set 3 (full set)"><option value="">S3</option></select>
               <input id="s3w" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" class="hidden" aria-label="Winner Match TB" />
             </div>
           </div>
@@ -272,16 +324,10 @@
             </select>
           </div>
           <div class="triple" aria-label="Opponent set scores">
-            <select id="s1o" class="tight-num score-dd" aria-label="Opponent Set 1">
-              <option value="">S1</option>
-            </select>
-            <select id="s2o" class="tight-num score-dd" aria-label="Opponent Set 2">
-              <option value="">S2</option>
-            </select>
+            <select id="s1o" class="tight-num score-dd" aria-label="Opponent Set 1"><option value="">S1</option></select>
+            <select id="s2o" class="tight-num score-dd" aria-label="Opponent Set 2"><option value="">S2</option></select>
             <div id="s3oWrap" class="tight-num slot" aria-label="Opponent Set 3 (full set or TB)">
-              <select id="s3oSel" class="score-dd" aria-label="Opponent Set 3 (full set)">
-                <option value="">S3</option>
-              </select>
+              <select id="s3oSel" class="score-dd" aria-label="Opponent Set 3 (full set)"><option value="">S3</option></select>
               <input id="s3o" type="number" min="0" max="50" inputmode="numeric" placeholder="TB" class="hidden" aria-label="Opponent Match TB" />
             </div>
           </div>
@@ -308,18 +354,60 @@
   </div>
 </div>
 
+<!-- Submitting Overlay -->
+<div id="submittingOverlay" class="overlay" aria-hidden="true">
+  <div class="overlay-card" role="status" aria-live="polite">
+    <div class="overlay-top">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="overlay-title" id="overlayTitle">Submitting scores…</div>
+    </div>
+    <div class="overlay-text" id="overlayText">
+      Please keep this page open while we submit your score and send email confirmations.
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <div class="modal-title" id="successTitle">✅ Score Submitted</div>
+    <div class="modal-body">
+      scores have been submitted and you should receive an e-mail confirmation.<br>
+      Please allow up to 5 minutes for the standings website to show your score
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeSuccess">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- EmailJS (Browser SDK) -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
 <script>
 /*** ======= CONFIG ======= ***/
 const RoundNumber      = 1; // <-- change this when you move rounds
 const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbwRXo0LofhfrXo_8qOgYwMPNmqYzl5O8R6VUCGGelOCJMgw7qAwDKb5lJDgT_Ca-ZbF/exec';
+
+const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2024Standings';
+const UPDATE_NOTE      = 'Please give the website up to 5 minutes to update before contacting Dan with concerns';
+
+// EmailJS config (fill these in)
+const EMAILJS_PUBLIC_KEY = 'YB5J-75APa-V6Giku';
+const EMAILJS_SERVICE_ID = 'service_erw700i';
+const EMAILJS_TEMPLATE_ID = 'template_gt6skt4';
+
+// who always gets the email
+const ADMIN_EMAIL = 'IndyTennisLadder@gmail.com';
 /*** ======================= ***/
 
-let players = [];            // {name, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
-let nameByRank = new Map();  // rank -> name
-let rankByName = new Map();  // name -> rank
-let scheduleMap = new Map(); // rank -> opponentRank for RoundNumber
+let players = [];             // {name, email, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
+let nameByRank = new Map();   // rank -> name
+let rankByName = new Map();   // name -> rank
+let emailByName = new Map();  // name -> email
+let scheduleMap = new Map();  // rank -> opponentRank for RoundNumber
 let status = 'Completed';
 
 const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
@@ -330,6 +418,35 @@ const isNotPlayed = v => {
   const t = String(v ?? '').trim();
   return t === '' || /^not\s*played$/i.test(t);
 };
+
+/* ---------- overlay/modal helpers ---------- */
+function showOverlay(title, text){
+  const o = document.getElementById('submittingOverlay');
+  document.getElementById('overlayTitle').textContent = title || 'Submitting…';
+  document.getElementById('overlayText').textContent  = text  || 'Please keep this page open.';
+  o.classList.add('show');
+  o.setAttribute('aria-hidden','false');
+}
+function hideOverlay(){
+  const o = document.getElementById('submittingOverlay');
+  o.classList.remove('show');
+  o.setAttribute('aria-hidden','true');
+}
+function showSuccessModal(){
+  const m = document.getElementById('successModal');
+  m.classList.add('show');
+  m.setAttribute('aria-hidden','false');
+}
+function hideSuccessModal(){
+  const m = document.getElementById('successModal');
+  m.classList.remove('show');
+  m.setAttribute('aria-hidden','true');
+}
+
+document.getElementById('closeSuccess').addEventListener('click', hideSuccessModal);
+document.getElementById('successModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'successModal') hideSuccessModal();
+});
 
 /* CSV parser (robust) */
 function parseCSV(text){
@@ -349,12 +466,11 @@ function parseCSV(text){
   }
   if(field!==''||cur.length){ cur.push(field); rows.push(cur); }
   const headers = (rows[0]||[]).map((h,i)=> (i===0? String(h||'').replace(/^\uFEFF/,''):String(h||'')).trim());
-  const outRows = rows.slice(1).filter(r=>r.length>1|| (r.length===1&&r[0]!==''))
-    .map(cols=>{
-      const o={};
-      headers.forEach((h,idx)=>{ o[h]=(cols[idx]??'').toString().trim(); });
-      return o;
-    });
+  const outRows = rows.slice(1).filter(r=>r.length>1|| (r.length===1&&r[0]!=='')) .map(cols=>{
+    const o={};
+    headers.forEach((h,idx)=>{ o[h]=(cols[idx]??'').toString().trim(); });
+    return o;
+  });
   return {headers, rows: outRows};
 }
 
@@ -400,45 +516,39 @@ async function loadPlayers(){
     const mapped = rows.map(r=>{
       const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[k, v]));
 
-      // Name (Players sheet now uses "Participant")
       const name = getVal(entries, 'Participant', 'Participant Name', 'Name', 'Player');
 
-      // active window (your sheet uses RStart / REnd)
+      // email (supports a few common column names)
+      const email = getVal(entries, 'Email', 'Email Address', 'EmailAddress', 'E-mail', 'E-mail Address');
+
       const roundStart = Number(getVal(entries, 'RStart', 'RoundStart', 'Round Start', 'Round_Start') || 0);
       const roundEnd   = Number(getVal(entries, 'REnd',   'RoundEnd',   'Round End',   'Round_End') || 0);
 
       // Scheduled eligibility: R#SPts == "Not Played"
-      const sPts = getVal(entries, `R${RoundNumber}SPts`, `R${RoundNumber} S Pts`, `R${RoundNumber}SPts`, `Round${RoundNumber}SPts`, `Round ${RoundNumber} SPts`);
+      const sPts = getVal(entries, `R${RoundNumber}SPts`, `R${RoundNumber} S Pts`, `Round${RoundNumber}SPts`, `Round ${RoundNumber} SPts`);
 
-      // Challenge eligibility: player gets TWO challenge matches
-      // Eligible if either R#CPts or R#CPts_2 is "Not Played"
+      // Challenge eligibility: eligible if either slot is "Not Played"
       const cPts1 = getVal(entries, `R${RoundNumber}CPts`,   `R${RoundNumber} C Pts`,   `Round${RoundNumber}CPts`,   `Round ${RoundNumber} CPts`);
       const cPts2 = getVal(entries, `R${RoundNumber}CPts_2`, `R${RoundNumber} C Pts 2`, `R${RoundNumber}CPts2`, `Round${RoundNumber}CPts_2`, `Round ${RoundNumber} CPts 2`);
 
-      // ranking inputs
       const rPtsRaw  = getVal(entries, `R${RoundNumber}Pts`,  `R${RoundNumber} Pts`,  `Round${RoundNumber}Pts`,  `Round ${RoundNumber} Pts`);
       const rPercRaw = getVal(entries, `R${RoundNumber}Perc`, `R${RoundNumber} Perc`, `Round${RoundNumber}Perc`, `Round ${RoundNumber} Perc`);
 
       return {
         name,
+        email,
         roundStart, roundEnd,
         rPts: Number(rPtsRaw) || 0,
         rPerc: Number(rPercRaw) || 0,
-
-        // Scheduled: eligible only if "Not Played"
         sEligible: isNotPlayed(sPts),
-
-        // Challenge: eligible if either slot is "Not Played"
         cEligible: isNotPlayed(cPts1) || isNotPlayed(cPts2),
       };
     }).filter(p=>p.name);
 
     if (!mapped.length) throw new Error('No player names found.');
 
-    // only players active for this round
     const inRound = mapped.filter(p=>p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber);
 
-    // sort: R#Pts desc, R#Perc desc, Participant asc
     inRound.sort((a,b)=>{
       if (b.rPts !== a.rPts) return b.rPts - a.rPts;
       if (b.rPerc !== a.rPerc) return b.rPerc - a.rPerc;
@@ -446,11 +556,13 @@ async function loadPlayers(){
     });
 
     players = inRound;
-    nameByRank.clear(); rankByName.clear();
+    nameByRank.clear(); rankByName.clear(); emailByName.clear();
+
     inRound.forEach((p,idx)=>{
       const rank = idx + 1;
       nameByRank.set(rank, p.name);
       rankByName.set(p.name, rank);
+      if (p.email) emailByName.set(p.name, p.email);
     });
 
     refreshWinnerOptions();
@@ -795,6 +907,79 @@ function validateScores(){
   return false;
 }
 
+/* ===== Email body formatting ===== */
+function fmtSet(label, w, o, tb){
+  if (w==='' || o==='') return '';
+  if (tb!=='' && tb!=null) return `${label} ${w}-${o}(${tb})`;
+  return `${label} ${w}-${o}`;
+}
+function buildScoreLine(payload){
+  // requested format:
+  // [Winner] defeats [Opponent] [S1_W]-[S1_O]([Set1_T]) [S2_W]-[S2_O]([Set2_T]) [S3_W]-[S3_O]([Set3_T]) ([TB_W]-[TB_O]) for those that have values
+  const parts = [];
+  const s1 = fmtSet('', payload.S1_W, payload.S1_O, payload.Set1_T);
+  const s2 = fmtSet('', payload.S2_W, payload.S2_O, payload.Set2_T);
+  const s3 = fmtSet('', payload.S3_W, payload.S3_O, payload.Set3_T);
+
+  if (s1) parts.push(s1.trim());
+  if (s2) parts.push(s2.trim());
+  if (s3) parts.push(s3.trim());
+
+  if (payload.TB_W!=='' && payload.TB_O!==''){
+    parts.push(`(${payload.TB_W}-${payload.TB_O})`);
+  }
+
+  return `${payload.Winner} defeats ${payload.Opponent}${parts.length ? ' ' + parts.join(' ') : ''}`.trim();
+}
+
+function buildEmailBody(payload){
+  const scoreLine = buildScoreLine(payload);
+  return [
+    `Timestamp: ${payload.Timestamp}`,
+    `Round: ${payload.Round}`,
+    `Status: ${payload.Status}`,
+    `MatchType: ${payload.MatchType}`,
+    ``,
+    scoreLine,
+    ``,
+    `Standings: ${STANDINGS_LINK}`,
+    UPDATE_NOTE
+  ].join('\n');
+}
+
+function safeEmailOf(name){
+  const e = (emailByName.get(name) || '').trim();
+  // very light check
+  if (!e || !e.includes('@')) return '';
+  return e;
+}
+
+async function sendEmailConfirmation(payload){
+  // If EmailJS isn't configured, skip cleanly
+  if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')) return {skipped:true};
+  if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.startsWith('REPLACE_')) return {skipped:true};
+  if (!EMAILJS_TEMPLATE_ID || EMAILJS_TEMPLATE_ID.startsWith('REPLACE_')) return {skipped:true};
+
+  const winnerEmail = safeEmailOf(payload.Winner);
+  const opponentEmail = safeEmailOf(payload.Opponent);
+
+  // Use CC for the players (admin in To)
+  const ccList = [winnerEmail, opponentEmail].filter(Boolean).join(',');
+
+  const params = {
+    subject: `Round ${payload.Round} Score Submission`,
+    to_email: ADMIN_EMAIL,
+    cc_emails: ccList, // can be blank
+    winner_name: payload.Winner,
+    opponent_name: payload.Opponent,
+    message: buildEmailBody(payload),
+    standings_link: STANDINGS_LINK,
+    update_note: UPDATE_NOTE
+  };
+
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+}
+
 async function submitForm(){
   const btn=document.getElementById('submitBtn');
   const ok=document.getElementById('ok');
@@ -805,26 +990,22 @@ async function submitForm(){
 
   const matchType = getMatchType();
   const winner = document.getElementById('winner').value;
-  const opponent = getOpponentValue(); // this is the LOSER
+  const opponent = getOpponentValue(); // LOSER
   const isTB = document.getElementById('isTb').checked;
 
-  // set scores
   const s1w = readScore('s1w'), s1o = readScore('s1o');
   const s2w = readScore('s2w'), s2o = readScore('s2o');
   const s3w = readScore('s3w'), s3o = readScore('s3o');
 
-  // set tiebreaks (winner points) only if 7-6
   const set1_t = readScore('s1tb');
   const set2_t = readScore('s2tb');
   const set3_t = readScore('s3tb');
 
-  // Rank values at beginning of round (from Players CSV sorting)
   const winnerRank = rankByName.get(winner) || '';
   const opponentRank = (matchType==='Scheduled')
     ? (scheduleMap.get(winnerRank) || '')
     : (rankByName.get(opponent) || '');
 
-  // Build columns exactly as your sheet expects
   const payload = {
     Timestamp: new Date().toISOString(),
     Round: RoundNumber,
@@ -841,7 +1022,6 @@ async function submitForm(){
     S2_W: (status==='Walkover') ? '' : s2w,
     S2_O: (status==='Walkover') ? '' : s2o,
 
-    // If match tiebreak: leave S3_* blank and fill TB_*
     S3_W: (status==='Walkover') ? '' : (isTB ? '' : s3w),
     S3_O: (status==='Walkover') ? '' : (isTB ? '' : s3o),
 
@@ -854,7 +1034,16 @@ async function submitForm(){
   };
 
   btn.disabled=true;
+  const oldBtnText = btn.textContent;
+  btn.textContent = 'Submitting…';
+
+  showOverlay(
+    'Submitting scores…',
+    'Submitting to Google Sheets and sending email confirmations. Please keep this page open.'
+  );
+
   try{
+    // 1) Submit to Google Apps Script
     await fetch(SUBMIT_ENDPOINT,{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -862,16 +1051,31 @@ async function submitForm(){
       mode:'no-cors'
     });
 
+    // 2) Send EmailJS confirmation
+    try{
+      await sendEmailConfirmation(payload);
+    }catch(emailErr){
+      // still consider score submitted; just warn
+      console.warn('EmailJS failed:', emailErr);
+      msg.textContent = 'Score submitted, but email confirmation failed to send. If this continues, contact Dan.';
+    }
+
     ok.style.display='inline';
     ['s1w','s1o','s2w','s2o','s1tb','s2tb','s3tb','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
     clearInvalids();
     refreshTBEnabled();
+
+    // pop-up on completion
+    showSuccessModal();
+
   }catch(e){
     msg.textContent='Could not submit: '+e.message;
   }finally{
+    hideOverlay();
     btn.disabled=false;
+    btn.textContent = oldBtnText;
   }
 }
 
@@ -932,6 +1136,16 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
 (async function init(){
   try{
     document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
+
+    // init EmailJS (safe even if keys are placeholders)
+    try{
+      if (EMAILJS_PUBLIC_KEY && !EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')){
+        emailjs.init(EMAILJS_PUBLIC_KEY);
+      }
+    }catch(e){
+      console.warn('EmailJS init warning:', e);
+    }
+
     await Promise.all([loadPlayers(), loadScheduleForRound()]);
     setMatchTypeChip('Scheduled');
     refreshWinnerOptions();
@@ -946,7 +1160,6 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
 })();
-
 </script>
 </body>
 </html>
