@@ -332,6 +332,16 @@ const num = v => (v===null || v===undefined || v==='') ? NaN : +String(v).toStri
 const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
 const fmt = (v) => v===undefined || v===null ? '' : String(v);
 
+// round to 2 decimals (keeps .5, .33, .25, etc.)
+const round2 = (x) => Math.round((Number(x) + Number.EPSILON) * 100) / 100;
+
+// always display points with 2 decimals
+const fmtPts = (v) => {
+  if (v === '' || v === null || v === undefined) return '';
+  const n = Number(v);
+  return isNaN(n) ? '' : round2(n).toFixed(2);
+};
+
 function fmtDateRange(startRaw, endRaw){
   const tryParse = (val) => {
     if (val === undefined || val === null || val === '') return null;
