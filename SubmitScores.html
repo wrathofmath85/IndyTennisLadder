@@ -316,18 +316,17 @@ const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbwRXo0LofhfrXo_8qOgYwMPNmqYzl5O8R6VUCGGelOCJMgw7qAwDKb5lJDgT_Ca-ZbF/exec';
 /*** ======================= ***/
 
-let players = [];           // {name, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
-let nameByRank = new Map(); // rank -> name
-let rankByName = new Map(); // name -> rank
+let players = [];            // {name, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
+let nameByRank = new Map();  // rank -> name
+let rankByName = new Map();  // name -> rank
 let scheduleMap = new Map(); // rank -> opponentRank for RoundNumber
 let status = 'Completed';
 
 const norm = s => (s||'').toLowerCase().replace(/^\uFEFF/,'');
 const normKey = k => norm(k).replace(/[\s_]/g,'');
-const isNotPlayed = v => {
-  const t = (v||'').trim();
-  return t==='' || /^not\s*played$/i.test(t);
-};
+
+// "Not Played" detector
+const isNotPlayed = v => /^not\s*played$/i.test(String(v ?? '').trim());
 
 /* CSV parser (robust) */
 function parseCSV(text){
@@ -398,19 +397,23 @@ async function loadPlayers(){
     const mapped = rows.map(r=>{
       const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[k, v]));
 
-      // Name (your spec: "Participant Name" but allow common aliases)
-      const name = getVal(entries, 'Participant Name', 'Participant', 'Name', 'Player');
+      // Name (Players sheet now uses "Participant")
+      const name = getVal(entries, 'Participant', 'Participant Name', 'Name', 'Player');
 
-      // round active window (keep your prior behavior)
-      const roundStart = Number(getVal(entries, 'RoundStart', 'Round Start', 'Round_Start') || 0);
-      const roundEnd   = Number(getVal(entries, 'RoundEnd', 'Round End', 'Round_End') || 0);
+      // active window (your sheet uses RStart / REnd)
+      const roundStart = Number(getVal(entries, 'RStart', 'RoundStart', 'Round Start', 'Round_Start') || 0);
+      const roundEnd   = Number(getVal(entries, 'REnd',   'RoundEnd',   'Round End',   'Round_End') || 0);
 
-      // eligibility (keep your prior behavior; allow flexible headers)
-      const sPoints = getVal(entries, `Round${RoundNumber}sPoints`, `Round ${RoundNumber} sPoints`, `R${RoundNumber}SPoints`, `R${RoundNumber} SPoints`);
-      const cPoints = getVal(entries, `Round${RoundNumber}cPoints`, `Round ${RoundNumber} cPoints`, `R${RoundNumber}CPoints`, `R${RoundNumber} CPoints`);
+      // Scheduled eligibility: R#SPts == "Not Played"
+      const sPts = getVal(entries, `R${RoundNumber}SPts`, `R${RoundNumber} S Pts`, `R${RoundNumber}SPts`, `Round${RoundNumber}SPts`, `Round ${RoundNumber} SPts`);
 
-      // IMPORTANT: ranking inputs per your spec: R#Pts and R#Perc
-      const rPtsRaw  = getVal(entries, `R${RoundNumber}Pts`, `R${RoundNumber} Pts`, `Round${RoundNumber}Pts`, `Round ${RoundNumber} Pts`);
+      // Challenge eligibility: player gets TWO challenge matches
+      // Eligible if either R#CPts or R#CPts_2 is "Not Played"
+      const cPts1 = getVal(entries, `R${RoundNumber}CPts`,   `R${RoundNumber} C Pts`,   `Round${RoundNumber}CPts`,   `Round ${RoundNumber} CPts`);
+      const cPts2 = getVal(entries, `R${RoundNumber}CPts_2`, `R${RoundNumber} C Pts 2`, `R${RoundNumber}CPts2`, `Round${RoundNumber}CPts_2`, `Round ${RoundNumber} CPts 2`);
+
+      // ranking inputs
+      const rPtsRaw  = getVal(entries, `R${RoundNumber}Pts`,  `R${RoundNumber} Pts`,  `Round${RoundNumber}Pts`,  `Round ${RoundNumber} Pts`);
       const rPercRaw = getVal(entries, `R${RoundNumber}Perc`, `R${RoundNumber} Perc`, `Round${RoundNumber}Perc`, `Round ${RoundNumber} Perc`);
 
       return {
@@ -418,8 +421,12 @@ async function loadPlayers(){
         roundStart, roundEnd,
         rPts: Number(rPtsRaw) || 0,
         rPerc: Number(rPercRaw) || 0,
-        sEligible: isNotPlayed(sPoints),
-        cEligible: isNotPlayed(cPoints),
+
+        // Scheduled: eligible only if "Not Played"
+        sEligible: isNotPlayed(sPts),
+
+        // Challenge: eligible if either slot is "Not Played"
+        cEligible: isNotPlayed(cPts1) || isNotPlayed(cPts2),
       };
     }).filter(p=>p.name);
 
@@ -428,7 +435,7 @@ async function loadPlayers(){
     // only players active for this round
     const inRound = mapped.filter(p=>p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber);
 
-    // sort: R#Pts desc, R#Perc desc, Participant Name asc (your spec)
+    // sort: R#Pts desc, R#Perc desc, Participant asc
     inRound.sort((a,b)=>{
       if (b.rPts !== a.rPts) return b.rPts - a.rPts;
       if (b.rPerc !== a.rPerc) return b.rPerc - a.rPerc;
@@ -887,6 +894,14 @@ document.getElementById('isTb').addEventListener('change', e=>{
 });
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
+});
+
+['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
+  const el=document.getElementById(id);
+  if (el){
+    const ev = el.tagName==='SELECT' ? 'change' : 'input';
+    el.addEventListener(ev, refreshTBEnabled);
+  }
 });
 
 ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect','s3wWrap','s3oWrap'].forEach(id=>{
