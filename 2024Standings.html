@@ -181,7 +181,6 @@
     .panel{ overflow:visible; }
     tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; white-space:normal; }
     .rank-begin{ order:-5; font-weight:800; }
-    .name{ order:-4; font-size:16px; }
     .matches{ order:-3; }
     .points{ order:-2; }
     .rank-current{ order:-1; font-weight:800; }
@@ -344,17 +343,35 @@ function formatThirdEntry(row, perspective){
   if (a === '' && b === '') return '';
   return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
 }
+
+/* NEW: walkover detection */
+function isWalkoverStatus(row){
+  const s = String(row.Status || row.STATUS || '').trim().toLowerCase();
+  return s === 'walkover' || s === 'wo' || s === 'w/o' || s.includes('walkover');
+}
+
+/* UPDATED: result string inserts "walkover" where score would be */
 function resultString(row, perspective, beginRankByName){
   const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
   const wRank = beginRankByName[nameKey(winner)] || '?';
   const oRank = beginRankByName[nameKey(opponent)] || '?';
-  const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
-  const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
-  const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
-  const set3 = formatThirdEntry(row, perspective);
+
+  const walkover = isWalkoverStatus(row);
+  const scorePart = walkover
+    ? 'walkover'
+    : (() => {
+        const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
+        const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
+        const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
+        const set3 = formatThirdEntry(row, perspective);
+        if (perspective === 'winner') return `${set1} ${set2}${set3}`;
+        // opponent perspective needs reversed scores
+        return `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
+      })();
+
   return (perspective === 'winner')
-    ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
-    : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
+    ? `Beat #${oRank} ${opponent} ${scorePart}`
+    : `Lost to #${wRank} ${winner} ${scorePart}`;
 }
 
 /* ===== Core ===== */
@@ -564,12 +581,12 @@ async function init(round){
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Column 2: Participant (name + phone, NOT clickable)
+      // Column 2: Participant
       const tdName = document.createElement('td');
       tdName.appendChild(makeParticipantCell(bp.Participant));
       tr.appendChild(tdName);
 
-      // Column 3: Result (3 rows: scheduled + 2 challenge) with NO clickable names
+      // Column 3: Result (3 rows)
       const tdRes = document.createElement('td');
       tdRes.className = 'matches';
 
@@ -606,7 +623,7 @@ async function init(round){
       }
       tdRes.appendChild(schedLine);
 
-      // rows 2 & 3: challenges (only show label when played; otherwise blank)
+      // rows 2 & 3: challenges
       const myChals = challenges.get(meKey) || [];
       for (let i=0; i<2; i++){
         const line = document.createElement('div');
