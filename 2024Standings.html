@@ -79,7 +79,17 @@
   .rank{ width:150px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
   .points{ width:90px; font-variant-numeric: tabular-nums; }
   .rank.current{ width:130px; }
-  .name{ font-weight:600; }
+
+  /* Participant cell now 2 lines */
+  .name{ font-weight:700; }
+  .phone{
+    display:block;
+    margin-top:4px;
+    font-weight:600;
+    font-size:12px;
+    color:var(--muted);
+    letter-spacing:.2px;
+  }
 
   .result{ font-weight:600; }
   .won{ color:var(--ok); }
@@ -90,7 +100,6 @@
     background:#0f1521; border:1px solid var(--rule); color:#8ea0b4;
   }
 
-  /* badges always visible now */
   .badge{
     display:inline-block;
     padding:2px 8px;
@@ -120,23 +129,6 @@
   .result, .badge{ position:relative; z-index:1; }
   .panel table *{ pointer-events:auto; }
 
-  .player-link{
-    appearance:none;
-    border:0;
-    background:transparent;
-    color:var(--accent);
-    font:inherit;
-    font-weight:700;
-    padding:0;
-    margin:0;
-    cursor:pointer;
-    text-decoration:underline;
-    text-underline-offset:2px;
-    white-space:nowrap;
-  }
-  .player-link:hover{ filter:brightness(1.1); }
-
-  /* 3-row result cell */
   .matches{
     white-space:nowrap;
     min-width:520px;
@@ -148,7 +140,7 @@
     min-height:26px;
   }
   .match-line.empty{
-    opacity:.0; /* “show nothing” but keeps a consistent 3-row height */
+    opacity:.0; /* keep height but show “nothing” on desktop */
   }
 
   .backdrop{
@@ -326,10 +318,6 @@ function closeModal(){
   document.body.style.overflow = '';
 }
 
-function digitsForTel(phone){
-  return String(phone||'').trim().replace(/[^\d+]/g,'');
-}
-
 /* Tennis helpers */
 function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
 function parseGameTotals(row){
@@ -356,12 +344,22 @@ function formatThirdEntry(row, perspective){
   if (a === '' && b === '') return '';
   return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
 }
+function resultString(row, perspective, beginRankByName){
+  const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
+  const wRank = beginRankByName[nameKey(winner)] || '?';
+  const oRank = beginRankByName[nameKey(opponent)] || '?';
+  const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
+  const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
+  const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
+  const set3 = formatThirdEntry(row, perspective);
+  return (perspective === 'winner')
+    ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
+    : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
+}
 
 /* ===== Core ===== */
 async function init(round){
   ROUND = round;
-
-  // Header label: "Round # Ranking" (uses the selected round)
   document.getElementById('thRoundRank').textContent = `Round ${ROUND} Ranking`;
 
   const sel = document.getElementById('roundSelect');
@@ -455,26 +453,12 @@ async function init(round){
     });
 
     // store: scheduled is single, challenge is up to 2 per player
-    const scheduled = new Map();                // key -> matchObj
-    const challenges = new Map();               // key -> [matchObj, matchObj]
-
-    function resultString(row, perspective){
-      const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
-      const wRank = beginRankByName[nameKey(winner)] || '?';
-      const oRank = beginRankByName[nameKey(opponent)] || '?';
-      const W1 = fmt(row.S1_W), O1 = fmt(row.S1_O);
-      const W2 = fmt(row.S2_W), O2 = fmt(row.S2_O);
-      const set1 = `${W1}-${O1}`, set2 = `${W2}-${O2}`;
-      const set3 = formatThirdEntry(row, perspective);
-      return (perspective === 'winner')
-        ? `Beat #${oRank} ${opponent} ${set1} ${set2}${set3}`
-        : `Lost to #${wRank} ${winner} ${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row, 'opponent')}`;
-    }
+    const scheduled = new Map();     // key -> matchObj
+    const challenges = new Map();    // key -> [matchObj, matchObj]
 
     function pushChallenge(key, matchObj){
       const arr = challenges.get(key) || [];
       if (arr.length < 2) { arr.push(matchObj); challenges.set(key, arr); }
-      // if >2 exist in the data, extra are ignored
     }
 
     scoresRaw.forEach(r=>{
@@ -489,11 +473,11 @@ async function init(round){
       const upset = String(r.Upset||'').toUpperCase() === 'YES' ? 'YES' : 'NO';
 
       const winObj = {
-        text: resultString(r,'winner'), isLoss:false, row:r,
+        text: resultString(r,'winner', beginRankByName), isLoss:false, row:r,
         wRank, oRank, upset, type, gw:wGames, gl:oGames, gdiff:diff
       };
       const loseObj = {
-        text: resultString(r,'opponent'), isLoss:true, row:r,
+        text: resultString(r,'opponent', beginRankByName), isLoss:true, row:r,
         wRank:oRank, oRank:wRank, upset:'NO', type, gw:oGames, gl:wGames,
         gdiff:Math.max(0,oGames - wGames)
       };
@@ -510,20 +494,24 @@ async function init(round){
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
-    function makePlayerBtn(playerName, phoneByName){
+    function makeParticipantCell(playerName){
+      const wrap = document.createElement('div');
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = playerName || '';
+      wrap.appendChild(nameEl);
+
       const ph = phoneByName[nameKey(playerName)] || '';
-      const tel = digitsForTel(ph);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'player-link';
-      btn.setAttribute('data-player', playerName);
-      btn.setAttribute('data-phone', ph);
-      btn.setAttribute('data-tel', tel);
-      btn.textContent = playerName || '';
-      return btn;
+      const phoneEl = document.createElement('span');
+      phoneEl.className = 'phone';
+      phoneEl.textContent = ph ? ph : '(no phone)';
+      wrap.appendChild(phoneEl);
+
+      return wrap;
     }
 
-    function appendPointsButton(td, matchObj, isChallenge, hasScheduledPlayed){
+    function appendPointsButton(container, matchObj, isChallenge, hasScheduledPlayed){
       const r = matchObj.row;
       if (matchObj.isLoss){
         const baseGames = matchObj.gw;
@@ -538,7 +526,7 @@ async function init(round){
         btn.setAttribute('data-gameswon', String(baseGames));
         btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
         btn.innerHTML = `<b>${final}</b> pts`;
-        td.appendChild(btn);
+        container.appendChild(btn);
       } else {
         const base = ('WinPoints' in r) ? safeNum(r.WinPoints)
                                        : (matchObj.upset==='YES'
@@ -559,7 +547,7 @@ async function init(round){
         btn.setAttribute('data-orank', String(matchObj.oRank||''));
         btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
         btn.innerHTML = `<b>${final}</b> pts`;
-        td.appendChild(btn);
+        container.appendChild(btn);
       }
     }
 
@@ -576,19 +564,18 @@ async function init(round){
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
-      // Column 2: Participant
+      // Column 2: Participant (name + phone, NOT clickable)
       const tdName = document.createElement('td');
-      tdName.className = 'name';
-      tdName.appendChild(makePlayerBtn(bp.Participant, phoneByName));
+      tdName.appendChild(makeParticipantCell(bp.Participant));
       tr.appendChild(tdName);
 
-      // Column 3: Result (3 rows: scheduled + 2 challenge)
+      // Column 3: Result (3 rows: scheduled + 2 challenge) with NO clickable names
       const tdRes = document.createElement('td');
       tdRes.className = 'matches';
 
       const hasScheduledPlayed = scheduled.has(meKey);
 
-      // row 1: scheduled (always labeled "Scheduled" if opponent exists OR played)
+      // row 1: scheduled
       const schedLine = document.createElement('div');
       schedLine.className = 'match-line';
       const sr = scheduled.get(meKey);
@@ -600,7 +587,7 @@ async function init(round){
         const span = document.createElement('span'); span.className='result ' + (sr.isLoss ? 'lost' : 'won'); span.textContent=sr.text;
         schedLine.appendChild(span);
 
-        appendPointsButton(schedLine, sr, /*isChallenge*/false, hasScheduledPlayed);
+        appendPointsButton(schedLine, sr, false, hasScheduledPlayed);
       } else {
         const oppRank = scheduleMap[beginRank];
         if (oppRank){
@@ -610,19 +597,16 @@ async function init(round){
           schedLine.appendChild(pill);
 
           const pre = document.createElement('span');
-          pre.textContent = `#${oppRank} `;
+          pre.textContent = `#${oppRank} ${oppName}`;
           schedLine.appendChild(pre);
-
-          schedLine.appendChild(makePlayerBtn(oppName, phoneByName));
         } else {
-          // no scheduled opponent found -> keep row but “show nothing”
           schedLine.classList.add('empty');
           schedLine.innerHTML = '&nbsp;';
         }
       }
       tdRes.appendChild(schedLine);
 
-      // rows 2 & 3: up to 2 challenges
+      // rows 2 & 3: challenges (only show label when played; otherwise blank)
       const myChals = challenges.get(meKey) || [];
       for (let i=0; i<2; i++){
         const line = document.createElement('div');
@@ -630,16 +614,14 @@ async function init(round){
 
         const cr = myChals[i];
         if (cr){
-          // Only label "Challenge" when played (these lines only exist when played)
           const pill = document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge';
           line.appendChild(pill);
 
           const span = document.createElement('span'); span.className='result ' + (cr.isLoss ? 'lost' : 'won'); span.textContent=cr.text;
           line.appendChild(span);
 
-          appendPointsButton(line, cr, /*isChallenge*/true, hasScheduledPlayed);
+          appendPointsButton(line, cr, true, hasScheduledPlayed);
         } else {
-          // unplayed challenge row -> show nothing (but keep row height)
           line.classList.add('empty');
           line.innerHTML = '&nbsp;';
         }
@@ -755,37 +737,8 @@ function handlePointsClick(e){
   }
 }
 
-/* ===== Player phone modal handler ===== */
-function handlePlayerPhoneClick(e){
-  const btn = e.target.closest('.player-link');
-  if (!btn) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  const name = btn.getAttribute('data-player') || 'Player';
-  const phoneRaw = btn.getAttribute('data-phone') || '';
-  const tel = btn.getAttribute('data-tel') || digitsForTel(phoneRaw);
-
-  const html = phoneRaw
-    ? `
-        <p><strong>${name}</strong></p>
-        <p><a href="tel:${tel}" style="color:var(--accent); text-decoration:none; font-weight:700;">${phoneRaw}</a></p>
-        <p class="tip">Tap the number to call (mobile) or copy it to text.</p>
-      `
-    : `
-        <p><strong>${name}</strong></p>
-        <p>(No phone number on file)</p>
-        <p class="tip">Add it in the Players CSV “PHONE” column to enable click-to-contact.</p>
-      `;
-  openModal('Contact Info', html);
-}
-
 document.addEventListener('click', handlePointsClick, { capture:false });
 document.addEventListener('pointerup', handlePointsClick, { capture:false });
-
-document.addEventListener('click', handlePlayerPhoneClick, { capture:false });
-document.addEventListener('pointerup', handlePlayerPhoneClick, { capture:false });
 
 /* Boot */
 buildRoundSelect();
