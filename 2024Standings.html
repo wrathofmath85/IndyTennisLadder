@@ -627,44 +627,48 @@ async function init(round){
     }
 
     function appendPointsButton(container, matchObj, isChallenge, hasScheduledPlayed){
-      const r = matchObj.row;
-      if (matchObj.isLoss){
-        const baseGames = matchObj.gw;
-        const base = ('LosePoints' in r) ? safeNum(r.LosePoints) : Math.min(10, baseGames);
-        const divisor = isChallenge ? (hasScheduledPlayed ? 2 : 4) : 1;
-        const final = isChallenge ? Math.round(base / divisor) : base;
+  const r = matchObj.row;
+  const divisor = isChallenge ? (hasScheduledPlayed ? 2 : 4) : 1;
 
-        const btn = document.createElement('button');
-        btn.type='button'; btn.className='loser-pts';
-        btn.setAttribute('data-role','loser');
-        btn.setAttribute('data-points', String(final));
-        btn.setAttribute('data-gameswon', String(baseGames));
-        btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
-        btn.innerHTML = `<b>${final}</b> pts`;
-        container.appendChild(btn);
-      } else {
-        const base = ('WinPoints' in r) ? safeNum(r.WinPoints)
-                                       : (matchObj.upset==='YES'
-                                          ? Math.max(15, Math.min(25, Math.round(10 + matchObj.gdiff * ((matchObj.wRank - matchObj.oRank)/2))))
-                                          : Math.max(11, Math.round(10 + matchObj.gdiff)));
-        const divisor = isChallenge ? (hasScheduledPlayed ? 2 : 4) : 1;
-        const final = isChallenge ? Math.round(base / divisor) : base;
+  if (matchObj.isLoss){
+    const baseGames = matchObj.gw;
+    const base = ('LosePoints' in r) ? safeNum(r.LosePoints) : Math.min(10, baseGames);
 
-        const btn = document.createElement('button');
-        btn.type='button'; btn.className='winner-pts';
-        btn.setAttribute('data-role','winner');
-        btn.setAttribute('data-points', String(final));
-        btn.setAttribute('data-upset', matchObj.upset);
-        btn.setAttribute('data-gw', String(matchObj.gw));
-        btn.setAttribute('data-gl', String(matchObj.gl));
-        btn.setAttribute('data-gdiff', String(matchObj.gdiff));
-        btn.setAttribute('data-wrank', String(matchObj.wRank||''));
-        btn.setAttribute('data-orank', String(matchObj.oRank||''));
-        btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
-        btn.innerHTML = `<b>${final}</b> pts`;
-        container.appendChild(btn);
-      }
-    }
+    const final = round2(base / divisor);
+
+    const btn = document.createElement('button');
+    btn.type='button'; btn.className='loser-pts';
+    btn.setAttribute('data-role','loser');
+    btn.setAttribute('data-points', String(final));
+    btn.setAttribute('data-gameswon', String(baseGames));
+    btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
+    btn.innerHTML = `<b>${final.toFixed(2)}</b> pts`;
+    container.appendChild(btn);
+  } else {
+    const base = ('WinPoints' in r)
+      ? safeNum(r.WinPoints)
+      : (matchObj.upset === 'YES'
+          ? Math.max(15, Math.min(25, (10 + matchObj.gdiff * ((matchObj.wRank - matchObj.oRank)/2))))
+          : Math.max(11, (10 + matchObj.gdiff)));
+
+    const final = round2(base / divisor);
+
+    const btn = document.createElement('button');
+    btn.type='button'; btn.className='winner-pts';
+    btn.setAttribute('data-role','winner');
+    btn.setAttribute('data-points', String(final));
+    btn.setAttribute('data-upset', matchObj.upset);
+    btn.setAttribute('data-gw', String(matchObj.gw));
+    btn.setAttribute('data-gl', String(matchObj.gl));
+    btn.setAttribute('data-gdiff', String(matchObj.gdiff));
+    btn.setAttribute('data-wrank', String(matchObj.wRank||''));
+    btn.setAttribute('data-orank', String(matchObj.oRank||''));
+    btn.setAttribute('data-chaldiv', String(isChallenge ? divisor : ''));
+    btn.innerHTML = `<b>${final.toFixed(2)}</b> pts`;
+    container.appendChild(btn);
+  }
+}
+
 
     beginPlayers.forEach((bp, idx)=>{
       const tr = document.createElement('tr');
@@ -748,7 +752,8 @@ async function init(round){
       // Mobile-only: "Points: ##   Current Rank: ##" (one line)
       const mStats = document.createElement('div');
       mStats.className = 'm-stats';
-      const ptsText = (currPts !== '' && currPts !== null && currPts !== undefined) ? String(currPts) : '—';
+      const ptsText = (currPts !== '' && currPts !== null && currPts !== undefined) ? fmtPts(currPts) : '—';
+
       const crText  = currentRank ? `#${currentRank}` : '—';
       mStats.innerHTML = `Points: <b>${ptsText}</b> &nbsp;&nbsp; Current Rank: <b>${crText}</b>`;
       tdRes.appendChild(mStats);
@@ -758,7 +763,7 @@ async function init(round){
       // Column 4: Points (desktop)
       const tdPts = document.createElement('td');
       tdPts.className = 'points';
-      tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
+      tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? fmtPts(cp.CurrPts) : '';
       tr.appendChild(tdPts);
 
       // Column 5: Current Ranking (desktop)
