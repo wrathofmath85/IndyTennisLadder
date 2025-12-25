@@ -182,7 +182,7 @@
     .row-inline{ width:100%; }
     #submitBtn{ width:100%; }
   }
-  
+
   .help{ font-size:.9rem; margin-top:8px; color:var(--muted); }
   .error{ color:var(--danger); margin-top:10px; }
   .success{ color:var(--success); margin-left:10px; }
@@ -313,12 +313,12 @@
 const RoundNumber      = 1; // <-- change this when you move rounds
 const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
-const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbyzkrMZccBP48uybDRw9rX59wlnf1V41UobYZYCBrfnxDikkNqcsDr217UCUOphGPwZ/exec';
+const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbwRXo0LofhfrXo_8qOgYwMPNmqYzl5O8R6VUCGGelOCJMgw7qAwDKb5lJDgT_Ca-ZbF/exec';
 /*** ======================= ***/
 
-let players = [];          // objects: {name, roundStart, roundEnd, p, pct, sEligible, cEligible}
-let nameByRank = new Map();
-let rankByName = new Map();
+let players = [];           // {name, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
+let nameByRank = new Map(); // rank -> name
+let rankByName = new Map(); // name -> rank
 let scheduleMap = new Map(); // rank -> opponentRank for RoundNumber
 let status = 'Completed';
 
@@ -357,10 +357,12 @@ function parseCSV(text){
 }
 
 /* helpers for flexible column lookup */
-function getFromEntries(entries, target){
-  const tgt = normKey(target);
-  for (const k of Object.keys(entries)){
-    if (normKey(k) === tgt) return entries[k];
+function getVal(entries, ...candidates){
+  for (const c of candidates){
+    const tgt = normKey(c);
+    for (const k of Object.keys(entries)){
+      if (normKey(k) === tgt) return entries[k];
+    }
   }
   return '';
 }
@@ -371,7 +373,6 @@ function findHeaderIndex(headers, target){
   }
   return -1;
 }
-function lastNameOf(full){ if(!full) return ''; const p=full.trim().split(/\s+/); return p[p.length-1].replace(/[.,]/g,''); }
 
 /* Populate 0–7 options for dropdowns */
 function fillScoreDropdown(sel){
@@ -395,24 +396,30 @@ async function loadPlayers(){
     const {rows} = parseCSV(text);
 
     const mapped = rows.map(r=>{
-      // normalize keys
-      const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[norm(k), v]));
-      const name = entries['participant'] || entries['name'] || entries['player'] || '';
-      // dynamic round columns
-      const sPoints = getFromEntries(entries, `round${RoundNumber}sPoints`);
-      const cPoints = getFromEntries(entries, `round${RoundNumber}cPoints`);
-      const roundStart = Number(entries['roundstart'] || entries['round start'] || entries['round_start'] || 0);
-      const roundEnd   = Number(entries['roundend']   || entries['round end']   || entries['round_end']   || 0);
-      // optional: points/percent for ranking sort (RoundNumber based)
-      const ptsRaw = getFromEntries(entries, `round${RoundNumber}points`) || entries['round1points'] || '0';
-      const pctRaw = getFromEntries(entries, `round${RoundNumber}percent`) || entries['round1percent'] || '0';
+      const entries = Object.fromEntries(Object.entries(r).map(([k,v])=>[k, v]));
+
+      // Name (your spec: "Participant Name" but allow common aliases)
+      const name = getVal(entries, 'Participant Name', 'Participant', 'Name', 'Player');
+
+      // round active window (keep your prior behavior)
+      const roundStart = Number(getVal(entries, 'RoundStart', 'Round Start', 'Round_Start') || 0);
+      const roundEnd   = Number(getVal(entries, 'RoundEnd', 'Round End', 'Round_End') || 0);
+
+      // eligibility (keep your prior behavior; allow flexible headers)
+      const sPoints = getVal(entries, `Round${RoundNumber}sPoints`, `Round ${RoundNumber} sPoints`, `R${RoundNumber}SPoints`, `R${RoundNumber} SPoints`);
+      const cPoints = getVal(entries, `Round${RoundNumber}cPoints`, `Round ${RoundNumber} cPoints`, `R${RoundNumber}CPoints`, `R${RoundNumber} CPoints`);
+
+      // IMPORTANT: ranking inputs per your spec: R#Pts and R#Perc
+      const rPtsRaw  = getVal(entries, `R${RoundNumber}Pts`, `R${RoundNumber} Pts`, `Round${RoundNumber}Pts`, `Round ${RoundNumber} Pts`);
+      const rPercRaw = getVal(entries, `R${RoundNumber}Perc`, `R${RoundNumber} Perc`, `Round${RoundNumber}Perc`, `Round ${RoundNumber} Perc`);
+
       return {
         name,
         roundStart, roundEnd,
-        p: Number(ptsRaw) || 0,
-        pct: Number(pctRaw) || 0,
+        rPts: Number(rPtsRaw) || 0,
+        rPerc: Number(rPercRaw) || 0,
         sEligible: isNotPlayed(sPoints),
-        cEligible: isNotPlayed(cPoints)
+        cEligible: isNotPlayed(cPoints),
       };
     }).filter(p=>p.name);
 
@@ -421,26 +428,27 @@ async function loadPlayers(){
     // only players active for this round
     const inRound = mapped.filter(p=>p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber);
 
-    // sort in some stable ladder order (points, then percent, then last name)
+    // sort: R#Pts desc, R#Perc desc, Participant Name asc (your spec)
     inRound.sort((a,b)=>{
-      if (b.p!==a.p) return b.p-a.p;
-      if (b.pct!==a.pct) return b.pct-a.pct;
-      const la=lastNameOf(a.name).toLowerCase(), lb=lastNameOf(b.name).toLowerCase();
-      if (la<lb) return -1; if (la>lb) return 1; return a.name.localeCompare(b.name);
+      if (b.rPts !== a.rPts) return b.rPts - a.rPts;
+      if (b.rPerc !== a.rPerc) return b.rPerc - a.rPerc;
+      return a.name.localeCompare(b.name);
     });
 
     players = inRound;
     nameByRank.clear(); rankByName.clear();
-    inRound.forEach((p,idx)=>{ const rank=idx+1; nameByRank.set(rank,p.name); rankByName.set(p.name,rank); });
+    inRound.forEach((p,idx)=>{
+      const rank = idx + 1;
+      nameByRank.set(rank, p.name);
+      rankByName.set(p.name, rank);
+    });
 
-    // initial fill of winner options based on current match type + eligibility
     refreshWinnerOptions();
 
   }catch(e){
     console.error('loadPlayers error:', e);
     const w=document.getElementById('winner');
     if (w) w.innerHTML = '<option value="">Could not load players</option>';
-    const errEl = document.getElementById('playersError');
     errEl.textContent = 'Could not load players. Please check the Google Sheet publish settings and headers.';
     errEl.style.display = 'block';
   }
@@ -456,7 +464,7 @@ async function loadScheduleForRound(){
   const idxRound   = (()=> {
     let i = findHeaderIndex(headers, `Round ${RoundNumber}`);
     if (i===-1) i = findHeaderIndex(headers, `Round${RoundNumber}`);
-    if (i===-1 && RoundNumber===1) i = findHeaderIndex(headers, 'R1'); // fallback alias
+    if (i===-1 && RoundNumber===1) i = findHeaderIndex(headers, 'R1');
     return i;
   })();
 
@@ -511,12 +519,16 @@ function refreshTBEnabled(){
   const isTB = document.getElementById('isTb').checked;
   const sets=[1,2,3];
   sets.forEach(k=>{
-    const w = getScoreValueEl(k===3 ? (isTB?'s3w':'s3wSel') : `s${k}w`);
-    const o = getScoreValueEl(k===3 ? (isTB?'s3o':'s3oSel') : `s${k}o`);
+    const wEl = document.getElementById(k===3 ? (isTB?'s3w':'s3wSel') : `s${k}w`);
+    const oEl = document.getElementById(k===3 ? (isTB?'s3o':'s3oSel') : `s${k}o`);
     const tb=document.getElementById(`s${k}tb`);
-    if (!w || !o || !tb) return;
-    if (k===3 && isTB){ tb.value=''; tb.disabled=true; tb.classList.add('disabled-like'); return; }
-    const a = parseNum(w.value), b = parseNum(o.value);
+    if (!wEl || !oEl || !tb) return;
+
+    if (k===3 && isTB){
+      tb.value=''; tb.disabled=true; tb.classList.add('disabled-like');
+      return;
+    }
+    const a = parseNum(wEl.value), b = parseNum(oEl.value);
     const need = (a===7&&b===6) || (a===6&&b===7);
     tb.disabled = !need;
     tb.classList.toggle('disabled-like', !need);
@@ -562,19 +574,17 @@ function getOpponentValue(){
 function setOpponentValue(val){
   const mode = getMatchType();
   if (mode==='Challenge'){
-    const sel = document.getElementById('opponentSelect');
-    sel.value = val || '';
+    document.getElementById('opponentSelect').value = val || '';
   } else {
     document.getElementById('opponentNameText').textContent = val || '';
   }
 }
-
 function updateRowLabels(){
   const oName = getOpponentValue();
   document.getElementById('opponentNameText').textContent = oName || (getMatchType()==='Challenge' ? '' : 'Opponent');
 }
 
-/* ===== NEW: eligibility-dependent dropdown fills ===== */
+/* eligibility-dependent dropdown fills */
 function eligibleNamesFor(type){
   const list = players.filter(p=>{
     if (!(p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber)) return false;
@@ -593,7 +603,6 @@ function refreshWinnerOptions(){
     sel.value='';
   }else{
     sel.innerHTML = '<option value="">Select winner…</option>' + names.map(n=>`<option value="${n}">${n}</option>`).join('');
-    // preserve selection if still eligible
     if (current && names.includes(current)) sel.value=current; else sel.value='';
   }
 }
@@ -625,7 +634,7 @@ function recomputeOpponentForMode(){
       const name = nameByRank.get(r);
       if (!name) continue;
       const p = players.find(x=>x.name===name);
-      if (!p || !p.cEligible) continue; // only show if their ROUND#CPOINTS is Not Played
+      if (!p || !p.cEligible) continue;
       options.push(`<option value="${name}">${name}</option>`);
     }
     if (options.length===1) options.push('<option value="" disabled>No eligible opponents</option>');
@@ -647,7 +656,6 @@ function parseNum(v){
   const n = Number(v);
   return Number.isNaN(n) ? '' : n;
 }
-function getScoreValueEl(id){ return document.getElementById(id); }
 function readScore(id){
   if (id==='s3w' || id==='s3o'){
     const isTB = document.getElementById('isTb').checked;
@@ -727,10 +735,8 @@ function validateScores(){
   if (v2.needTB && s2tb===''){ msg.textContent='Enter tie-break points for Set 2.'; markInvalidActive('s2tb'); focusFirstInvalid(); return false; }
 
   let won=0, lost=0;
-  won += v1.winnerIsTop ? 1 : 0;
-  lost+= v1.winnerIsTop ? 0 : 1;
-  won += v2.winnerIsTop ? 1 : 0;
-  lost+= v2.winnerIsTop ? 0 : 1;
+  won += v1.winnerIsTop ? 1 : 0; lost+= v1.winnerIsTop ? 0 : 1;
+  won += v2.winnerIsTop ? 1 : 0; lost+= v2.winnerIsTop ? 0 : 1;
 
   if (won===2){
     if (s3w!=='' || s3o!=='' || s3tb!==''){
@@ -787,55 +793,54 @@ async function submitForm(){
 
   if (!validateScores()) return;
 
-  const winner=document.getElementById('winner').value;
-  const opponent=getOpponentValue();
-  const isTB=document.getElementById('isTb').checked;
-
-  const s1w=readScore('s1w'), s1o=readScore('s1o');
-  const s2w=readScore('s2w'), s2o=readScore('s2o');
-  const s3w=readScore('s3w'), s3o=readScore('s3o');
-
-  const needTB1 = (s1w!=='' && s1o!=='' && ((s1w===7 && s1o===6) || (s1o===7 && s1w===6)));
-  const needTB2 = (s2w!=='' && s2o!=='' && ((s2w===7 && s2o===6) || (s2o===7 && s2w===6)));
-  const needTB3 = !isTB && (s3w!=='' && s3o!=='' && ((s3w===7 && s3o===6) || (s3o===7 && s3w===6)));
-
-  const s1tb = readScore('s1tb');
-  const s2tb = readScore('s2tb');
-  const s3tb = readScore('s3tb');
-
-  const TB_W = isTB ? s3w : '';
-  const TB_O = isTB ? s3o : '';
-  const S3_W = isTB ? 1   : (s3w === '' ? '' : s3w);
-  const S3_O = isTB ? 0   : (s3o === '' ? '' : s3o);
-
   const matchType = getMatchType();
+  const winner = document.getElementById('winner').value;
+  const opponent = getOpponentValue(); // this is the LOSER
+  const isTB = document.getElementById('isTb').checked;
 
-  const payload={
-    timestamp:new Date().toISOString(),
-    round:RoundNumber,
-    status,
-    matchType,
-    winner,
-    opponent,
-    winnerRank: rankByName.get(winner) || '',
-    opponentRank: (matchType==='Scheduled'
-                    ? (scheduleMap.get(rankByName.get(winner)) || '')
-                    : (rankByName.get(opponent) || '')),
-    isTiebreakThird: isTB,
+  // set scores
+  const s1w = readScore('s1w'), s1o = readScore('s1o');
+  const s2w = readScore('s2w'), s2o = readScore('s2o');
+  const s3w = readScore('s3w'), s3o = readScore('s3o');
 
-    s1w, s1o,
-    s2w, s2o,
-    s3w: isTB ? '' : s3w,
-    s3o: isTB ? '' : s3o,
+  // set tiebreaks (winner points) only if 7-6
+  const set1_t = readScore('s1tb');
+  const set2_t = readScore('s2tb');
+  const set3_t = readScore('s3tb');
 
-    Set1_T: s1tb,
-    Set2_T: s2tb,
-    Set3_T: isTB ? '' : s3tb,
+  // Rank values at beginning of round (from Players CSV sorting)
+  const winnerRank = rankByName.get(winner) || '';
+  const opponentRank = (matchType==='Scheduled')
+    ? (scheduleMap.get(winnerRank) || '')
+    : (rankByName.get(opponent) || '');
 
-    S3_W, S3_O,
-    TB_W, TB_O,
+  // Build columns exactly as your sheet expects
+  const payload = {
+    Timestamp: new Date().toISOString(),
+    Round: RoundNumber,
+    Status: status,
+    MatchType: matchType,
+    Winner: winner,
+    Opponent: opponent,
+    WinnerRank: winnerRank,
+    OpponentRank: opponentRank,
+    IsTiebreakThird: isTB,
 
-    needTB1, needTB2, needTB3
+    S1_W: (status==='Walkover') ? '' : s1w,
+    S1_O: (status==='Walkover') ? '' : s1o,
+    S2_W: (status==='Walkover') ? '' : s2w,
+    S2_O: (status==='Walkover') ? '' : s2o,
+
+    // If match tiebreak: leave S3_* blank and fill TB_*
+    S3_W: (status==='Walkover') ? '' : (isTB ? '' : s3w),
+    S3_O: (status==='Walkover') ? '' : (isTB ? '' : s3o),
+
+    Set1_T: (status==='Walkover') ? '' : set1_t,
+    Set2_T: (status==='Walkover') ? '' : set2_t,
+    Set3_T: (status==='Walkover') ? '' : (isTB ? '' : set3_t),
+
+    TB_W: (status==='Walkover') ? '' : (isTB ? s3w : ''),
+    TB_O: (status==='Walkover') ? '' : (isTB ? s3o : '')
   };
 
   btn.disabled=true;
@@ -846,6 +851,7 @@ async function submitForm(){
       body:JSON.stringify(payload),
       mode:'no-cors'
     });
+
     ok.style.display='inline';
     ['s1w','s1o','s2w','s2o','s1tb','s2tb','s3tb','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
@@ -865,14 +871,11 @@ async function submitForm(){
   if (el && el.tagName==='SELECT') fillScoreDropdown(el);
 });
 
-// Match type chips
 document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
   ch.addEventListener('click', ()=>{
     setMatchTypeChip(ch.dataset.type);
-    // repopulate winner names based on S/C eligibility
     const prevWinner = document.getElementById('winner').value;
     refreshWinnerOptions();
-    // if previous winner is no longer eligible, clear opponent
     if (document.getElementById('winner').value !== prevWinner) setOpponentValue('');
     recomputeOpponentForMode();
     clearInvalids();
@@ -886,7 +889,6 @@ document.getElementById('isTb').addEventListener('change', e=>{
   document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
 });
 
-/* Recompute TB enabled state whenever any set score changes */
 ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
@@ -895,48 +897,8 @@ document.getElementById('isTb').addEventListener('change', e=>{
   }
 });
 
-/* cleanup invalid state on input/change */
 ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel','s1tb','s2tb','s3tb','winner','opponentSelect','s3wWrap','s3oWrap'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     el.addEventListener('input', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
-    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
-  }
-});
-
-document.getElementById('winner').addEventListener('change', ()=>{
-  recomputeOpponentForMode();
-  updateRowLabels();
-});
-
-document.getElementById('opponentSelect').addEventListener('change', ()=>{
-  const name = document.getElementById('opponentSelect').value;
-  document.getElementById('opponentNameText').textContent = name || '';
-  updateRowLabels();
-});
-
-document.getElementById('submitBtn').addEventListener('click', submitForm);
-
-// init
-(async function init(){
-  try{
-    // Update title to reflect round
-    document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
-
-    await Promise.all([loadPlayers(), loadScheduleForRound()]);
-    setMatchTypeChip('Scheduled');
-    refreshWinnerOptions();
-    recomputeOpponentForMode();
-    updateRowLabels();
-    toggleTBUI(false); // start in full set mode
-    setStatusChip('Completed');
-    refreshTBEnabled();
-    document.getElementById('submitBtn').disabled=false;
-  }catch(e){
-    console.error('init error:', e);
-    document.getElementById('msg').textContent='Setup error: '+e.message;
-  }
-})();
-</script>
-</body>
-</html>
+    el.addEventListener('change', ()=>{ el.classList.remove('invalid'); el.removeAttribute('aria-inv
