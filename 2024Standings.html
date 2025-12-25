@@ -80,7 +80,7 @@
   .points{ width:90px; font-variant-numeric: tabular-nums; }
   .rank.current{ width:130px; }
 
-  /* Participant cell now 2 lines */
+  /* Participant cell now 2 lines (desktop) */
   .name{ font-weight:700; }
   .phone{
     display:block;
@@ -89,6 +89,23 @@
     font-size:12px;
     color:var(--muted);
     letter-spacing:.2px;
+  }
+
+  /* Mobile-only header inside participant cell */
+  .m-head{ display:none; align-items:baseline; gap:10px; }
+  .m-rank{
+    font-weight:900;
+    font-variant-numeric: tabular-nums;
+    color:#cdd8e6;
+    flex:0 0 auto;
+  }
+  .m-name{
+    font-weight:900;
+    color:#e9eef5;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
 
   .result{ font-weight:600; }
@@ -143,6 +160,23 @@
     opacity:.0; /* keep height but show “nothing” on desktop */
   }
 
+  /* Mobile-only stats line */
+  .m-stats{
+    display:none;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px dashed #23324a;
+    color:var(--muted);
+    font-size:13px;
+    white-space:nowrap;
+    gap:14px;
+    align-items:center;
+  }
+  .m-stats b{
+    color:#e9eef5;
+    font-variant-numeric: tabular-nums;
+  }
+
   .backdrop{
     position:fixed; inset:0; background:rgba(8,12,20,.55);
     opacity:0; pointer-events:none; transition:opacity .15s ease;
@@ -176,16 +210,44 @@
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
   .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
 
+  /* ===== Mobile layout changes (desktop unchanged) ===== */
   @media (max-width:720px){
-    thead{ display:none; } table,tbody,tr,td{ display:block; width:100%; min-width:0; }
+    thead{ display:none; }
+    table,tbody,tr,td{ display:block; width:100%; min-width:0; }
     .panel{ overflow:visible; }
-    tbody tr{ padding:12px 12px 6px; } tbody td{ border:0; padding:4px 0; white-space:normal; }
-    .rank-begin{ order:-5; font-weight:800; }
-    .matches{ order:-3; }
-    .points{ order:-2; }
-    .rank-current{ order:-1; font-weight:800; }
+
+    /* Stronger separation between people */
+    tbody tr{
+      padding:14px 12px;
+      border-bottom:1px solid var(--rule);
+      background:transparent;
+    }
+    tbody tr:hover{ background:transparent; }
+
+    tbody td{
+      border:0;
+      padding:6px 0;
+      white-space:normal;
+    }
+
+    /* Hide the standalone begin-rank column on mobile (we'll show it next to the name) */
+    .rank-begin{ display:none; }
+
+    /* Show our combined "rank + name" header line; hide the desktop name line */
+    .m-head{ display:flex; }
+    .name{ display:none; }
+
+    /* Keep matches below */
+    .matches{ order:2; min-width:0; }
+
+    /* Hide the separate Points and Current Rank columns */
+    .points{ display:none; }
+    .rank-current{ display:none; }
+
+    /* Show the combined stats line (Points + Current Rank) */
+    .m-stats{ display:flex; }
+
     .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
-    .matches{ min-width:0; }
     .match-line.empty{ display:none; } /* mobile: truly “show nothing” */
   }
 </style>
@@ -484,7 +546,6 @@ async function init(round){
 
     const scheduled = new Map();     // key -> matchObj
     const challenges = new Map();    // key -> [matchObj, matchObj]
-
     function pushChallenge(key, matchObj){
       const arr = challenges.get(key) || [];
       if (arr.length < 2) { arr.push(matchObj); challenges.set(key, arr); }
@@ -523,14 +584,29 @@ async function init(round){
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
 
-    function makeParticipantCell(playerName){
+    function makeParticipantCell(playerName, beginRank){
       const wrap = document.createElement('div');
 
+      // Mobile: "#X  Name" on one line
+      const mHead = document.createElement('div');
+      mHead.className = 'm-head';
+      const mRank = document.createElement('span');
+      mRank.className = 'm-rank';
+      mRank.textContent = `#${beginRank}`;
+      const mName = document.createElement('span');
+      mName.className = 'm-name';
+      mName.textContent = playerName || '';
+      mHead.appendChild(mRank);
+      mHead.appendChild(mName);
+      wrap.appendChild(mHead);
+
+      // Desktop: name line
       const nameEl = document.createElement('div');
       nameEl.className = 'name';
       nameEl.textContent = playerName || '';
       wrap.appendChild(nameEl);
 
+      // Phone line
       const ph = phoneByName[nameKey(playerName)] || '';
       const phoneEl = document.createElement('span');
       phoneEl.className = 'phone';
@@ -586,21 +662,27 @@ async function init(round){
       const meKey = nameKey(bp.Participant);
       const beginRank = idx + 1;
       const currentRank = currentRankByName[meKey] || '';
+      const cp = currentByName[meKey];
+      const currPts = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
 
+      // Column 1: Round # Ranking (desktop)
       const tdBegin = document.createElement('td');
       tdBegin.className = 'rank rank-begin';
       tdBegin.textContent = `#${beginRank}`;
       tr.appendChild(tdBegin);
 
+      // Column 2: Participant
       const tdName = document.createElement('td');
-      tdName.appendChild(makeParticipantCell(bp.Participant));
+      tdName.appendChild(makeParticipantCell(bp.Participant, beginRank));
       tr.appendChild(tdName);
 
+      // Column 3: Result
       const tdRes = document.createElement('td');
       tdRes.className = 'matches';
 
       const hasScheduledPlayed = scheduled.has(meKey);
 
+      // row 1: scheduled
       const schedLine = document.createElement('div');
       schedLine.className = 'match-line';
       const sr = scheduled.get(meKey);
@@ -631,6 +713,7 @@ async function init(round){
       }
       tdRes.appendChild(schedLine);
 
+      // challenges
       const myChals = challenges.get(meKey) || [];
       for (let i=0; i<2; i++){
         const line = document.createElement('div');
@@ -652,14 +735,23 @@ async function init(round){
         tdRes.appendChild(line);
       }
 
+      // Mobile-only: "Points: ##   Current Rank: ##" (one line)
+      const mStats = document.createElement('div');
+      mStats.className = 'm-stats';
+      const ptsText = (currPts !== '' && currPts !== null && currPts !== undefined) ? String(currPts) : '—';
+      const crText  = currentRank ? `#${currentRank}` : '—';
+      mStats.innerHTML = `Points: <b>${ptsText}</b> &nbsp;&nbsp; Current Rank: <b>${crText}</b>`;
+      tdRes.appendChild(mStats);
+
       tr.appendChild(tdRes);
 
+      // Column 4: Points (desktop)
       const tdPts = document.createElement('td');
       tdPts.className = 'points';
-      const cp = currentByName[meKey];
       tdPts.textContent = (cp && !isNaN(cp.CurrPts)) ? cp.CurrPts : '';
       tr.appendChild(tdPts);
 
+      // Column 5: Current Ranking (desktop)
       const tdCurr = document.createElement('td');
       tdCurr.className = 'rank current rank-current';
       tdCurr.textContent = currentRank ? `#${currentRank}` : '';
@@ -677,6 +769,7 @@ async function init(round){
   }
 }
 
+/* Round select */
 function buildRoundSelect(){
   const sel = document.getElementById('roundSelect');
   sel.innerHTML = '';
