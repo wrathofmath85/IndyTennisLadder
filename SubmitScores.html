@@ -413,7 +413,7 @@ async function fetchRoundNumber(){
 
 const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
-const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbwRXo0LofhfrXo_8qOgYwMPNmqYzl5O8R6VUCGGelOCJMgw7qAwDKb5lJDgT_Ca-ZbF/exec';
+const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbw2ay_oH-0SpwH2Cq4V0SbhLAXhqtmwh8K-bX-8-usBGsSHekyV5SfBUG5w7S1EluX7/exec';
 
 const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2024Standings';
 const UPDATE_NOTE      = 'Please give the website up to 5 minutes to update before contacting Dan with concerns';
@@ -1041,6 +1041,10 @@ async function submitForm(){
     OpponentRank: opponentRank,
     IsTiebreakThird: isTB,
 
+    // NEW: tell Apps Script the exact destination tab name
+    // (matches your current naming pattern "Round X Scores")
+    ScoresSheetName: `Round ${RoundNumber} Scores`,
+
     S1_W: (status==='Walkover') ? '' : s1w,
     S1_O: (status==='Walkover') ? '' : s1o,
     S2_W: (status==='Walkover') ? '' : s2w,
@@ -1057,6 +1061,7 @@ async function submitForm(){
     TB_O: (status==='Walkover') ? '' : (isTB ? s3o : '')
   };
 
+
   btn.disabled=true;
   const oldBtnText = btn.textContent;
   btn.textContent = 'Submitting…';
@@ -1068,12 +1073,15 @@ async function submitForm(){
 
   try{
     // 1) Submit to Google Apps Script
-    await fetch(SUBMIT_ENDPOINT,{
+    const submitUrl = `${SUBMIT_ENDPOINT}?round=${encodeURIComponent(RoundNumber)}`;
+
+    await fetch(submitUrl,{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(payload),
       mode:'no-cors'
     });
+
 
     // 2) Send EmailJS confirmation
     try{
