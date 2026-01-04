@@ -386,7 +386,31 @@
 
 <script>
 /*** ======= CONFIG ======= ***/
-const RoundNumber      = 1; // <-- change this when you move rounds
+// Pull RoundNumber from a tiny CSV (row 2 under column "Current Round")
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
+
+let RoundNumber = 1; // fallback until CSV loads
+
+async function fetchRoundNumber(){
+  try{
+    const res = await fetch(CURRENT_ROUND_CSV, { cache:'no-store' });
+    const text = await res.text();
+    // very small CSV: header row then one value row
+    const lines = text.replace(/^\uFEFF/,'').trim().split(/\r?\n/);
+    const headers = (lines[0]||'').split(',');
+    const firstData = (lines[1]||'').split(',');
+
+    // prefer header "Current Round", else use first column
+    const idx = headers.findIndex(h => h.trim().toLowerCase().replace(/\s+/g,'') === 'currentround');
+    const raw = idx >= 0 ? firstData[idx] : firstData[0];
+
+    const n = Number(raw);
+    if (!Number.isNaN(n) && n >= 1) RoundNumber = n;
+  }catch(err){
+    console.warn('Using fallback RoundNumber=1; CSV read failed:', err);
+  }
+}
+
 const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbwRXo0LofhfrXo_8qOgYwMPNmqYzl5O8R6VUCGGelOCJMgw7qAwDKb5lJDgT_Ca-ZbF/exec';
@@ -1132,10 +1156,14 @@ document.getElementById('opponentSelect').addEventListener('change', ()=>{
 
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
-// init
+// init (fetch RoundNumber first)
 (async function init(){
   try{
+    await fetchRoundNumber();
+
+    // Now that RoundNumber is known, reflect it in titles/UI
     document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
+    document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
 
     // init EmailJS (safe even if keys are placeholders)
     try{
@@ -1160,6 +1188,7 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
 })();
+
 </script>
 </body>
 </html>

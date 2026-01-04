@@ -292,7 +292,29 @@
 
 <script>
 /* ===== CONFIG ===== */
-const CurrentRound = 2;
+// Pull Current Round from a CSV (row 2 under "Current Round")
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
+
+let CurrentRound = 1; // fallback until CSV loads
+
+async function fetchCurrentRound(){
+  try{
+    const rows = await loadCSV(CURRENT_ROUND_CSV);
+    // Expect header "Current Round" and the value in row 1 (first data row)
+    const r0 = rows?.[0] || {};
+    // Be flexible on the header name just in case
+    const val = Number(
+      r0['Current Round'] ??
+      r0['CurrentRound'] ??
+      r0['Round'] ??
+      r0[Object.keys(r0)[0]] // first column as last resort
+    );
+    if (!Number.isNaN(val) && val >= 1) CurrentRound = val;
+  } catch(e){
+    console.warn('Could not load CURRENT_ROUND_CSV; using fallback 1', e);
+  }
+}
+
 
 const CSV = {
   Players:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
@@ -310,12 +332,13 @@ const CSV = {
   ScoresRound10: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1886048839&single=true&output=csv'
 };
 
-let ROUND = (() => {
+let ROUND = 1; // temporary; will be set correctly in boot() after fetching CSV
+function computeRoundFromURL(){
   const u = new URLSearchParams(location.search);
   const q = parseInt(u.get('round'), 10);
-  if (!isNaN(q) && q >= 1 && q <= CurrentRound) return q;
-  return CurrentRound;
-})();
+  return (!isNaN(q) && q >= 1 && q <= CurrentRound) ? q : CurrentRound;
+}
+
 
 /* ===== Helpers ===== */
 function loadCSV(url){
@@ -869,9 +892,14 @@ function handlePointsClick(e){
 document.addEventListener('click', handlePointsClick, { capture:false });
 document.addEventListener('pointerup', handlePointsClick, { capture:false });
 
-/* Boot */
-buildRoundSelect();
-init(ROUND);
+/* Boot (async to load Current Round from CSV first) */
+(async function boot(){
+  await fetchCurrentRound();
+  buildRoundSelect();
+  ROUND = computeRoundFromURL();
+  init(ROUND);
+})();
+
 </script>
 </body>
 </html>
