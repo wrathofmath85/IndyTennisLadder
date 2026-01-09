@@ -146,7 +146,7 @@
   </div>
 
 <script>
-/* ===== CONFIG (your same sheet set) ===== */
+/* ===== CONFIG ===== */
 const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
 let CurrentRound = 1;
 
@@ -191,7 +191,7 @@ function setStatus(msg,isError=false){ const st=document.getElementById('status'
 async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
 function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
 
-/* score text helpers (not calculating standings) */
+/* score text (for display only) */
 function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
 function formatThirdEntry(row, perspective){
   if (!hasThirdSetTB(row)){
@@ -226,7 +226,26 @@ function resultString(row, perspective, beginRankByName){
     : `Lost to #${wRank} ${winner} ${scorePart}`;
 }
 
-/* recent-opponent highlight (unchanged) */
+/* games summary (for modal explanation only) */
+function parseGameTotals(row){
+  if ('GamesWon' in row && 'GamesLost' in row){
+    const w = safeNum(row.GamesWon), o = safeNum(row.GamesLost);
+    return { wGames:w, oGames:o, diff: Math.max(0, w - o) };
+  }
+  const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
+  const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
+  const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
+  const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
+  let wGames = W1 + W2, oGames = O1 + O2;
+  if (hasThirdSetTB(row)){
+    if (TBW > TBO){ wGames += 1; } else if (TBO > TBW){ oGames += 1; }
+  } else if (W3 !== 0 || O3 !== 0){
+    wGames += W3; oGames += O3;
+  }
+  return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
+}
+
+/* recent-opponent highlight */
 let RECENT_OPP_CACHE_ROUND=null, RECENT_OPP_BY_PLAYER=new Map();
 async function buildRecentOpponentsForCurrentRound(){
   if (RECENT_OPP_CACHE_ROUND === CurrentRound) return;
@@ -260,17 +279,16 @@ function appendTextWithHighlight(container, fullText, oppName, hi){
 }
 
 /* ===== core ===== */
-let ROUND_LABEL_RANK = ''; // e.g., "R3Rank"
-let ROUND_LABEL_CPTS = ''; // e.g., "R3CPts"
+let ROUND_LABEL_RANK = '';
+let ROUND_LABEL_CPTS = '';
 
 async function init(round){
   ROUND = round;
   ROUND_LABEL_RANK = `R${ROUND}Rank`;
-  ROUND_LABEL_CPTS = `R${ROUND}CPts`; // falls back if missing
+  ROUND_LABEL_CPTS = `R${ROUND}CPts`; // tolerant fallback
 
   document.getElementById('thRoundRank').textContent = `Round ${ROUND} Ranking`;
   const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
-
   const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
 
   try{
@@ -283,7 +301,7 @@ async function init(round){
       loadCSV(CSV.Players), loadCSV(CSV[roundKey]), loadCSV(CSV.Schedule), loadCSV(CSV.Dates)
     ]);
 
-    /* Meta date/type */
+    /* meta */
     const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
     if (roundRow){
       const meta=document.getElementById('roundMeta'); meta.textContent='';
@@ -291,25 +309,23 @@ async function init(round){
       const type=fmt(roundRow.Type); if(type){ const dot=document.createElement('span'); dot.className='dot'; dot.textContent=type; meta.appendChild(dot); }
     }
 
-    /* Active players, phone map */
+    /* phones + active filter */
     const phoneByName = {};
     const activePlayersRaw = (playersRaw||[]).filter(r=>{
       const start=num(r.RStart), end=num(r.REnd), rr=Number(ROUND);
       return (isNaN(start)||start<=rr) && (isNaN(end)||end>=rr);
     }).map(r=>{
-      const nm=fmt(r.Participant);
-      phoneByName[nameKey(nm)] = fmt(r.PHONE||r.Phone||r.phone);
+      phoneByName[nameKey(fmt(r.Participant))] = fmt(r.PHONE||r.Phone||r.phone);
       return r;
     });
 
-    /* === RANKS & POINTS: all read from Players CSV === */
-    // Sort display order strictly by the provided begin-of-round rank “R{X}Rank”
+    /* ranks & points from Players */
     const beginPlayers = activePlayersRaw
       .map(r => ({
         Participant: fmt(r.Participant),
         BeginRank: num(r[ROUND_LABEL_RANK]),
         CurrRank: num(r.Rank),
-        CurrPts: num(r[ROUND_LABEL_CPTS] ?? r[`R${ROUND}Pts`] ?? r.R8Pts) // tolerant fallback
+        CurrPts: num(r[ROUND_LABEL_CPTS] ?? r[`R${ROUND}Pts`] ?? r.R8Pts)
       }))
       .filter(p => !isNaN(p.BeginRank) && p.BeginRank > 0)
       .sort((a,b)=>a.BeginRank-b.BeginRank);
@@ -317,12 +333,12 @@ async function init(round){
     const beginRankByName = {}, nameByBeginRank = {};
     beginPlayers.forEach(p => { beginRankByName[nameKey(p.Participant)] = p.BeginRank; nameByBeginRank[p.BeginRank]=p.Participant; });
 
-    /* schedule map (# -> #) */
+    /* schedule map */
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
     (scheduleRaw||[]).forEach(r=>{ const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]); if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp; });
 
-    /* scores for this round (we do zero point math; we only read WinPoints/LosePoints) */
+    /* scores (for result text + modal info; points read directly from CSV) */
     const scoresRaw = (scoresRawAll||[]).filter(r => { const rr=Number(r.Round); return isNaN(rr) || rr===Number(ROUND); });
 
     const scheduled = new Map();   // nameKey -> matchObj
@@ -335,25 +351,27 @@ async function init(round){
       const wKey=nameKey(winner), oKey=nameKey(opponent);
       const wRank=beginRankByName[wKey], oRank=beginRankByName[oKey];
 
-      const winPts = fmtPts(r.WinPoints);
-      const losePts = fmtPts(r.LosePoints);
+      const { wGames, oGames, diff } = parseGameTotals(r);
+      const upset = String(r.Upset||'').toUpperCase() === 'YES' ? 'YES' : 'NO';
 
       const winObj = {
         text: resultString(r,'winner', beginRankByName),
         isLoss:false, row:r, wRank, oRank, type,
-        points: winPts
+        gw:wGames, gl:oGames, gdiff:diff, upset,
+        points: fmtPts(r.WinPoints)
       };
       const loseObj = {
         text: resultString(r,'opponent', beginRankByName),
         isLoss:true, row:r, wRank:oRank, oRank:wRank, type,
-        points: losePts
+        gw:oGames, gl:wGames, gdiff:Math.max(0,oGames-wGames), upset:'NO',
+        points: fmtPts(r.LosePoints)
       };
 
       if (type==='Scheduled'){ scheduled.set(wKey,winObj); scheduled.set(oKey,loseObj); }
       else { pushChallenge(wKey,winObj); pushChallenge(oKey,loseObj); }
     });
 
-    /* build table */
+    /* table build */
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
 
     function makeParticipantCell(playerName, beginRank){
@@ -370,11 +388,19 @@ async function init(round){
       return wrap;
     }
 
-    function appendPointsPill(container, matchObj){
+    function appendPointsPill(container, matchObj, chalDiv){
       const btn=document.createElement('button');
       btn.type='button';
       btn.className = matchObj.isLoss ? 'loser-pts' : 'winner-pts';
+      btn.setAttribute('data-role', matchObj.isLoss ? 'loser' : 'winner');
       btn.setAttribute('data-points', matchObj.points || '');
+      btn.setAttribute('data-upset', matchObj.upset || 'NO');
+      btn.setAttribute('data-gw', String(matchObj.gw||0));
+      btn.setAttribute('data-gl', String(matchObj.gl||0));
+      btn.setAttribute('data-gdiff', String(matchObj.gdiff||0));
+      btn.setAttribute('data-wrank', String(matchObj.wRank||''));
+      btn.setAttribute('data-orank', String(matchObj.oRank||''));
+      if (chalDiv) btn.setAttribute('data-chaldiv', String(chalDiv));
       btn.innerHTML = `<b>${matchObj.points || ''}</b> pts`;
       container.appendChild(btn);
     }
@@ -383,7 +409,7 @@ async function init(round){
       const tr=document.createElement('tr');
       const meKey=nameKey(bp.Participant);
 
-      /* col 1: round begin rank */
+      /* col 1: begin rank */
       const tdBegin=document.createElement('td'); tdBegin.className='rank rank-begin'; tdBegin.textContent=`#${bp.BeginRank}`; tr.appendChild(tdBegin);
 
       /* col 2: participant */
@@ -410,7 +436,7 @@ async function init(round){
         const span=document.createElement('span'); span.className='result ' + (sr.isLoss?'lost':'won');
         appendTextWithHighlight(span, sr.text, scheduledOppName, shouldHi);
         schedLine.appendChild(span);
-        if (sr.points) appendPointsPill(schedLine, sr);
+        if (sr.points) appendPointsPill(schedLine, sr, null); // scheduled uses no divisor
       }else{
         const oppRank=scheduleMap[bp.BeginRank];
         if(oppRank){
@@ -424,7 +450,7 @@ async function init(round){
       }
       tdRes.appendChild(schedLine);
 
-      // challenge lines
+      // challenge lines (add divisor explanation: 2 if scheduled played, else 4)
       const myChals=challenges.get(meKey)||[];
       for(let i=0;i<2;i++){
         const line=document.createElement('div'); line.className='match-line';
@@ -432,7 +458,8 @@ async function init(round){
         if(cr){
           const pill=document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; line.appendChild(pill);
           const span=document.createElement('span'); span.className='result ' + (cr.isLoss?'lost':'won'); span.textContent=cr.text; line.appendChild(span);
-          if (cr.points) appendPointsPill(line, cr);
+          const chalDiv = hasScheduledPlayed ? 2 : 4; // explanation only
+          if (cr.points) appendPointsPill(line, cr, chalDiv);
         }else{
           line.classList.add('empty'); line.innerHTML='&nbsp;';
         }
@@ -472,7 +499,7 @@ function buildRoundSelect(){
   sel.addEventListener('change',()=>{ const r=parseInt(sel.value,10); if(!isNaN(r)&&r>=1&&r<=CurrentRound) init(r); });
 }
 
-/* modal – only shows what’s stored in CSV now */
+/* modal – restored explanatory text (no in-page calculation of points) */
 const backdropEl=document.getElementById('backdrop'); const modalEl=document.getElementById('modal');
 const modalBody=document.getElementById('modalBody'); const modalTitle=document.getElementById('modalTitle');
 document.getElementById('modalClose').addEventListener('click', closeModal); backdropEl.addEventListener('click', closeModal);
@@ -481,13 +508,68 @@ function openModal(title, html){ modalTitle.textContent=title||'Info'; modalBody
 function closeModal(){ modalEl.classList.remove('show'); backdropEl.classList.remove('show'); document.documentElement.style.overflow=''; document.body.style.overflow=''; }
 
 function handlePointsClick(e){
-  const btn = e.target.closest('.winner-pts, .loser-pts'); if(!btn) return;
-  e.preventDefault(); e.stopPropagation();
-  const pts = btn.getAttribute('data-points') || '';
-  openModal('Match Points', `
-    <p><strong>Points from CSV:</strong> ${pts}</p>
-    <p class="tip">These values come directly from <em>WinPoints</em> / <em>LosePoints</em> in the Scores CSV for this round.</p>
-  `);
+  const loserBtn = e.target.closest('.loser-pts');
+  const winnerBtn = e.target.closest('.winner-pts');
+  if (!loserBtn && !winnerBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (loserBtn){
+    const pts = loserBtn.getAttribute('data-points') || '';
+    const gw = loserBtn.getAttribute('data-gw') || '0';
+    const div = loserBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+
+    const html = `
+      <p><strong>Points (from CSV):</strong> ${pts}</p>
+      <p><strong>Total games won:</strong> ${gw}</p>
+      ${isChallenge ? `
+        <p><strong>Challenge divisor used:</strong> ${div}</p>
+        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+      ` : ''}
+      <p class="tip">Loser points are equal to games won (capped at 10). Values shown here are read directly from <em>LosePoints</em> in the Scores CSV.</p>
+    `;
+    openModal('Loser Points', html);
+    return;
+  }
+
+  if (winnerBtn){
+    const pts = winnerBtn.getAttribute('data-points') || '';
+    const upset = (winnerBtn.getAttribute('data-upset') || 'NO').toUpperCase();
+    const gw = winnerBtn.getAttribute('data-gw') || '0';
+    const gl = winnerBtn.getAttribute('data-gl') || '0';
+    const gd = winnerBtn.getAttribute('data-gdiff') || '0';
+    const wr = winnerBtn.getAttribute('data-wrank') || '';
+    const orr = winnerBtn.getAttribute('data-orank') || '';
+    const rdiff = (wr && orr) ? Math.abs(Number(wr)-Number(orr)) : '';
+    const div = winnerBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+
+    const topAlert = (upset === 'YES') ? `<p><strong>UPSET ALERT!</strong></p>` : '';
+    const body = (upset === 'YES')
+      ? `
+        <p><strong>Points (from CSV):</strong> ${pts}</p>
+        <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
+        <p><strong>Your Rank:</strong> ${wr}, <strong>Opponent Rank:</strong> ${orr}, <strong>Rank diff:</strong> ${rdiff}</p>
+        ${isChallenge ? `
+          <p><strong>Challenge divisor used:</strong> ${div}</p>
+          <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+        ` : ''}
+        <p class="tip">Upset winners are normally: <code>10 + (game diff × rank diff / 2)</code>, min 15, max 25. This page shows values read directly from <em>WinPoints</em> in the Scores CSV.</p>
+      `
+      : `
+        <p><strong>Points (from CSV):</strong> ${pts}</p>
+        <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
+        ${isChallenge ? `
+          <p><strong>Challenge divisor used:</strong> ${div}</p>
+          <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+        ` : ''}
+        <p class="tip">Non-upset winners are normally: <code>10 + (game diff)</code>, minimum 11. This page shows values read directly from <em>WinPoints</em> in the Scores CSV.</p>
+      `;
+
+    openModal('Winner Points', `${topAlert}${body}`);
+  }
 }
 document.addEventListener('click', handlePointsClick, {capture:false});
 document.addEventListener('pointerup', handlePointsClick, {capture:false});
