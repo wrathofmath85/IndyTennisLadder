@@ -43,9 +43,17 @@
   .name{ font-weight:700; }
   .phone{ display:block; margin-top:4px; font-weight:600; font-size:12px; color:var(--muted); letter-spacing:.2px; }
 
-  .m-head{ display:none; align-items:baseline; gap:10px; }
+  /* mobile head line (rank + name + (round pts)) */
+  .m-head{ display:none; align-items:baseline; gap:10px; flex-wrap:wrap; }
   .m-rank{ font-weight:900; font-variant-numeric: tabular-nums; color:#cdd8e6; flex:0 0 auto; }
   .m-name{ font-weight:900; color:#e9eef5; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-pts{
+    font-size:12px; font-weight:800; color:#cdd8e6;
+    padding:2px 8px; border-radius:999px;
+    background:#101827; border:1px solid #253043;
+    white-space:nowrap;
+  }
+  .m-pts b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
 
   .result{ font-weight:600; }
   .won{ color:var(--ok); }
@@ -104,6 +112,10 @@
     .m-head{ display:flex; }
     .name{ display:none; }
     .matches{ order:2; min-width:0; }
+
+    /* Mobile: abbreviate Scheduled/Challenge badges to S/C */
+    .badge-scheduled{ padding:2px 7px; }
+    .badge-challenge{ padding:2px 7px; }
 
     .m-stats{ display:flex; }
     .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
@@ -198,7 +210,6 @@ function computeRoundFromURL(){ const u=new URLSearchParams(location.search); co
 function colRank(r){ return `R${r}Rank`; }
 function colPts(r){ return `R${r}Pts`; }
 function readPts(row, r){
-  // tolerant fallbacks (in case a sheet still uses older naming somewhere)
   return num(
     row[colPts(r)] ??
     row[`R${r}CPts`] ??
@@ -400,13 +411,21 @@ async function init(round){
     /* table build */
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
 
-    function makeParticipantCell(playerName, leftRank){
+    function makeParticipantCell(playerName, leftRank, leftPts){
       const wrap=document.createElement('div');
 
       const mHead=document.createElement('div'); mHead.className='m-head';
       const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${leftRank}`;
       const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=playerName||'';
-      mHead.appendChild(mRank); mHead.appendChild(mName); wrap.appendChild(mHead);
+      mHead.appendChild(mRank); mHead.appendChild(mName);
+
+      // Mobile: Round X points right after player name
+      const ptsTxt = (!isNaN(leftPts)) ? fmtPts(leftPts) : '—';
+      const mPts=document.createElement('span'); mPts.className='m-pts';
+      mPts.innerHTML = `R${ROUND} <b>${ptsTxt}</b> pts`;
+      mHead.appendChild(mPts);
+
+      wrap.appendChild(mHead);
 
       const nameEl=document.createElement('div'); nameEl.className='name'; nameEl.textContent=playerName||''; wrap.appendChild(nameEl);
       const ph=phoneByName[nameKey(playerName)]||''; const phoneEl=document.createElement('span'); phoneEl.className='phone';
@@ -443,7 +462,7 @@ async function init(round){
 
       /* col 2: participant */
       const tdName=document.createElement('td');
-      tdName.appendChild(makeParticipantCell(p.Participant, p.LeftRank));
+      tdName.appendChild(makeParticipantCell(p.Participant, p.LeftRank, p.LeftPts));
       tr.appendChild(tdName);
 
       /* col 3: results */
@@ -463,7 +482,8 @@ async function init(round){
       const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(p.Participant, scheduledOppName);
 
       if(sr){
-        const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; schedLine.appendChild(pill);
+        // Mobile: use S instead of Scheduled
+        const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
         const span=document.createElement('span'); span.className='result ' + (sr.isLoss?'lost':'won');
         appendTextWithHighlight(span, sr.text, scheduledOppName, shouldHi);
         schedLine.appendChild(span);
@@ -472,7 +492,7 @@ async function init(round){
         const oppRank=scheduleMap[p.LeftRank];
         if(oppRank){
           const oppName=nameByBeginRank[oppRank]||'';
-          const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; schedLine.appendChild(pill);
+          const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
           const pre=document.createElement('span'); pre.textContent=`#${oppRank} `; schedLine.appendChild(pre);
           const nameSpan=document.createElement('span'); if(shouldHi) nameSpan.className='repeat-opp'; nameSpan.textContent=oppName; schedLine.appendChild(nameSpan);
         }else{
@@ -487,7 +507,8 @@ async function init(round){
         const line=document.createElement('div'); line.className='match-line';
         const cr=myChals[i];
         if(cr){
-          const pill=document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='Challenge'; line.appendChild(pill);
+          // Mobile: use C instead of Challenge
+          const pill=document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='C'; line.appendChild(pill);
           const span=document.createElement('span'); span.className='result ' + (cr.isLoss?'lost':'won'); span.textContent=cr.text; line.appendChild(span);
           const chalDiv = hasScheduledPlayed ? 2 : 4; // explanation only
           if (cr.points) appendPointsPill(line, cr, chalDiv);
@@ -497,12 +518,11 @@ async function init(round){
         tdRes.appendChild(line);
       }
 
-      // mobile stats (show left pts + right rank/pts)
+      // Mobile bottom row: ONLY Round X+1 rank and points
       const mStats=document.createElement('div'); mStats.className='m-stats';
-      const leftPtsTxt  = (!isNaN(p.LeftPts))  ? fmtPts(p.LeftPts)  : '—';
       const rightRankTxt = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '—';
       const rightPtsTxt  = (!isNaN(p.RightPts)) ? fmtPts(p.RightPts) : '—';
-      mStats.innerHTML = `Round ${ROUND} pts: <b>${leftPtsTxt}</b> &nbsp;&nbsp; Round ${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
+      mStats.innerHTML = `R${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
       tdRes.appendChild(mStats);
 
       tr.appendChild(tdRes);
@@ -513,8 +533,6 @@ async function init(round){
 
       const rankText = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '';
       const ptsText  = (!isNaN(p.RightPts)) ? `${fmtPts(p.RightPts)} pts` : '';
-
-      // keep the cell structure consistent even if one is missing
       tdRight.innerHTML = `${rankText || '&nbsp;'}<span class="sub">${ptsText || '&nbsp;'}</span>`;
       tr.appendChild(tdRight);
 
