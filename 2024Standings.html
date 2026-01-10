@@ -20,6 +20,7 @@
 
   header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule);
     border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
+
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
   .round-select{ appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px;
@@ -34,9 +35,10 @@
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:middle; white-space:nowrap; }
   tbody tr:hover{ background:#0e1420;}
 
-  .rank{ width:150px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
-  .points{ width:90px; font-variant-numeric: tabular-nums; }
-  .rank.current{ width:130px; }
+  /* left/right rank+points columns */
+  .rp{ width:210px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rp .sub{ display:block; margin-top:4px; font-size:12px; color:var(--muted); font-weight:600; }
+  .rp.right{ width:230px; }
 
   .name{ font-weight:700; }
   .phone{ display:block; margin-top:4px; font-weight:600; font-size:12px; color:var(--muted); letter-spacing:.2px; }
@@ -95,12 +97,14 @@
     tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; }
     tbody tr:hover{ background:transparent; }
     tbody td{ border:0; padding:6px 0; white-space:normal; }
-    .rank-begin{ display:none; }
+
+    .rp-left{ display:none; }     /* hide left rank/pts column on mobile */
+    .rp-right{ display:none; }    /* hide right rank/pts column on mobile */
+
     .m-head{ display:flex; }
     .name{ display:none; }
     .matches{ order:2; min-width:0; }
-    .points{ display:none; }
-    .rank-current{ display:none; }
+
     .m-stats{ display:flex; }
     .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
     .match-line.empty{ display:none; }
@@ -122,11 +126,10 @@
       <table id="ladder" style="display:none;">
         <thead>
           <tr>
-            <th class="rank" id="thRoundRank">Round 1 Ranking</th>
+            <th class="rp" id="thLeft">Round 1 Ranking - Points</th>
             <th>Participant</th>
             <th class="matches">Result</th>
-            <th class="points">Points</th>
-            <th class="rank current">Current Ranking</th>
+            <th class="rp right" id="thRight">Round 2 Ranking - Points</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -190,6 +193,22 @@ function fmtDateRange(startRaw, endRaw){
 function setStatus(msg,isError=false){ const st=document.getElementById('status'); st.textContent=msg; st.className=isError?'error':'loading'; }
 async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
 function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
+
+/* rank/points column helpers */
+function colRank(r){ return `R${r}Rank`; }
+function colPts(r){ return `R${r}Pts`; }
+function readPts(row, r){
+  // tolerant fallbacks (in case a sheet still uses older naming somewhere)
+  return num(
+    row[colPts(r)] ??
+    row[`R${r}CPts`] ??
+    row[`R${r}Points`] ??
+    row[`R${r}CPoints`]
+  );
+}
+function readRank(row, r){
+  return num(row[colRank(r)]);
+}
 
 /* score text (for display only) */
 function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
@@ -279,15 +298,13 @@ function appendTextWithHighlight(container, fullText, oppName, hi){
 }
 
 /* ===== core ===== */
-let ROUND_LABEL_RANK = '';
-let ROUND_LABEL_CPTS = '';
-
 async function init(round){
   ROUND = round;
-  ROUND_LABEL_RANK = `R${ROUND}Rank`;
-  ROUND_LABEL_CPTS = `R${ROUND}CPts`; // tolerant fallback
 
-  document.getElementById('thRoundRank').textContent = `Round ${ROUND} Ranking`;
+  // headings
+  document.getElementById('thLeft').textContent  = `Round ${ROUND} Ranking - Points`;
+  document.getElementById('thRight').textContent = `Round ${ROUND+1} Ranking - Points`;
+
   const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
   const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
 
@@ -319,24 +336,33 @@ async function init(round){
       return r;
     });
 
-    /* ranks & points from Players */
-    const beginPlayers = activePlayersRaw
+    /* ranks & points from Players (left = round x, right = round x+1) */
+    const players = activePlayersRaw
       .map(r => ({
         Participant: fmt(r.Participant),
-        BeginRank: num(r[ROUND_LABEL_RANK]),
-        CurrRank: num(r.Rank),
-        CurrPts: num(r[ROUND_LABEL_CPTS] ?? r[`R${ROUND}Pts`] ?? r.R8Pts)
+
+        LeftRank:  readRank(r, ROUND),
+        LeftPts:   readPts(r, ROUND),
+
+        RightRank: readRank(r, ROUND+1),
+        RightPts:  readPts(r, ROUND+1),
       }))
-      .filter(p => !isNaN(p.BeginRank) && p.BeginRank > 0)
-      .sort((a,b)=>a.BeginRank-b.BeginRank);
+      .filter(p => !isNaN(p.LeftRank) && p.LeftRank > 0)
+      .sort((a,b)=>a.LeftRank-b.LeftRank);
 
     const beginRankByName = {}, nameByBeginRank = {};
-    beginPlayers.forEach(p => { beginRankByName[nameKey(p.Participant)] = p.BeginRank; nameByBeginRank[p.BeginRank]=p.Participant; });
+    players.forEach(p => {
+      beginRankByName[nameKey(p.Participant)] = p.LeftRank;
+      nameByBeginRank[p.LeftRank] = p.Participant;
+    });
 
     /* schedule map */
     const scheduleCol = `Round ${ROUND}`;
     const scheduleMap = {};
-    (scheduleRaw||[]).forEach(r=>{ const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]); if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp; });
+    (scheduleRaw||[]).forEach(r=>{
+      const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]);
+      if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp;
+    });
 
     /* scores (for result text + modal info; points read directly from CSV) */
     const scoresRaw = (scoresRawAll||[]).filter(r => { const rr=Number(r.Round); return isNaN(rr) || rr===Number(ROUND); });
@@ -374,11 +400,11 @@ async function init(round){
     /* table build */
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
 
-    function makeParticipantCell(playerName, beginRank){
+    function makeParticipantCell(playerName, leftRank){
       const wrap=document.createElement('div');
 
       const mHead=document.createElement('div'); mHead.className='m-head';
-      const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${beginRank}`;
+      const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${leftRank}`;
       const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=playerName||'';
       mHead.appendChild(mRank); mHead.appendChild(mName); wrap.appendChild(mHead);
 
@@ -405,15 +431,20 @@ async function init(round){
       container.appendChild(btn);
     }
 
-    beginPlayers.forEach(bp=>{
+    players.forEach(p=>{
       const tr=document.createElement('tr');
-      const meKey=nameKey(bp.Participant);
+      const meKey=nameKey(p.Participant);
 
-      /* col 1: begin rank */
-      const tdBegin=document.createElement('td'); tdBegin.className='rank rank-begin'; tdBegin.textContent=`#${bp.BeginRank}`; tr.appendChild(tdBegin);
+      /* col 1: Round X Ranking - Points */
+      const tdLeft=document.createElement('td');
+      tdLeft.className='rp rp-left';
+      tdLeft.innerHTML = `#${p.LeftRank}${(!isNaN(p.LeftPts) ? `<span class="sub">${fmtPts(p.LeftPts)} pts</span>` : `<span class="sub"> </span>`)}`;
+      tr.appendChild(tdLeft);
 
       /* col 2: participant */
-      const tdName=document.createElement('td'); tdName.appendChild(makeParticipantCell(bp.Participant,bp.BeginRank)); tr.appendChild(tdName);
+      const tdName=document.createElement('td');
+      tdName.appendChild(makeParticipantCell(p.Participant, p.LeftRank));
+      tr.appendChild(tdName);
 
       /* col 3: results */
       const tdRes=document.createElement('td'); tdRes.className='matches';
@@ -427,9 +458,9 @@ async function init(round){
       let scheduledOppName='';
       if(sr){ scheduledOppName = sr.isLoss ? fmt(sr.row.Winner) : fmt(sr.row.Opponent); }
       else {
-        const oppRank=scheduleMap[bp.BeginRank]; scheduledOppName = oppRank ? (nameByBeginRank[oppRank]||'') : '';
+        const oppRank=scheduleMap[p.LeftRank]; scheduledOppName = oppRank ? (nameByBeginRank[oppRank]||'') : '';
       }
-      const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(bp.Participant, scheduledOppName);
+      const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(p.Participant, scheduledOppName);
 
       if(sr){
         const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; schedLine.appendChild(pill);
@@ -438,7 +469,7 @@ async function init(round){
         schedLine.appendChild(span);
         if (sr.points) appendPointsPill(schedLine, sr, null); // scheduled uses no divisor
       }else{
-        const oppRank=scheduleMap[bp.BeginRank];
+        const oppRank=scheduleMap[p.LeftRank];
         if(oppRank){
           const oppName=nameByBeginRank[oppRank]||'';
           const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='Scheduled'; schedLine.appendChild(pill);
@@ -466,20 +497,26 @@ async function init(round){
         tdRes.appendChild(line);
       }
 
-      // mobile one-line stats
+      // mobile stats (show left pts + right rank/pts)
       const mStats=document.createElement('div'); mStats.className='m-stats';
-      const ptsText = (bp.CurrPts!=='' && bp.CurrPts!==null && bp.CurrPts!==undefined) ? fmtPts(bp.CurrPts) : '—';
-      const crText = (!isNaN(bp.CurrRank) && bp.CurrRank>0) ? `#${bp.CurrRank}` : '—';
-      mStats.innerHTML = `Points: <b>${ptsText}</b> &nbsp;&nbsp; Current Rank: <b>${crText}</b>`;
+      const leftPtsTxt  = (!isNaN(p.LeftPts))  ? fmtPts(p.LeftPts)  : '—';
+      const rightRankTxt = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '—';
+      const rightPtsTxt  = (!isNaN(p.RightPts)) ? fmtPts(p.RightPts) : '—';
+      mStats.innerHTML = `Round ${ROUND} pts: <b>${leftPtsTxt}</b> &nbsp;&nbsp; Round ${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
       tdRes.appendChild(mStats);
 
       tr.appendChild(tdRes);
 
-      // col 4: points (desktop)
-      const tdPts=document.createElement('td'); tdPts.className='points'; tdPts.textContent = fmtPts(bp.CurrPts) || ''; tr.appendChild(tdPts);
+      /* col 4: Round X+1 Ranking - Points */
+      const tdRight=document.createElement('td');
+      tdRight.className='rp right rp-right';
 
-      // col 5: current rank (desktop)
-      const tdCurr=document.createElement('td'); tdCurr.className='rank current rank-current'; tdCurr.textContent = (!isNaN(bp.CurrRank)&&bp.CurrRank>0) ? `#${bp.CurrRank}` : ''; tr.appendChild(tdCurr);
+      const rankText = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '';
+      const ptsText  = (!isNaN(p.RightPts)) ? `${fmtPts(p.RightPts)} pts` : '';
+
+      // keep the cell structure consistent even if one is missing
+      tdRight.innerHTML = `${rankText || '&nbsp;'}<span class="sub">${ptsText || '&nbsp;'}</span>`;
+      tr.appendChild(tdRight);
 
       tbody.appendChild(tr);
     });
