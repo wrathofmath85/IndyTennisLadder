@@ -335,7 +335,7 @@
 
         <!-- Tie-break row -->
         <div class="scores-row">
-          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(winner points)</span></div>
+          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(loser points)</span></div>
           <div class="triple" aria-label="Tie-breaks">
             <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" disabled />
             <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" disabled />
@@ -427,7 +427,11 @@ const EMAILJS_TEMPLATE_ID = 'template_gt6skt4';
 const ADMIN_EMAIL = 'IndyTennisLadder@gmail.com';
 /*** ======================= ***/
 
-let players = [];             // {name, email, roundStart, roundEnd, rPts, rPerc, sEligible, cEligible}
+/**
+ * CHANGE: We no longer compute ranks from points/percent.
+ * We use the Players CSV field: R[x]Rank where x is RoundNumber.
+ */
+let players = [];             // {name, email, roundStart, roundEnd, rank, sEligible, cEligible}
 let nameByRank = new Map();   // rank -> name
 let rankByName = new Map();   // name -> rank
 let emailByName = new Map();  // name -> email
@@ -555,15 +559,24 @@ async function loadPlayers(){
       const cPts1 = getVal(entries, `R${RoundNumber}CPts`,   `R${RoundNumber} C Pts`,   `Round${RoundNumber}CPts`,   `Round ${RoundNumber} CPts`);
       const cPts2 = getVal(entries, `R${RoundNumber}CPts_2`, `R${RoundNumber} C Pts 2`, `R${RoundNumber}CPts2`, `Round${RoundNumber}CPts_2`, `Round ${RoundNumber} CPts 2`);
 
-      const rPtsRaw  = getVal(entries, `R${RoundNumber}Pts`,  `R${RoundNumber} Pts`,  `Round${RoundNumber}Pts`,  `Round ${RoundNumber} Pts`);
-      const rPercRaw = getVal(entries, `R${RoundNumber}Perc`, `R${RoundNumber} Perc`, `Round${RoundNumber}Perc`, `Round ${RoundNumber} Perc`);
+      /**
+       * NEW: rank is sourced directly from Players CSV:
+       * R[x]Rank (also supports "R x Rank" variants)
+       */
+      const rankRaw = getVal(
+        entries,
+        `R${RoundNumber}Rank`,
+        `R${RoundNumber} Rank`,
+        `Round${RoundNumber}Rank`,
+        `Round ${RoundNumber} Rank`
+      );
+      const rank = Number(rankRaw);
 
       return {
         name,
         email,
         roundStart, roundEnd,
-        rPts: Number(rPtsRaw) || 0,
-        rPerc: Number(rPercRaw) || 0,
+        rank: Number.isFinite(rank) ? rank : null,
         sEligible: isNotPlayed(sPts),
         cEligible: isNotPlayed(cPts1) || isNotPlayed(cPts2),
       };
@@ -571,23 +584,52 @@ async function loadPlayers(){
 
     if (!mapped.length) throw new Error('No player names found.');
 
+    // only include players active for the current round
     const inRound = mapped.filter(p=>p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber);
 
-    inRound.sort((a,b)=>{
-      if (b.rPts !== a.rPts) return b.rPts - a.rPts;
-      if (b.rPerc !== a.rPerc) return b.rPerc - a.rPerc;
-      return a.name.localeCompare(b.name);
-    });
-
+    /**
+     * NEW: build rank maps from the explicit R[x]Rank values.
+     * - Ignore missing/invalid ranks.
+     * - If duplicates happen, the first encountered keeps the spot (and we warn in console).
+     */
     players = inRound;
+
     nameByRank.clear(); rankByName.clear(); emailByName.clear();
 
-    inRound.forEach((p,idx)=>{
-      const rank = idx + 1;
-      nameByRank.set(rank, p.name);
-      rankByName.set(p.name, rank);
+    // Preload emails map (independent of ranks)
+    inRound.forEach(p=>{
       if (p.email) emailByName.set(p.name, p.email);
     });
+
+    // Build nameByRank / rankByName from explicit ranks
+    const usedRanks = new Set();
+    const badRankPlayers = [];
+
+    // Sort for stable behavior: by rank asc, then name
+    const ranked = inRound
+      .filter(p=>Number.isFinite(p.rank) && p.rank>0)
+      .slice()
+      .sort((a,b)=> (a.rank - b.rank) || a.name.localeCompare(b.name));
+
+    ranked.forEach(p=>{
+      if (usedRanks.has(p.rank)){
+        console.warn(`Duplicate rank ${p.rank} found. Keeping first; ignoring rank for: ${p.name}`);
+        return;
+      }
+      usedRanks.add(p.rank);
+      nameByRank.set(p.rank, p.name);
+      rankByName.set(p.name, p.rank);
+    });
+
+    // Track players with missing/invalid rank (for debugging)
+    inRound.forEach(p=>{
+      if (!Number.isFinite(p.rank) || p.rank<=0){
+        badRankPlayers.push(p.name);
+      }
+    });
+    if (badRankPlayers.length){
+      console.warn(`Players missing/invalid R${RoundNumber}Rank (they will still appear as winners, but Challenge +/-5 and Scheduled opponent lookup may fail for them):`, badRankPlayers);
+    }
 
     refreshWinnerOptions();
 
@@ -768,7 +810,22 @@ function recomputeOpponentForMode(){
     updateRowLabels();
     return;
   }
+
   const wRank = rankByName.get(winner);
+
+  if (!Number.isFinite(wRank) || wRank<=0){
+    // Winner has no rank -> cannot safely compute +/-5 or scheduled opponent
+    if (mode==='Challenge'){
+      oppSelect.classList.remove('hidden');
+      oppSelect.innerHTML = '<option value="">Select opponent…</option><option value="" disabled>Winner has no R'+RoundNumber+'Rank</option>';
+      oppNameText.textContent = '';
+    } else {
+      oppSelect.classList.add('hidden');
+      oppNameText.textContent = 'No opponent found';
+    }
+    updateRowLabels();
+    return;
+  }
 
   if (mode==='Challenge'){
     oppSelect.classList.remove('hidden');
@@ -847,12 +904,25 @@ function validateScores(){
   const opponent = getOpponentValue();
 
   if (!winner){ msg.textContent='Pick a winner.'; markInvalidActive('winner'); focusFirstInvalid(); return false; }
+
+  // NEW: give clearer error if winner has no rank (affects both match types)
+  const wRank = rankByName.get(winner);
+  if (!Number.isFinite(wRank) || wRank<=0){
+    msg.textContent = `Winner is missing R${RoundNumber}Rank in the Players CSV. Please fix that rank and try again.`;
+    markInvalidActive('winner');
+    focusFirstInvalid();
+    return false;
+  }
+
   if (matchType==='Challenge'){
     if (!opponent){ msg.textContent='Pick an opponent for the Challenge Match.'; markInvalidActive('opponentSelect'); focusFirstInvalid(); return false; }
     if (opponent === winner){ msg.textContent='Opponent cannot be the same as the winner.'; markInvalidActive('opponentSelect'); focusFirstInvalid(); return false; }
   } else {
     if (!opponent || /not found|no opponent/i.test(opponent)){
-      msg.textContent='Opponent not found yet.'; markInvalidActive('winner'); focusFirstInvalid(); return false;
+      msg.textContent='Opponent not found yet.';
+      markInvalidActive('winner');
+      focusFirstInvalid();
+      return false;
     }
   }
 
@@ -938,8 +1008,6 @@ function fmtSet(label, w, o, tb){
   return `${label} ${w}-${o}`;
 }
 function buildScoreLine(payload){
-  // requested format:
-  // [Winner] defeats [Opponent] [S1_W]-[S1_O]([Set1_T]) [S2_W]-[S2_O]([Set2_T]) [S3_W]-[S3_O]([Set3_T]) ([TB_W]-[TB_O]) for those that have values
   const parts = [];
   const s1 = fmtSet('', payload.S1_W, payload.S1_O, payload.Set1_T);
   const s2 = fmtSet('', payload.S2_W, payload.S2_O, payload.Set2_T);
@@ -973,13 +1041,11 @@ function buildEmailBody(payload){
 
 function safeEmailOf(name){
   const e = (emailByName.get(name) || '').trim();
-  // very light check
   if (!e || !e.includes('@')) return '';
   return e;
 }
 
 async function sendEmailConfirmation(payload){
-  // If EmailJS isn't configured, skip cleanly
   if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')) return {skipped:true};
   if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.startsWith('REPLACE_')) return {skipped:true};
   if (!EMAILJS_TEMPLATE_ID || EMAILJS_TEMPLATE_ID.startsWith('REPLACE_')) return {skipped:true};
@@ -987,13 +1053,12 @@ async function sendEmailConfirmation(payload){
   const winnerEmail = safeEmailOf(payload.Winner);
   const opponentEmail = safeEmailOf(payload.Opponent);
 
-  // Use CC for the players (admin in To)
   const ccList = [winnerEmail, opponentEmail].filter(Boolean).join(',');
 
   const params = {
     subject: `Round ${payload.Round} Score Submission`,
     to_email: ADMIN_EMAIL,
-    cc_emails: ccList, // can be blank
+    cc_emails: ccList,
     winner_name: payload.Winner,
     opponent_name: payload.Opponent,
     message: buildEmailBody(payload),
@@ -1025,6 +1090,7 @@ async function submitForm(){
   const set2_t = readScore('s2tb');
   const set3_t = readScore('s3tb');
 
+  // WinnerRank/OpponentRank now also come from the Players CSV R[x]Rank mapping
   const winnerRank = rankByName.get(winner) || '';
   const opponentRank = (matchType==='Scheduled')
     ? (scheduleMap.get(winnerRank) || '')
@@ -1041,8 +1107,6 @@ async function submitForm(){
     OpponentRank: opponentRank,
     IsTiebreakThird: isTB,
 
-    // NEW: tell Apps Script the exact destination tab name
-    // (matches your current naming pattern "Round X Scores")
     ScoresSheetName: `Round ${RoundNumber} Scores`,
 
     S1_W: (status==='Walkover') ? '' : s1w,
@@ -1061,7 +1125,6 @@ async function submitForm(){
     TB_O: (status==='Walkover') ? '' : (isTB ? s3o : '')
   };
 
-
   btn.disabled=true;
   const oldBtnText = btn.textContent;
   btn.textContent = 'Submitting…';
@@ -1072,7 +1135,6 @@ async function submitForm(){
   );
 
   try{
-    // 1) Submit to Google Apps Script
     const submitUrl = `${SUBMIT_ENDPOINT}?round=${encodeURIComponent(RoundNumber)}`;
 
     await fetch(submitUrl,{
@@ -1082,12 +1144,9 @@ async function submitForm(){
       mode:'no-cors'
     });
 
-
-    // 2) Send EmailJS confirmation
     try{
       await sendEmailConfirmation(payload);
     }catch(emailErr){
-      // still consider score submitted; just warn
       console.warn('EmailJS failed:', emailErr);
       msg.textContent = 'Score submitted, but email confirmation failed to send. If this continues, contact Dan.';
     }
@@ -1099,7 +1158,6 @@ async function submitForm(){
     clearInvalids();
     refreshTBEnabled();
 
-    // pop-up on completion
     showSuccessModal();
 
   }catch(e){
@@ -1169,11 +1227,9 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
   try{
     await fetchRoundNumber();
 
-    // Now that RoundNumber is known, reflect it in titles/UI
     document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
     document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
 
-    // init EmailJS (safe even if keys are placeholders)
     try{
       if (EMAILJS_PUBLIC_KEY && !EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')){
         emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -1196,7 +1252,6 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
 })();
-
 </script>
 </body>
 </html>
