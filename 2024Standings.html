@@ -549,23 +549,23 @@ function handlePointsClick(e){
     const topAlert = (upset === 'YES') ? `<p><strong>UPSET ALERT!</strong></p>` : '';
     const body = (upset === 'YES')
       ? `
-        <p><strong>Points (from CSV):</strong> ${pts}</p>
+        <p><strong>Points:</strong> ${pts}</p>
         <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
         <p><strong>Your Rank:</strong> ${wr}, <strong>Opponent Rank:</strong> ${orr}, <strong>Rank diff:</strong> ${rdiff}</p>
         ${isChallenge ? `
           <p><strong>Challenge divisor used:</strong> ${div}</p>
           <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
         ` : ''}
-        <p class="tip">Upset winners are normally: <code>10 + (game diff × rank diff / 2)</code>, min 15, max 25. This page shows values read directly from <em>WinPoints</em> in the Scores CSV.</p>
+        <p class="tip">Upset winners are normally: <code>10 + (game diff × rank diff / 2)</code>, min 15, max 25.</p>
       `
       : `
-        <p><strong>Points (from CSV):</strong> ${pts}</p>
+        <p><strong>Points:</strong> ${pts}</p>
         <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
         ${isChallenge ? `
           <p><strong>Challenge divisor used:</strong> ${div}</p>
           <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
         ` : ''}
-        <p class="tip">Non-upset winners are normally: <code>10 + (game diff)</code>, minimum 11. This page shows values read directly from <em>WinPoints</em> in the Scores CSV.</p>
+        <p class="tip">Non-upset winners are normally: <code>10 + (game diff)</code>, minimum 11.</p>
       `;
 
     openModal('Winner Points', `${topAlert}${body}`);
