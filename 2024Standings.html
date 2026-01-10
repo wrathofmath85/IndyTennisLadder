@@ -231,7 +231,7 @@ function formatThirdEntry(row, perspective){
   }
   const a = fmt(row.TB_W), b = fmt(row.TB_O);
   if (a === '' && b === '') return '';
-  return perspective === 'winner' ? `${a}-${b}` : `${b}-${a}`;
+  return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
 }
 function statusText(row){ return String(row.Status||row.STATUS||'').trim(); }
 function isWalkoverStatus(row){ const s=statusText(row).toLowerCase(); return s==='walkover'||s==='wo'||s==='w/o'||s.includes('walkover'); }
