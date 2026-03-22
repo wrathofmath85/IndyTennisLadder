@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 IndyTennis Summer Ladders</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg-1:#07111f;
+      --bg-2:#0b1b31;
+      --bg-3:#122844;
+      --card:rgba(255,255,255,0.08);
+      --card-strong:rgba(255,255,255,0.12);
+      --border:rgba(255,255,255,0.14);
+      --text:#f5f7fb;
+      --muted:#b8c4d6;
+      --accent:#59c3ff;
+      --accent-2:#7cffc8;
+      --shadow:0 24px 60px rgba(0,0,0,0.35);
+      --radius:26px;
+      --max-width:1200px;
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+
+    html{
+      scroll-behavior:smooth;
+    }
+
+    body{
+      font-family:'Inter',sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(89,195,255,0.18), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(124,255,200,0.12), transparent 26%),
+        linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 48%, var(--bg-3) 100%);
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    .background-blur{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .blob{
+      position:absolute;
+      border-radius:999px;
+      filter:blur(80px);
+      opacity:0.25;
+    }
+
+    .blob.one{
+      width:300px;
+      height:300px;
+      background:#3cb4ff;
+      top:60px;
+      left:-60px;
+    }
+
+    .blob.two{
+      width:260px;
+      height:260px;
+      background:#57ffd2;
+      top:380px;
+      right:-40px;
+    }
+
+    .blob.three{
+      width:240px;
+      height:240px;
+      background:#5e7bff;
+      bottom:80px;
+      left:20%;
+    }
+
+    .page{
+      position:relative;
+      z-index:1;
+      width:100%;
+    }
+
+    .container{
+      width:min(92%, var(--max-width));
+      margin:0 auto;
+    }
+
+    .hero{
+      padding:56px 0 34px;
+    }
+
+    .hero-card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      border-radius:36px;
+      padding:42px 30px 34px;
+      text-align:center;
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero-card::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg, rgba(255,255,255,0.08), transparent 35%, transparent 65%, rgba(255,255,255,0.04));
+      pointer-events:none;
+    }
+
+    .logo-wrap{
+      margin-bottom:24px;
+    }
+
+    .logo-wrap img{
+      max-width:220px;
+      width:100%;
+      height:auto;
+      display:block;
+      margin:0 auto;
+      filter:drop-shadow(0 10px 30px rgba(0,0,0,0.30));
+    }
+
+    .eyebrow{
+      display:inline-block;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.06);
+      color:var(--accent-2);
+      font-size:0.82rem;
+      font-weight:700;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      margin-bottom:18px;
+    }
+
+    h1{
+      font-size:clamp(2.2rem, 5vw, 4.5rem);
+      line-height:0.95;
+      font-weight:800;
+      letter-spacing:-0.04em;
+      margin-bottom:16px;
+    }
+
+    .headline-gradient{
+      background:linear-gradient(90deg, #ffffff 0%, #d9f2ff 45%, #8ee8ff 100%);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      color:transparent;
+    }
+
+    .subtext{
+      max-width:760px;
+      margin:0 auto;
+      color:var(--muted);
+      font-size:1.02rem;
+      line-height:1.7;
+    }
+
+    .links-section{
+      padding:12px 0 42px;
+    }
+
+    .section-title{
+      font-size:1.05rem;
+      font-weight:700;
+      color:#eaf3ff;
+      margin-bottom:18px;
+      letter-spacing:0.02em;
+    }
+
+    .cards-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:20px;
+    }
+
+    .link-card{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      min-height:180px;
+      padding:24px;
+      border-radius:var(--radius);
+      text-decoration:none;
+      color:var(--text);
+      background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.05));
+      border:1px solid var(--border);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      transition:transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+    }
+
+    .link-card::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at top right, rgba(89,195,255,0.18), transparent 35%);
+      pointer-events:none;
+    }
+
+    .link-card:hover{
+      transform:translateY(-6px);
+      border-color:rgba(124,255,200,0.38);
+      background:linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+    }
+
+    .card-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .card-kicker{
+      font-size:0.78rem;
+      text-transform:uppercase;
+      letter-spacing:0.11em;
+      color:var(--accent-2);
+      font-weight:700;
+      margin-bottom:10px;
+    }
+
+    .card-title{
+      font-size:1.45rem;
+      font-weight:750;
+      line-height:1.1;
+      letter-spacing:-0.02em;
+    }
+
+    .card-desc{
+      color:var(--muted);
+      font-size:0.98rem;
+      line-height:1.6;
+      margin-top:14px;
+      max-width:38ch;
+    }
+
+    .arrow{
+      flex-shrink:0;
+      width:46px;
+      height:46px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.10);
+      font-size:1.1rem;
+    }
+
+    .card-footer{
+      margin-top:24px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      color:#dce9f8;
+      font-weight:600;
+      font-size:0.95rem;
+    }
+
+    .history-section{
+      padding:16px 0 70px;
+    }
+
+    .history-card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      border-radius:32px;
+      padding:28px;
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+
+    .history-header{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:20px;
+      margin-bottom:20px;
+      flex-wrap:wrap;
+    }
+
+    .history-header h2{
+      font-size:clamp(1.5rem, 3vw, 2.2rem);
+      letter-spacing:-0.03em;
+    }
+
+    .history-header p{
+      color:var(--muted);
+      max-width:560px;
+      line-height:1.6;
+      font-size:0.97rem;
+    }
+
+    .history-table-wrap{
+      overflow-x:auto;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(5, 12, 22, 0.28);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:680px;
+    }
+
+    thead th{
+      text-align:left;
+      padding:18px 20px;
+      font-size:0.82rem;
+      text-transform:uppercase;
+      letter-spacing:0.1em;
+      color:#9fc7de;
+      background:rgba(255,255,255,0.04);
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+
+    tbody td{
+      padding:18px 20px;
+      border-bottom:1px solid rgba(255,255,255,0.07);
+      color:#ecf4fc;
+      font-size:0.98rem;
+    }
+
+    tbody tr:last-child td{
+      border-bottom:none;
+    }
+
+    tbody tr:hover{
+      background:rgba(255,255,255,0.04);
+    }
+
+    .loading-row td,
+    .empty-row td,
+    .error-row td{
+      color:var(--muted);
+      font-style:italic;
+    }
+
+    .footer{
+      padding:0 0 40px;
+      text-align:center;
+      color:rgba(220,233,248,0.72);
+      font-size:0.92rem;
+    }
+
+    .footer span{
+      color:var(--accent-2);
+      font-weight:600;
+    }
+
+    @media (max-width: 860px){
+      .cards-grid{
+        grid-template-columns:1fr;
+      }
+
+      .hero{
+        padding-top:28px;
+      }
+
+      .hero-card{
+        padding:30px 20px 26px;
+        border-radius:28px;
+      }
+
+      .history-card{
+        padding:20px;
+        border-radius:26px;
+      }
+    }
+
+    @media (max-width: 560px){
+      .logo-wrap img{
+        max-width:180px;
+      }
+
+      .card-title{
+        font-size:1.25rem;
+      }
+
+      .link-card{
+        min-height:auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-blur">
+    <div class="blob one"></div>
+    <div class="blob two"></div>
+    <div class="blob three"></div>
+  </div>
+
+  <main class="page">
+    <section class="hero">
+      <div class="container">
+        <div class="hero-card">
+          <div class="logo-wrap">
+            <img src="ladderlogo.png" alt="IndyTennis Summer Ladders Logo">
+          </div>
+
+          <div class="eyebrow">2026 Season</div>
+
+          <h1>
+            <span class="headline-gradient">IndyTennis Summer Ladders</span>
+          </h1>
+
+          <p class="subtext">
+            Welcome to the official home for the 2026 IndyTennis Summer Ladders.
+            Access standings, score submissions, and season history all in one sleek hub.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="links-section">
+      <div class="container">
+        <div class="section-title">Quick Access</div>
+
+        <div class="cards-grid">
+          <a class="link-card" href="YOUR-SINGLES-LADDER-LINK-HERE" target="_blank" rel="noopener noreferrer">
+            <div>
+              <div class="card-top">
+                <div>
+                  <div class="card-kicker">View Ladder</div>
+                  <div class="card-title">Singles Ladder</div>
+                </div>
+                <div class="arrow">↗</div>
+              </div>
+              <p class="card-desc">
+                Open the current singles ladder standings, placements, and season progression.
+              </p>
+            </div>
+            <div class="card-footer">
+              <span>Open page</span>
+              <span>Singles</span>
+            </div>
+          </a>
+
+          <a class="link-card" href="YOUR-SINGLES-SCORE-SUBMISSION-LINK-HERE" target="_blank" rel="noopener noreferrer">
+            <div>
+              <div class="card-top">
+                <div>
+                  <div class="card-kicker">Submit Score</div>
+                  <div class="card-title">Singles Ladder Score Submission</div>
+                </div>
+                <div class="arrow">↗</div>
+              </div>
+              <p class="card-desc">
+                Report completed singles matches quickly and accurately through the official form.
+              </p>
+            </div>
+            <div class="card-footer">
+              <span>Submit results</span>
+              <span>Singles</span>
+            </div>
+          </a>
+
+          <a class="link-card" href="YOUR-DOUBLES-LADDER-LINK-HERE" target="_blank" rel="noopener noreferrer">
+            <div>
+              <div class="card-top">
+                <div>
+                  <div class="card-kicker">View Ladder</div>
+                  <div class="card-title">Doubles Ladder</div>
+                </div>
+                <div class="arrow">↗</div>
+              </div>
+              <p class="card-desc">
+                Check the latest doubles ladder standings and see how teams are stacking up.
+              </p>
+            </div>
+            <div class="card-footer">
+              <span>Open page</span>
+              <span>Doubles</span>
+            </div>
+          </a>
+
+          <a class="link-card" href="YOUR-DOUBLES-SCORE-SUBMISSION-LINK-HERE" target="_blank" rel="noopener noreferrer">
+            <div>
+              <div class="card-top">
+                <div>
+                  <div class="card-kicker">Submit Score</div>
+                  <div class="card-title">Doubles Ladder Score Submission</div>
+                </div>
+                <div class="arrow">↗</div>
+              </div>
+              <p class="card-desc">
+                Submit official doubles results to keep the ladder updated throughout the season.
+              </p>
+            </div>
+            <div class="card-footer">
+              <span>Submit results</span>
+              <span>Doubles</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <div class="container">
+        <div class="history-card">
+          <div class="history-header">
+            <div>
+              <div class="section-title">Champions Archive</div>
+              <h2>Historical Winners</h2>
+            </div>
+            <p>
+              This section automatically pulls from your Google Sheets CSV once you publish it.
+              Use columns A, B, and C for <strong>Year</strong>, <strong>Singles Champion</strong>, and <strong>Doubles Champion</strong>.
+            </p>
+          </div>
+
+          <div class="history-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Singles Champion</th>
+                  <th>Doubles Champion</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr class="loading-row">
+                  <td colspan="3">Loading historical winners...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        Built for <span>2026 IndyTennis Summer Ladders</span>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    /*
+      HOW TO USE THE HISTORICAL WINNERS CSV:
+
+      1. Create a Google Sheet with columns:
+         A = Year
+         B = Singles Champion
+         C = Doubles Champion
+
+      2. Publish the sheet to the web as CSV.
+
+      3. Paste the published CSV link below.
+         Example format:
+         https://docs.google.com/spreadsheets/d/e/XXXXXXXXXXXX/pub?output=csv
+    */
+
+    const csvUrl = "PASTE-YOUR-GOOGLE-CSV-LINK-HERE";
+
+    const historyBody = document.getElementById("historyBody");
+
+    async function loadHistory() {
+      if (!csvUrl || csvUrl.includes("PASTE-YOUR-GOOGLE-CSV-LINK-HERE")) {
+        historyBody.innerHTML = `
+          <tr class="empty-row">
+            <td colspan="3">Add your published Google Sheets CSV link in the code to display historical winners.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      try {
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error("Could not fetch CSV.");
+
+        const csvText = await response.text();
+        const rows = parseCSV(csvText);
+
+        if (rows.length <= 1) {
+          historyBody.innerHTML = `
+            <tr class="empty-row">
+              <td colspan="3">No historical winner data found yet.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        const dataRows = rows.slice(1).filter(row =>
+          row.some(cell => cell && cell.trim() !== "")
+        );
+
+        if (!dataRows.length) {
+          historyBody.innerHTML = `
+            <tr class="empty-row">
+              <td colspan="3">No historical winner data found yet.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        historyBody.innerHTML = dataRows.map(row => {
+          const year = escapeHTML(row[0] || "");
+          const singles = escapeHTML(row[1] || "");
+          const doubles = escapeHTML(row[2] || "");
+
+          return `
+            <tr>
+              <td>${year}</td>
+              <td>${singles}</td>
+              <td>${doubles}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (error) {
+        historyBody.innerHTML = `
+          <tr class="error-row">
+            <td colspan="3">Unable to load historical winners right now.</td>
+          </tr>
+        `;
+        console.error("Historical winners load error:", error);
+      }
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      return lines.map(line => {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          const nextChar = line[i + 1];
+
+          if (char === '"' && inQuotes && nextChar === '"') {
+            current += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current);
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+
+        result.push(current);
+        return result;
+      });
+    }
+
+    function escapeHTML(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>
