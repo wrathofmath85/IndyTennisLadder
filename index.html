@@ -286,6 +286,54 @@
       font-style:italic;
     }
 
+    .mobile-history{
+      display:none;
+    }
+
+    .history-toggle{
+      display:flex;
+      gap:6px;
+      padding:6px;
+      margin-bottom:16px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.06);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+
+    .history-toggle-btn{
+      flex:1;
+      border:none;
+      cursor:pointer;
+      border-radius:999px;
+      padding:12px 14px;
+      font-family:'Inter',sans-serif;
+      font-size:0.92rem;
+      font-weight:700;
+      color:var(--text);
+      background:transparent;
+      transition:background 0.22s ease, color 0.22s ease, transform 0.22s ease;
+    }
+
+    .history-toggle-btn.active{
+      background:linear-gradient(180deg, rgba(142,232,255,0.22), rgba(124,255,200,0.14));
+      color:#ffffff;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10);
+    }
+
+    .mobile-table-wrap{
+      overflow:hidden;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(5, 12, 22, 0.28);
+    }
+
+    .mobile-history table{
+      min-width:0;
+      width:100%;
+    }
+
     .footer{
       text-align:center;
       color:rgba(220,233,248,0.72);
@@ -320,6 +368,14 @@
       .pill-link{
         min-height:62px;
         padding:16px 18px;
+      }
+
+      .desktop-history{
+        display:none;
+      }
+
+      .mobile-history{
+        display:block;
       }
     }
   </style>
@@ -372,7 +428,8 @@
           
         </p>
 
-        <div class="table-wrap">
+        <!-- Desktop version unchanged -->
+        <div class="table-wrap desktop-history">
           <table>
             <thead>
               <tr>
@@ -387,6 +444,50 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Mobile-only toggle version -->
+        <div class="mobile-history">
+          <div class="history-toggle" role="tablist" aria-label="Historical champions toggle">
+            <button
+              class="history-toggle-btn active"
+              id="singlesToggle"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="mobileHistoryTable"
+              data-mode="singles"
+            >
+              Singles
+            </button>
+            <button
+              class="history-toggle-btn"
+              id="doublesToggle"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="mobileHistoryTable"
+              data-mode="doubles"
+            >
+              Doubles
+            </button>
+          </div>
+
+          <div class="mobile-table-wrap">
+            <table id="mobileHistoryTable">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th id="mobileChampionHeader">Singles Champion</th>
+                </tr>
+              </thead>
+              <tbody id="mobileHistoryBody">
+                <tr class="loading-row">
+                  <td colspan="2">Loading historical winners...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -414,12 +515,23 @@
 
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSi_4N6PFsBqdigXN4IQuqPlgIZ2StVE0QdyBItwP2dxnKF3ywj9jwPVBMHMDbgEYb2i9H49hoXyW5Z/pub?gid=0&single=true&output=csv";
     const historyBody = document.getElementById("historyBody");
+    const mobileHistoryBody = document.getElementById("mobileHistoryBody");
+    const mobileChampionHeader = document.getElementById("mobileChampionHeader");
+    const toggleButtons = document.querySelectorAll(".history-toggle-btn");
+
+    let historicalData = [];
+    let currentMobileMode = "singles";
 
     async function loadHistory() {
       if (!csvUrl || csvUrl.includes("PASTE-YOUR-GOOGLE-CSV-LINK-HERE")) {
         historyBody.innerHTML = `
           <tr class="empty-row">
             <td colspan="3">Add your published Google Sheets CSV link in the code to display historical winners.</td>
+          </tr>
+        `;
+        mobileHistoryBody.innerHTML = `
+          <tr class="empty-row">
+            <td colspan="2">Add your published Google Sheets CSV link in the code to display historical winners.</td>
           </tr>
         `;
         return;
@@ -438,6 +550,11 @@
               <td colspan="3">No historical winner data found yet.</td>
             </tr>
           `;
+          mobileHistoryBody.innerHTML = `
+            <tr class="empty-row">
+              <td colspan="2">No historical winner data found yet.</td>
+            </tr>
+          `;
           return;
         }
 
@@ -451,31 +568,80 @@
               <td colspan="3">No historical winner data found yet.</td>
             </tr>
           `;
+          mobileHistoryBody.innerHTML = `
+            <tr class="empty-row">
+              <td colspan="2">No historical winner data found yet.</td>
+            </tr>
+          `;
           return;
         }
 
-        historyBody.innerHTML = dataRows.map(row => {
-          const year = escapeHTML(row[0] || "");
-          const singles = escapeHTML(row[1] || "");
-          const doubles = escapeHTML(row[2] || "");
+        historicalData = dataRows.map(row => ({
+          year: escapeHTML(row[0] || ""),
+          singles: escapeHTML(row[1] || ""),
+          doubles: escapeHTML(row[2] || "")
+        }));
 
+        historyBody.innerHTML = historicalData.map(row => {
           return `
             <tr>
-              <td>${year}</td>
-              <td>${singles}</td>
-              <td>${doubles}</td>
+              <td>${row.year}</td>
+              <td>${row.singles}</td>
+              <td>${row.doubles}</td>
             </tr>
           `;
         }).join("");
+
+        renderMobileHistory();
       } catch (error) {
         historyBody.innerHTML = `
           <tr class="error-row">
             <td colspan="3">Unable to load historical winners right now.</td>
           </tr>
         `;
+        mobileHistoryBody.innerHTML = `
+          <tr class="error-row">
+            <td colspan="2">Unable to load historical winners right now.</td>
+          </tr>
+        `;
         console.error("Historical winners load error:", error);
       }
     }
+
+    function renderMobileHistory() {
+      const isSingles = currentMobileMode === "singles";
+      mobileChampionHeader.textContent = isSingles ? "Singles Champion" : "Doubles Champion";
+
+      if (!historicalData.length) {
+        mobileHistoryBody.innerHTML = `
+          <tr class="empty-row">
+            <td colspan="2">No historical winner data found yet.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      mobileHistoryBody.innerHTML = historicalData.map(row => `
+        <tr>
+          <td>${row.year}</td>
+          <td>${isSingles ? row.singles : row.doubles}</td>
+        </tr>
+      `).join("");
+    }
+
+    toggleButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        currentMobileMode = button.dataset.mode;
+
+        toggleButtons.forEach(btn => {
+          const isActive = btn === button;
+          btn.classList.toggle("active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+
+        renderMobileHistory();
+      });
+    });
 
     function parseCSV(text) {
       const lines = text.trim().split(/\r?\n/);
