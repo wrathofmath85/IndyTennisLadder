@@ -200,6 +200,30 @@
       display:none;
     }
 
+    .checkbox-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.12);
+    }
+
+    .checkbox-row input[type="checkbox"]{
+      width:18px;
+      height:18px;
+      accent-color:#8fd3ff;
+      flex:0 0 auto;
+    }
+
+    .checkbox-row label{
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      margin:0;
+    }
+
     .submit-row{
       display:flex;
       flex-direction:column;
@@ -360,10 +384,10 @@
       </div>
 
       <div class="header">
-        <div class="eyebrow">2026 Registration</div>
+        <div class="eyebrow">Tennis Submission</div>
         <h1>Player Information Form</h1>
         <p class="subtext">
-          Fill out the form below. 
+          Fill out the form below. Once submitted, your information will be sent securely to Google Sheets through Google Apps Script.
         </p>
       </div>
 
@@ -389,6 +413,30 @@
           <div class="field">
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="Enter email address" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="eventType">Which event would you like to play?</label>
+          <select id="eventType" name="eventType" required>
+            <option value="">Select an option</option>
+            <option value="Singles">Singles</option>
+            <option value="Doubles">Doubles</option>
+            <option value="Singles and Doubles">Singles and Doubles</option>
+          </select>
+        </div>
+
+        <div class="field hidden" id="doublesPartnerField">
+          <label for="doublesPartnerName">Doubles Partner Name</label>
+          <input
+            type="text"
+            id="doublesPartnerName"
+            name="doublesPartnerName"
+            placeholder="Enter your doubles partner's name"
+          />
+          <div class="checkbox-row">
+            <input type="checkbox" id="needPartner" name="needPartner" />
+            <label for="needPartner">I don't have one. I need one.</label>
           </div>
         </div>
 
@@ -438,7 +486,7 @@
       </form>
 
       <div class="footnote">
-        Crowning Champs One Rung At A Time
+        Built for GitHub Pages + Google Apps Script
       </div>
     </div>
   </div>
@@ -447,6 +495,10 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwS0j4ENWNKGXJbDyZIghKz4B3HLYdkPTIctFrkFR87d0hmM1jm3codoyce1ZTlLrc/exec";
 
     const form = document.getElementById("playerForm");
+    const eventType = document.getElementById("eventType");
+    const doublesPartnerField = document.getElementById("doublesPartnerField");
+    const doublesPartnerName = document.getElementById("doublesPartnerName");
+    const needPartner = document.getElementById("needPartner");
     const ustaRating = document.getElementById("ustaRating");
     const backgroundField = document.getElementById("backgroundField");
     const tennisBackground = document.getElementById("tennisBackground");
@@ -455,6 +507,31 @@
     const thinkingBar = document.getElementById("thinkingBar");
     const statusMessage = document.getElementById("statusMessage");
     const successBox = document.getElementById("successBox");
+
+    function toggleDoublesField() {
+      const showDoubles =
+        eventType.value === "Doubles" ||
+        eventType.value === "Singles and Doubles";
+
+      if (showDoubles) {
+        doublesPartnerField.classList.remove("hidden");
+      } else {
+        doublesPartnerField.classList.add("hidden");
+        doublesPartnerName.value = "";
+        needPartner.checked = false;
+      }
+    }
+
+    function togglePartnerInputState() {
+      if (needPartner.checked) {
+        doublesPartnerName.value = "";
+        doublesPartnerName.disabled = true;
+        doublesPartnerName.placeholder = "You selected that you need a partner";
+      } else {
+        doublesPartnerName.disabled = false;
+        doublesPartnerName.placeholder = "Enter your doubles partner's name";
+      }
+    }
 
     function toggleBackgroundField() {
       if (ustaRating.value === "Unknown") {
@@ -485,6 +562,17 @@
         return false;
       }
 
+      const showDoubles =
+        eventType.value === "Doubles" ||
+        eventType.value === "Singles and Doubles";
+
+      if (showDoubles && !needPartner.checked && !doublesPartnerName.value.trim()) {
+        doublesPartnerName.focus();
+        statusMessage.textContent = "Please enter your doubles partner's name or check that you need a partner.";
+        statusMessage.className = "status error";
+        return false;
+      }
+
       if (ustaRating.value === "Unknown" && !tennisBackground.value.trim()) {
         tennisBackground.focus();
         statusMessage.textContent = "Please tell us about your tennis background.";
@@ -495,6 +583,8 @@
       return true;
     }
 
+    eventType.addEventListener("change", toggleDoublesField);
+    needPartner.addEventListener("change", togglePartnerInputState);
     ustaRating.addEventListener("change", toggleBackgroundField);
 
     form.addEventListener("submit", async (e) => {
@@ -509,6 +599,9 @@
         lastName: document.getElementById("lastName").value.trim(),
         phoneNumber: document.getElementById("phoneNumber").value.trim(),
         email: document.getElementById("email").value.trim(),
+        eventType: document.getElementById("eventType").value,
+        doublesPartnerName: needPartner.checked ? "" : document.getElementById("doublesPartnerName").value.trim(),
+        needPartner: needPartner.checked ? "Yes" : "No",
         ustaRating: document.getElementById("ustaRating").value,
         tennisBackground: document.getElementById("tennisBackground").value.trim()
       };
@@ -534,6 +627,8 @@
 
         if (result.result === "success") {
           form.reset();
+          toggleDoublesField();
+          togglePartnerInputState();
           toggleBackgroundField();
           statusMessage.textContent = "";
           statusMessage.className = "status";
@@ -550,6 +645,8 @@
       }
     });
 
+    toggleDoublesField();
+    togglePartnerInputState();
     toggleBackgroundField();
   </script>
 </body>
