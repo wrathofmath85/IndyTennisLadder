@@ -65,7 +65,6 @@
       padding:34px;
     }
 
-    /* ✅ NEW LOGO STYLING */
     .logo-wrap{
       text-align:center;
       margin-bottom:20px;
@@ -77,6 +76,8 @@
       height:auto;
       object-fit:contain;
       opacity:0.95;
+      display:block;
+      margin:0 auto;
     }
 
     .header{
@@ -354,7 +355,6 @@
   <div class="wrap">
     <div class="card">
 
-      <!-- ✅ NEW LOGO -->
       <div class="logo-wrap">
         <img src="ladderlogo2.png" alt="Logo">
       </div>
@@ -367,4 +367,190 @@
         </p>
       </div>
 
-      <!-- FORM REMAINS EXACTLY THE SAME -->
+      <form id="playerForm" novalidate>
+        <div class="grid">
+          <div class="field">
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName" name="firstName" placeholder="Enter first name" required />
+          </div>
+
+          <div class="field">
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName" name="lastName" placeholder="Enter last name" required />
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="phoneNumber">Phone Number</label>
+            <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="Enter phone number" required />
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Enter email address" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="ustaRating">USTA Rating</label>
+          <select id="ustaRating" name="ustaRating" required>
+            <option value="">Select a rating</option>
+            <option value="Unknown">Unknown</option>
+            <option value="<3.0">&lt;3.0</option>
+            <option value="3.5">3.5</option>
+            <option value="4.0">4.0</option>
+            <option value="4.5">4.5</option>
+            <option value=">5.0">&gt;5.0</option>
+          </select>
+        </div>
+
+        <div class="field hidden" id="backgroundField">
+          <label for="tennisBackground">
+            If USTA Rating is Unknown, tell us about your tennis background
+          </label>
+          <div class="hint">
+            Example: Played in high school, played recreationally, or never picked up a racket before.
+          </div>
+          <textarea
+            id="tennisBackground"
+            name="tennisBackground"
+            placeholder="Tell us about your tennis background..."
+          ></textarea>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" id="submitBtn">Submit Form</button>
+
+          <div class="loading-wrap" id="loadingWrap">
+            <div class="spinner"></div>
+            <span>Submitting...</span>
+          </div>
+
+          <div class="thinking-bar" id="thinkingBar"></div>
+
+          <div class="status" id="statusMessage"></div>
+
+          <div class="success-box" id="successBox">
+            Success! Your form was submitted successfully.
+          </div>
+        </div>
+      </form>
+
+      <div class="footnote">
+        Built for GitHub Pages + Google Apps Script
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwS0j4ENWNKGXJbDyZIghKz4B3HLYdkPTIctFrkFR87d0hmM1jm3codoyce1ZTlLrc/exec";
+
+    const form = document.getElementById("playerForm");
+    const ustaRating = document.getElementById("ustaRating");
+    const backgroundField = document.getElementById("backgroundField");
+    const tennisBackground = document.getElementById("tennisBackground");
+    const submitBtn = document.getElementById("submitBtn");
+    const loadingWrap = document.getElementById("loadingWrap");
+    const thinkingBar = document.getElementById("thinkingBar");
+    const statusMessage = document.getElementById("statusMessage");
+    const successBox = document.getElementById("successBox");
+
+    function toggleBackgroundField() {
+      if (ustaRating.value === "Unknown") {
+        backgroundField.classList.remove("hidden");
+        tennisBackground.required = true;
+      } else {
+        backgroundField.classList.add("hidden");
+        tennisBackground.required = false;
+        tennisBackground.value = "";
+      }
+    }
+
+    function setLoadingState(isLoading) {
+      submitBtn.disabled = isLoading;
+      loadingWrap.classList.toggle("active", isLoading);
+      thinkingBar.classList.toggle("active", isLoading);
+
+      if (isLoading) {
+        statusMessage.textContent = "";
+        statusMessage.className = "status";
+        successBox.classList.remove("show");
+      }
+    }
+
+    function validateForm() {
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+      }
+
+      if (ustaRating.value === "Unknown" && !tennisBackground.value.trim()) {
+        tennisBackground.focus();
+        statusMessage.textContent = "Please tell us about your tennis background.";
+        statusMessage.className = "status error";
+        return false;
+      }
+
+      return true;
+    }
+
+    ustaRating.addEventListener("change", toggleBackgroundField);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!validateForm()) return;
+
+      setLoadingState(true);
+
+      const payload = {
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        phoneNumber: document.getElementById("phoneNumber").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        ustaRating: document.getElementById("ustaRating").value,
+        tennisBackground: document.getElementById("tennisBackground").value.trim()
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const text = await response.text();
+        let result = {};
+
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error("Invalid server response.");
+        }
+
+        if (result.result === "success") {
+          form.reset();
+          toggleBackgroundField();
+          statusMessage.textContent = "";
+          statusMessage.className = "status";
+          successBox.classList.add("show");
+        } else {
+          throw new Error(result.message || "Submission failed.");
+        }
+      } catch (error) {
+        statusMessage.textContent = error.message || "Something went wrong while submitting.";
+        statusMessage.className = "status error";
+        successBox.classList.remove("show");
+      } finally {
+        setLoadingState(false);
+      }
+    });
+
+    toggleBackgroundField();
+  </script>
+</body>
+</html>
