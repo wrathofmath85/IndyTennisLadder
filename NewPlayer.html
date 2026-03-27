@@ -542,13 +542,24 @@ const successBox = document.getElementById("successBox");
       }
     }
 
-   function formatPhoneNumber(value) {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
+  function formatPhoneNumber(value) {
+  let digits = value.replace(/\D/g, "").slice(0, 10);
 
-  if (digits.length === 0) return "";
-  if (digits.length < 4) return `(${digits}`;
-  if (digits.length < 7) return `(${digits.slice(0, 3)})${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)})${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  let formatted = "";
+
+  if (digits.length > 0) {
+    formatted += "(" + digits.substring(0, 3);
+  }
+
+  if (digits.length >= 4) {
+    formatted += ")" + digits.substring(3, 6);
+  }
+
+  if (digits.length >= 7) {
+    formatted += "-" + digits.substring(6, 10);
+  }
+
+  return formatted;
 }
 
 function toggleBackgroundField() {
