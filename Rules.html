@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ladder Rules</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0c1c31;
+      --bg3:#163253;
+      --card:rgba(255,255,255,0.10);
+      --border:rgba(255,255,255,0.18);
+      --text:#f5f8ff;
+      --muted:rgba(245,248,255,0.75);
+      --accent:#8fd3ff;
+      --accent-2:#d7efff;
+      --shadow:0 24px 60px rgba(0,0,0,0.35);
+      --radius:24px;
+      --pill-radius:999px;
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+
+    html, body{
+      min-height:100%;
+    }
+
+    body{
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(143,211,255,0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(255,255,255,0.08), transparent 24%),
+        linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 52%, var(--bg3) 100%);
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      width:min(1100px, calc(100% - 28px));
+      margin:0 auto;
+      padding:32px 0 40px;
+    }
+
+    .hero{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      margin-bottom:24px;
+    }
+
+    .logo{
+      width:min(260px, 78vw);
+      height:auto;
+      display:block;
+      margin:0 auto 18px;
+      filter:drop-shadow(0 14px 30px rgba(0,0,0,0.35));
+    }
+
+    .title{
+      font-size:clamp(1.9rem, 3vw, 2.9rem);
+      font-weight:800;
+      letter-spacing:-0.03em;
+      margin-bottom:8px;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size:clamp(0.98rem, 1.5vw, 1.08rem);
+      max-width:760px;
+      line-height:1.55;
+    }
+
+    .panel{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    .toggle-wrap{
+      display:flex;
+      justify-content:center;
+      margin-bottom:20px;
+    }
+
+    .toggle{
+      display:inline-flex;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.14);
+      border-radius:var(--pill-radius);
+      padding:6px;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .toggle button{
+      appearance:none;
+      border:none;
+      border-radius:var(--pill-radius);
+      padding:12px 20px;
+      font-family:inherit;
+      font-size:0.98rem;
+      font-weight:700;
+      color:var(--text);
+      background:transparent;
+      cursor:pointer;
+      transition:all 0.22s ease;
+      white-space:nowrap;
+    }
+
+    .toggle button:hover{
+      background:rgba(255,255,255,0.08);
+    }
+
+    .toggle button.active{
+      background:linear-gradient(135deg, rgba(143,211,255,0.28), rgba(255,255,255,0.14));
+      border:1px solid rgba(255,255,255,0.20);
+      box-shadow:0 10px 24px rgba(0,0,0,0.20);
+    }
+
+    .viewer-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:16px;
+      flex-wrap:wrap;
+    }
+
+    .viewer-title{
+      font-size:1.15rem;
+      font-weight:800;
+      letter-spacing:-0.02em;
+    }
+
+    .pdf-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      color:#06111d;
+      background:linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-weight:800;
+      font-size:0.95rem;
+      padding:11px 16px;
+      border-radius:999px;
+      box-shadow:0 10px 24px rgba(143,211,255,0.28);
+      transition:transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .pdf-link:hover{
+      transform:translateY(-1px);
+      box-shadow:0 14px 30px rgba(143,211,255,0.34);
+    }
+
+    .pdf-frame-wrap{
+      border-radius:20px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(255,255,255,0.04);
+      min-height:72vh;
+    }
+
+    iframe{
+      display:block;
+      width:100%;
+      height:72vh;
+      border:none;
+      background:#fff;
+    }
+
+    .fallback{
+      display:none;
+      padding:18px;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:0.98rem;
+    }
+
+    .footer-note{
+      margin-top:16px;
+      text-align:center;
+      color:var(--muted);
+      font-size:0.92rem;
+    }
+
+    @media (max-width: 768px){
+      .wrap{
+        width:min(100% - 18px, 100%);
+        padding:20px 0 28px;
+      }
+
+      .panel{
+        padding:16px;
+        border-radius:20px;
+      }
+
+      .toggle{
+        width:100%;
+      }
+
+      .toggle button{
+        flex:1 1 220px;
+        padding:12px 14px;
+        font-size:0.95rem;
+      }
+
+      .viewer-header{
+        align-items:stretch;
+      }
+
+      .pdf-link{
+        width:100%;
+      }
+
+      .pdf-frame-wrap{
+        min-height:68vh;
+      }
+
+      iframe{
+        height:68vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img src="ladderlogo2.png" alt="Ladder Tennis Logo" class="logo">
+      <div class="title">Ladder Rules</div>
+      <div class="subtitle">
+        View the official rules for the Singles Ladder and Doubles Ladder below.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="toggle-wrap">
+        <div class="toggle" role="tablist" aria-label="Ladder Rules Toggle">
+          <button id="singlesBtn" class="active" type="button" role="tab" aria-selected="true">
+            Singles Ladder
+          </button>
+          <button id="doublesBtn" type="button" role="tab" aria-selected="false">
+            Doubles Ladder
+          </button>
+        </div>
+      </div>
+
+      <div class="viewer-header">
+        <div id="viewerTitle" class="viewer-title">Singles Ladder Rules</div>
+        <a id="pdfLink" class="pdf-link" href="Singles.pdf" target="_blank" rel="noopener">
+          Open PDF in New Tab
+        </a>
+      </div>
+
+      <div class="pdf-frame-wrap">
+        <iframe id="pdfFrame" src="Singles.pdf#view=FitH" title="Ladder Rules PDF"></iframe>
+
+        <div class="fallback" id="fallback">
+          Your browser may not support embedded PDFs on this device.
+          Please use the button above to open the PDF directly.
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Make sure <strong>Singles.pdf</strong> and <strong>Doubles.pdf</strong> are uploaded in the same GitHub Pages folder as this file.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const singlesBtn = document.getElementById('singlesBtn');
+    const doublesBtn = document.getElementById('doublesBtn');
+    const pdfFrame = document.getElementById('pdfFrame');
+    const pdfLink = document.getElementById('pdfLink');
+    const viewerTitle = document.getElementById('viewerTitle');
+
+    const rules = {
+      singles: {
+        title: 'Singles Ladder Rules',
+        file: 'Singles.pdf'
+      },
+      doubles: {
+        title: 'Doubles Ladder Rules',
+        file: 'Doubles.pdf'
+      }
+    };
+
+    function setActive(type){
+      const selected = rules[type];
+
+      viewerTitle.textContent = selected.title;
+      pdfFrame.src = selected.file + '#view=FitH';
+      pdfLink.href = selected.file;
+
+      singlesBtn.classList.toggle('active', type === 'singles');
+      doublesBtn.classList.toggle('active', type === 'doubles');
+
+      singlesBtn.setAttribute('aria-selected', type === 'singles' ? 'true' : 'false');
+      doublesBtn.setAttribute('aria-selected', type === 'doubles' ? 'true' : 'false');
+    }
+
+    singlesBtn.addEventListener('click', () => setActive('singles'));
+    doublesBtn.addEventListener('click', () => setActive('doubles'));
+  </script>
+</body>
+</html>
