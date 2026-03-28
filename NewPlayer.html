@@ -408,14 +408,15 @@
           <div class="field">
             <label for="phoneNumber">Phone Number</label>
             <input
-  type="tel"
-  id="phoneNumber"
-  name="phoneNumber"
-  placeholder="(555)123-4567"
-  maxlength="13"
-  inputmode="numeric"
-  required
-/>
+              type="tel"
+              id="phoneNumber"
+              name="phoneNumber"
+              placeholder="(555)123-4567"
+              maxlength="13"
+              inputmode="numeric"
+              autocomplete="tel"
+              required
+            />
           </div>
 
           <div class="field">
@@ -503,19 +504,19 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-rQvmTxtWMH-JFJGOmDmDvEm9MWOVIz2PqJrr4Fu7aeym23usFf23O8KkHBJAm2U_/exec";
 
     const form = document.getElementById("playerForm");
-const eventType = document.getElementById("eventType");
-const doublesPartnerField = document.getElementById("doublesPartnerField");
-const doublesPartnerName = document.getElementById("doublesPartnerName");
-const needPartner = document.getElementById("needPartner");
-const phoneNumber = document.getElementById("phoneNumber");
-const ustaRating = document.getElementById("ustaRating");
-const backgroundField = document.getElementById("backgroundField");
-const tennisBackground = document.getElementById("tennisBackground");
-const submitBtn = document.getElementById("submitBtn");
-const loadingWrap = document.getElementById("loadingWrap");
-const thinkingBar = document.getElementById("thinkingBar");
-const statusMessage = document.getElementById("statusMessage");
-const successBox = document.getElementById("successBox");
+    const eventType = document.getElementById("eventType");
+    const doublesPartnerField = document.getElementById("doublesPartnerField");
+    const doublesPartnerName = document.getElementById("doublesPartnerName");
+    const needPartner = document.getElementById("needPartner");
+    const phoneNumber = document.getElementById("phoneNumber");
+    const ustaRating = document.getElementById("ustaRating");
+    const backgroundField = document.getElementById("backgroundField");
+    const tennisBackground = document.getElementById("tennisBackground");
+    const submitBtn = document.getElementById("submitBtn");
+    const loadingWrap = document.getElementById("loadingWrap");
+    const thinkingBar = document.getElementById("thinkingBar");
+    const statusMessage = document.getElementById("statusMessage");
+    const successBox = document.getElementById("successBox");
 
     function toggleDoublesField() {
       const showDoubles =
@@ -542,86 +543,125 @@ const successBox = document.getElementById("successBox");
       }
     }
 
-  function formatPhoneNumber(value) {
-  let digits = value.replace(/\D/g, "").slice(0, 10);
+    function formatPhoneNumber(value) {
+      const digits = value.replace(/\D/g, "").slice(0, 10);
 
-  let formatted = "";
+      if (digits.length === 0) return "(";
+      if (digits.length <= 3) return "(" + digits;
+      if (digits.length <= 6) return "(" + digits.slice(0, 3) + ")" + digits.slice(3);
+      return "(" + digits.slice(0, 3) + ")" + digits.slice(3, 6) + "-" + digits.slice(6);
+    }
 
-  if (digits.length > 0) {
-    formatted += "(" + digits.substring(0, 3);
-  }
+    function toggleBackgroundField() {
+      if (ustaRating.value === "Unknown") {
+        backgroundField.classList.remove("hidden");
+        tennisBackground.required = true;
+      } else {
+        backgroundField.classList.add("hidden");
+        tennisBackground.required = false;
+        tennisBackground.value = "";
+      }
+    }
 
-  if (digits.length >= 4) {
-    formatted += ")" + digits.substring(3, 6);
-  }
+    function setLoadingState(isLoading) {
+      submitBtn.disabled = isLoading;
+      loadingWrap.classList.toggle("active", isLoading);
+      thinkingBar.classList.toggle("active", isLoading);
 
-  if (digits.length >= 7) {
-    formatted += "-" + digits.substring(6, 10);
-  }
+      if (isLoading) {
+        statusMessage.textContent = "";
+        statusMessage.className = "status";
+        successBox.classList.remove("show");
+      }
+    }
 
-  return formatted;
-}
+    function validateForm() {
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+      }
 
-function toggleBackgroundField() {
-  if (ustaRating.value === "Unknown") {
-    backgroundField.classList.remove("hidden");
-    tennisBackground.required = true;
-  } else {
-    backgroundField.classList.add("hidden");
-    tennisBackground.required = false;
-    tennisBackground.value = "";
-  }
-}
+      const showDoubles =
+        eventType.value === "Doubles" ||
+        eventType.value === "Singles and Doubles";
 
-function setLoadingState(isLoading) {
-  submitBtn.disabled = isLoading;
-  loadingWrap.classList.toggle("active", isLoading);
-  thinkingBar.classList.toggle("active", isLoading);
+      if (showDoubles && !needPartner.checked && !doublesPartnerName.value.trim()) {
+        doublesPartnerName.focus();
+        statusMessage.textContent = "Please enter your doubles partner's name or check that you need a partner.";
+        statusMessage.className = "status error";
+        return false;
+      }
 
-  if (isLoading) {
-    statusMessage.textContent = "";
-    statusMessage.className = "status";
-    successBox.classList.remove("show");
-  }
-}
+      if (!/^\(\d{3}\)\d{3}-\d{4}$/.test(phoneNumber.value.trim())) {
+        phoneNumber.focus();
+        statusMessage.textContent = "Please enter the phone number in this format: (###)###-####";
+        statusMessage.className = "status error";
+        return false;
+      }
 
-function validateForm() {
-  if (!form.checkValidity()) {
-    form.reportValidity();
-    return false;
-  }
+      if (ustaRating.value === "Unknown" && !tennisBackground.value.trim()) {
+        tennisBackground.focus();
+        statusMessage.textContent = "Please tell us about your tennis background.";
+        statusMessage.className = "status error";
+        return false;
+      }
 
-  const showDoubles =
-    eventType.value === "Doubles" ||
-    eventType.value === "Singles and Doubles";
-
-  if (showDoubles && !needPartner.checked && !doublesPartnerName.value.trim()) {
-    doublesPartnerName.focus();
-    statusMessage.textContent = "Please enter your doubles partner's name or check that you need a partner.";
-    statusMessage.className = "status error";
-    return false;
-  }
-
-  if (!/^\(\d{3}\)\d{3}-\d{4}$/.test(phoneNumber.value.trim())) {
-    phoneNumber.focus();
-    statusMessage.textContent = "Please enter the phone number in this format: (###)###-####";
-    statusMessage.className = "status error";
-    return false;
-  }
-
-  if (ustaRating.value === "Unknown" && !tennisBackground.value.trim()) {
-    tennisBackground.focus();
-    statusMessage.textContent = "Please tell us about your tennis background.";
-    statusMessage.className = "status error";
-    return false;
-  }
-
-  return true;
-}
+      return true;
+    }
 
     eventType.addEventListener("change", toggleDoublesField);
     needPartner.addEventListener("change", togglePartnerInputState);
     ustaRating.addEventListener("change", toggleBackgroundField);
+
+    phoneNumber.addEventListener("focus", () => {
+      if (phoneNumber.value.trim() === "") {
+        phoneNumber.value = "(";
+      }
+    });
+
+    phoneNumber.addEventListener("input", (e) => {
+      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+      e.target.value = formatPhoneNumber(digits);
+    });
+
+    phoneNumber.addEventListener("keydown", (e) => {
+      const allowedKeys = [
+        "Backspace",
+        "Delete",
+        "Tab",
+        "Escape",
+        "Enter",
+        "ArrowLeft",
+        "ArrowRight",
+        "Home",
+        "End"
+      ];
+
+      if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) {
+        return;
+      }
+
+      if (!/^\d$/.test(e.key)) {
+        e.preventDefault();
+        return;
+      }
+
+      const digits = phoneNumber.value.replace(/\D/g, "");
+      const selectionStart = phoneNumber.selectionStart;
+      const selectionEnd = phoneNumber.selectionEnd;
+      const selectedText = phoneNumber.value.slice(selectionStart, selectionEnd);
+      const selectedDigitsCount = (selectedText.match(/\d/g) || []).length;
+
+      if ((digits.length - selectedDigitsCount) >= 10) {
+        e.preventDefault();
+      }
+    });
+
+    phoneNumber.addEventListener("blur", () => {
+      if (phoneNumber.value === "(") {
+        phoneNumber.value = "";
+      }
+    });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
