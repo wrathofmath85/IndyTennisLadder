@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Indy Tennis Ladder — Rankings</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#11161f; --muted:#8ea0b4; --text:#e9eef5; --rule:#253043;
+    --accent:#5dd0ff; --accent-ink:#052c3a; --ok:#3bd37f; --bad:#ff6b6b;
+    --chip:#1a2332; --chipBorder:#2a364a; --chipBlue:#173049; --chipBlueBorder:#284564;
+    --chipPurple:#251e42; --chipPurpleBorder:#3b2f6a; --shadow: 0 20px 60px rgba(0,0,0,.45);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
+  body{ margin:24px; display:flex; justify-content:center; }
+  .wrap{ width:100%; max-width:1100px; }
+
+  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule);
+    border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
+
+  .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
+  .round-select{ appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px;
+    background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
+  .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
+
+  .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:auto; -webkit-overflow-scrolling:touch; }
+  table{ width:100%; min-width:980px; border-collapse:collapse; font-size:14px; table-layout:auto; }
+  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule);
+    padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); white-space:nowrap; }
+  tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:middle; white-space:nowrap; }
+  tbody tr:hover{ background:#0e1420;}
+
+  /* left/right rank+points columns */
+  .rp{ width:210px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rp .sub{ display:block; margin-top:4px; font-size:12px; color:var(--muted); font-weight:600; }
+  .rp.right{ width:230px; }
+
+  .name{ font-weight:700; }
+  .phone{ display:block; margin-top:4px; font-weight:600; font-size:12px; color:var(--muted); letter-spacing:.2px; }
+
+  /* mobile head line (rank + name + (round pts)) */
+  .m-head{ display:none; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .m-rank{ font-weight:900; font-variant-numeric: tabular-nums; color:#cdd8e6; flex:0 0 auto; }
+  .m-name{ font-weight:900; color:#e9eef5; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-pts{
+    font-size:12px; font-weight:800; color:#cdd8e6;
+    padding:2px 8px; border-radius:999px;
+    background:#101827; border:1px solid #253043;
+    white-space:nowrap;
+  }
+  .m-pts b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
+
+  .result{ font-weight:600; }
+  .won{ color:var(--ok); }
+  .lost{ color:var(--bad); }
+
+  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4; }
+
+  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
+    background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; flex:0 0 auto; }
+  .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
+  .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
+
+  .winner-pts, .loser-pts{ display:inline-flex; align-items:center; gap:6px; margin-left:10px; padding:2px 8px;
+    border-radius:999px; font-size:12px; cursor:pointer; user-select:none; position:relative; z-index:3; pointer-events:auto; white-space:nowrap; }
+  .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
+  .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
+  .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+
+  .matches{ white-space:nowrap; min-width:520px; }
+  .match-line{ display:flex; align-items:center; gap:8px; min-height:26px; }
+  .match-line.empty{ opacity:.0; }
+
+  .repeat-opp{ background:#fff200; color:#000; padding:1px 6px; border-radius:8px; font-weight:900; box-shadow:0 0 0 1px rgba(0,0,0,.35) inset; }
+
+  .m-stats{ display:none; margin-top:10px; padding-top:10px; border-top:1px dashed #23324a; color:var(--muted);
+    font-size:13px; white-space:nowrap; gap:14px; align-items:center; }
+  .m-stats b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
+
+  .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:10000; }
+  .backdrop.show{ opacity:1; pointer-events:auto; }
+  .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule);
+    border-radius:16px; box-shadow:var(--shadow); width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease; z-index:10001; }
+  .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule);
+    background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
+  .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
+  .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px;
+    font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
+  .modal-body{ padding:16px; color:#d2deee; }
+  .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
+  .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
+
+  .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
+
+  @media (max-width:720px){
+    thead{ display:none; }
+    table,tbody,tr,td{ display:block; width:100%; min-width:0; }
+    .panel{ overflow:visible; }
+    tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; }
+    tbody tr:hover{ background:transparent; }
+    tbody td{ border:0; padding:6px 0; white-space:normal; }
+
+    .rp-left{ display:none; }     /* hide left rank/pts column on mobile */
+    .rp-right{ display:none; }    /* hide right rank/pts column on mobile */
+
+    .m-head{ display:flex; }
+    .name{ display:none; }
+    .matches{ order:2; min-width:0; }
+
+    /* Mobile: abbreviate Scheduled/Challenge badges to S/C */
+    .badge-scheduled{ padding:2px 7px; }
+    .badge-challenge{ padding:2px 7px; }
+
+    .m-stats{ display:flex; }
+    .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
+    .match-line.empty{ display:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Indy Tennis Ladder</h1>
+        <select id="roundSelect" class="round-select" aria-label="Select round"></select>
+      </div>
+      <div class="meta" id="roundMeta"></div>
+    </header>
+
+    <div class="panel">
+      <div class="loading" id="status">Loading data…</div>
+      <table id="ladder" style="display:none;">
+        <thead>
+          <tr>
+            <th class="rp" id="thLeft">Round 1 Ranking - Points</th>
+            <th>Participant</th>
+            <th class="matches">Result</th>
+            <th class="rp right" id="thRight">Round 2 Ranking - Points</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">Tip: you can also use <code>?round=2</code> while testing.</div>
+  </div>
+
+  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Info</div>
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+
+<script>
+/* ===== CONFIG ===== */
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
+let CurrentRound = 1;
+
+const CSV = {
+  Players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv',
+  Schedule: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv',
+  Dates: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=838168726&single=true&output=csv',
+  ScoresRound1: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1813586077&single=true&output=csv',
+  ScoresRound2: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=667416587&single=true&output=csv',
+  ScoresRound3: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1340896382&single=true&output=csv',
+  ScoresRound4: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1779797386&single=true&output=csv',
+  ScoresRound5: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1138515130&single=true&output=csv',
+  ScoresRound6: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=2117392535&single=true&output=csv',
+  ScoresRound7: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=454354939&single=true&output=csv',
+  ScoresRound8: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1429948565&single=true&output=csv',
+  ScoresRound9: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=656808017&single=true&output=csv',
+  ScoresRound10:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1886048839&single=true&output=csv'
+};
+
+let ROUND = 1;
+
+/* ===== helpers ===== */
+function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(url,{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
+const nameKey = s => String(s||'').trim().toLowerCase();
+const num = v => (v===null||v===undefined||v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
+const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
+const fmt = v => (v===undefined||v===null) ? '' : String(v);
+const round2 = x => Math.round((Number(x)+Number.EPSILON)*100)/100;
+const fmtPts = v => (v===undefined||v===null||v==='') ? '' : (isNaN(Number(v)) ? '' : round2(v).toFixed(2));
+
+function fmtDateRange(startRaw, endRaw){
+  const parse = (val)=>{ if(val===''||val==null) return null;
+    if(/^\d+(\.\d+)?$/.test(String(val))){ const d=Number(val); const base=new Date(Date.UTC(1899,11,30)); return new Date(base.getTime()+d*86400000); }
+    const d=new Date(val); return isNaN(d)?null:d; };
+  const s=parse(startRaw), e=parse(endRaw);
+  const nice = d => d.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+  if(s&&e) return `${nice(s)} – ${nice(e)}`; if(s) return nice(s); if(e) return nice(e);
+  return [fmt(startRaw),fmt(endRaw)].filter(Boolean).join(' – ');
+}
+
+function setStatus(msg,isError=false){ const st=document.getElementById('status'); st.textContent=msg; st.className=isError?'error':'loading'; }
+async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
+function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
+
+/* rank/points column helpers */
+function colRank(r){ return `R${r}Rank`; }
+function colPts(r){ return `R${r}Pts`; }
+function readPts(row, r){
+  return num(
+    row[colPts(r)] ??
+    row[`R${r}CPts`] ??
+    row[`R${r}Points`] ??
+    row[`R${r}CPoints`]
+  );
+}
+function readRank(row, r){
+  return num(row[colRank(r)]);
+}
+
+/* score text (for display only) */
+function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
+function formatThirdEntry(row, perspective){
+  if (!hasThirdSetTB(row)){
+    const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
+    if (W3 === '' && O3 === '') return '';
+    return perspective === 'winner' ? `${W3}-${O3}` : `${O3}-${W3}`;
+  }
+  const a = fmt(row.TB_W), b = fmt(row.TB_O);
+  if (a === '' && b === '') return '';
+  return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
+}
+function statusText(row){ return String(row.Status||row.STATUS||'').trim(); }
+function isWalkoverStatus(row){ const s=statusText(row).toLowerCase(); return s==='walkover'||s==='wo'||s==='w/o'||s.includes('walkover'); }
+function isRetiredStatus(row){ const s=statusText(row).toLowerCase(); return s==='retired'||s==='ret'||s.includes('retired'); }
+function resultString(row, perspective, beginRankByName){
+  const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
+  const wRank = beginRankByName[nameKey(winner)] || '?';
+  const oRank = beginRankByName[nameKey(opponent)] || '?';
+  const walkover = isWalkoverStatus(row), retired = isRetiredStatus(row);
+  let scorePart;
+  if (walkover){ scorePart='walkover'; }
+  else{
+    const W1=fmt(row.S1_W), O1=fmt(row.S1_O);
+    const W2=fmt(row.S2_W), O2=fmt(row.S2_O);
+    const set1=`${W1}-${O1}`, set2=`${W2}-${O2}`, set3=formatThirdEntry(row, perspective);
+    scorePart = (perspective==='winner')
+      ? `${set1} ${set2}${set3}` : `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row,'opponent')}`;
+    if (retired) scorePart += ' Ret';
+  }
+  return (perspective==='winner')
+    ? `Beat #${oRank} ${opponent} ${scorePart}`
+    : `Lost to #${wRank} ${winner} ${scorePart}`;
+}
+
+/* games summary (for modal explanation only) */
+function parseGameTotals(row){
+  if ('GamesWon' in row && 'GamesLost' in row){
+    const w = safeNum(row.GamesWon), o = safeNum(row.GamesLost);
+    return { wGames:w, oGames:o, diff: Math.max(0, w - o) };
+  }
+  const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
+  const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
+  const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
+  const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
+  let wGames = W1 + W2, oGames = O1 + O2;
+  if (hasThirdSetTB(row)){
+    if (TBW > TBO){ wGames += 1; } else if (TBO > TBW){ oGames += 1; }
+  } else if (W3 !== 0 || O3 !== 0){
+    wGames += W3; oGames += O3;
+  }
+  return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
+}
+
+/* recent-opponent highlight */
+let RECENT_OPP_CACHE_ROUND=null, RECENT_OPP_BY_PLAYER=new Map();
+async function buildRecentOpponentsForCurrentRound(){
+  if (RECENT_OPP_CACHE_ROUND === CurrentRound) return;
+  RECENT_OPP_BY_PLAYER = new Map(); RECENT_OPP_CACHE_ROUND = CurrentRound;
+  const start=Math.max(1,CurrentRound-3), end=CurrentRound-1; if(end<1) return;
+  const urls=[]; for(let r=start;r<=end;r++) urls.push(CSV[`ScoresRound${r}`]);
+  try{
+    const rounds = await Promise.all(urls.filter(Boolean).map(loadCSV));
+    rounds.flat().forEach(row=>{
+      const t=String(row.MatchType||'').trim(); if(t!=='Scheduled'&&t!=='Challenge') return;
+      const w=fmt(row.Winner), o=fmt(row.Opponent); if(!w||!o) return;
+      const wk=nameKey(w), ok=nameKey(o);
+      if(!RECENT_OPP_BY_PLAYER.has(wk)) RECENT_OPP_BY_PLAYER.set(wk,new Set());
+      if(!RECENT_OPP_BY_PLAYER.has(ok)) RECENT_OPP_BY_PLAYER.set(ok,new Set());
+      RECENT_OPP_BY_PLAYER.get(wk).add(ok); RECENT_OPP_BY_PLAYER.get(ok).add(wk);
+    });
+  }catch{}
+}
+function hasPlayedRecently(playerName, oppName){
+  const set=RECENT_OPP_BY_PLAYER.get(nameKey(playerName)); return !!(set && set.has(nameKey(oppName)));
+}
+function appendTextWithHighlight(container, fullText, oppName, hi){
+  if (!hi || !oppName){ container.textContent = fullText; return; }
+  const hay=String(fullText||''), needle=String(oppName||'');
+  const i=hay.toLowerCase().indexOf(needle.toLowerCase());
+  if(i<0){ container.textContent=fullText; return; }
+  const before=hay.slice(0,i), match=hay.slice(i,i+needle.length), after=hay.slice(i+needle.length);
+  container.textContent=''; if(before) container.appendChild(document.createTextNode(before));
+  const span=document.createElement('span'); span.className='repeat-opp'; span.textContent=match; container.appendChild(span);
+  if(after) container.appendChild(document.createTextNode(after));
+}
+
+/* ===== core ===== */
+async function init(round){
+  ROUND = round;
+
+  // headings
+  document.getElementById('thLeft').textContent  = `Round ${ROUND} Ranking - Points`;
+  document.getElementById('thRight').textContent = `Round ${ROUND+1} Ranking - Points`;
+
+  const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
+  const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
+
+  try{
+    setStatus('Loading data…'); document.getElementById('ladder').style.display='none'; document.getElementById('status').style.display='';
+
+    if (ROUND === CurrentRound) await buildRecentOpponentsForCurrentRound();
+
+    const roundKey = `ScoresRound${ROUND}`;
+    const [playersRaw, scoresRawAll, scheduleRaw, datesRaw] = await Promise.all([
+      loadCSV(CSV.Players), loadCSV(CSV[roundKey]), loadCSV(CSV.Schedule), loadCSV(CSV.Dates)
+    ]);
+
+    /* meta */
+    const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
+    if (roundRow){
+      const meta=document.getElementById('roundMeta'); meta.textContent='';
+      const a=document.createElement('span'); a.textContent = fmtDateRange(roundRow.Start, roundRow.End) || ''; meta.appendChild(a);
+      const type=fmt(roundRow.Type); if(type){ const dot=document.createElement('span'); dot.className='dot'; dot.textContent=type; meta.appendChild(dot); }
+    }
+
+    /* phones + active filter */
+    const phoneByName = {};
+    const activePlayersRaw = (playersRaw||[]).filter(r=>{
+      const start=num(r.RStart), end=num(r.REnd), rr=Number(ROUND);
+      return (isNaN(start)||start<=rr) && (isNaN(end)||end>=rr);
+    }).map(r=>{
+      phoneByName[nameKey(fmt(r.Participant))] = fmt(r.PHONE||r.Phone||r.phone);
+      return r;
+    });
+
+    /* ranks & points from Players (left = round x, right = round x+1) */
+    const players = activePlayersRaw
+      .map(r => ({
+        Participant: fmt(r.Participant),
+
+        LeftRank:  readRank(r, ROUND),
+        LeftPts:   readPts(r, ROUND),
+
+        RightRank: readRank(r, ROUND+1),
+        RightPts:  readPts(r, ROUND+1),
+      }))
+      .filter(p => !isNaN(p.LeftRank) && p.LeftRank > 0)
+      .sort((a,b)=>a.LeftRank-b.LeftRank);
+
+    const beginRankByName = {}, nameByBeginRank = {};
+    players.forEach(p => {
+      beginRankByName[nameKey(p.Participant)] = p.LeftRank;
+      nameByBeginRank[p.LeftRank] = p.Participant;
+    });
+
+    /* schedule map */
+    const scheduleCol = `Round ${ROUND}`;
+    const scheduleMap = {};
+    (scheduleRaw||[]).forEach(r=>{
+      const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]);
+      if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp;
+    });
+
+    /* scores (for result text + modal info; points read directly from CSV) */
+    const scoresRaw = (scoresRawAll||[]).filter(r => { const rr=Number(r.Round); return isNaN(rr) || rr===Number(ROUND); });
+
+    const scheduled = new Map();   // nameKey -> matchObj
+    const challenges = new Map();  // nameKey -> [matchObj, matchObj]
+    const pushChallenge = (k,m)=>{ const arr=challenges.get(k)||[]; if(arr.length<2){arr.push(m);challenges.set(k,arr);} };
+
+    scoresRaw.forEach(r=>{
+      const type=String(r.MatchType||'').trim(); if(type!=='Scheduled' && type!=='Challenge') return;
+      const winner=fmt(r.Winner), opponent=fmt(r.Opponent); if(!winner||!opponent) return;
+      const wKey=nameKey(winner), oKey=nameKey(opponent);
+      const wRank=beginRankByName[wKey], oRank=beginRankByName[oKey];
+
+      const { wGames, oGames, diff } = parseGameTotals(r);
+      const upset = String(r.Upset||'').toUpperCase() === 'YES' ? 'YES' : 'NO';
+
+      const winObj = {
+        text: resultString(r,'winner', beginRankByName),
+        isLoss:false, row:r, wRank, oRank, type,
+        gw:wGames, gl:oGames, gdiff:diff, upset,
+        points: fmtPts(r.WinPoints)
+      };
+      const loseObj = {
+        text: resultString(r,'opponent', beginRankByName),
+        isLoss:true, row:r, wRank:oRank, oRank:wRank, type,
+        gw:oGames, gl:wGames, gdiff:Math.max(0,oGames-wGames), upset:'NO',
+        points: fmtPts(r.LosePoints)
+      };
+
+      if (type==='Scheduled'){ scheduled.set(wKey,winObj); scheduled.set(oKey,loseObj); }
+      else { pushChallenge(wKey,winObj); pushChallenge(oKey,loseObj); }
+    });
+
+    /* table build */
+    const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+
+    function makeParticipantCell(playerName, leftRank, leftPts){
+      const wrap=document.createElement('div');
+
+      const mHead=document.createElement('div'); mHead.className='m-head';
+      const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${leftRank}`;
+      const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=playerName||'';
+      mHead.appendChild(mRank); mHead.appendChild(mName);
+
+      // Mobile: Round X points right after player name
+      const ptsTxt = (!isNaN(leftPts)) ? fmtPts(leftPts) : '—';
+      const mPts=document.createElement('span'); mPts.className='m-pts';
+      mPts.innerHTML = `R${ROUND} <b>${ptsTxt}</b> pts`;
+      mHead.appendChild(mPts);
+
+      wrap.appendChild(mHead);
+
+      const nameEl=document.createElement('div'); nameEl.className='name'; nameEl.textContent=playerName||''; wrap.appendChild(nameEl);
+      const ph=phoneByName[nameKey(playerName)]||''; const phoneEl=document.createElement('span'); phoneEl.className='phone';
+      phoneEl.textContent=ph?ph:'(no phone)'; wrap.appendChild(phoneEl);
+      return wrap;
+    }
+
+    function appendPointsPill(container, matchObj, chalDiv){
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className = matchObj.isLoss ? 'loser-pts' : 'winner-pts';
+      btn.setAttribute('data-role', matchObj.isLoss ? 'loser' : 'winner');
+      btn.setAttribute('data-points', matchObj.points || '');
+      btn.setAttribute('data-upset', matchObj.upset || 'NO');
+      btn.setAttribute('data-gw', String(matchObj.gw||0));
+      btn.setAttribute('data-gl', String(matchObj.gl||0));
+      btn.setAttribute('data-gdiff', String(matchObj.gdiff||0));
+      btn.setAttribute('data-wrank', String(matchObj.wRank||''));
+      btn.setAttribute('data-orank', String(matchObj.oRank||''));
+      if (chalDiv) btn.setAttribute('data-chaldiv', String(chalDiv));
+      btn.innerHTML = `<b>${matchObj.points || ''}</b> pts`;
+      container.appendChild(btn);
+    }
+
+    players.forEach(p=>{
+      const tr=document.createElement('tr');
+      const meKey=nameKey(p.Participant);
+
+      /* col 1: Round X Ranking - Points */
+      const tdLeft=document.createElement('td');
+      tdLeft.className='rp rp-left';
+      tdLeft.innerHTML = `#${p.LeftRank}${(!isNaN(p.LeftPts) ? `<span class="sub">${fmtPts(p.LeftPts)} pts</span>` : `<span class="sub"> </span>`)}`;
+      tr.appendChild(tdLeft);
+
+      /* col 2: participant */
+      const tdName=document.createElement('td');
+      tdName.appendChild(makeParticipantCell(p.Participant, p.LeftRank, p.LeftPts));
+      tr.appendChild(tdName);
+
+      /* col 3: results */
+      const tdRes=document.createElement('td'); tdRes.className='matches';
+
+      const hasScheduledPlayed = scheduled.has(meKey);
+
+      // scheduled line
+      const schedLine=document.createElement('div'); schedLine.className='match-line';
+      const sr=scheduled.get(meKey);
+
+      let scheduledOppName='';
+      if(sr){ scheduledOppName = sr.isLoss ? fmt(sr.row.Winner) : fmt(sr.row.Opponent); }
+      else {
+        const oppRank=scheduleMap[p.LeftRank]; scheduledOppName = oppRank ? (nameByBeginRank[oppRank]||'') : '';
+      }
+      const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(p.Participant, scheduledOppName);
+
+      if(sr){
+        // Mobile: use S instead of Scheduled
+        const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
+        const span=document.createElement('span'); span.className='result ' + (sr.isLoss?'lost':'won');
+        appendTextWithHighlight(span, sr.text, scheduledOppName, shouldHi);
+        schedLine.appendChild(span);
+        if (sr.points) appendPointsPill(schedLine, sr, null); // scheduled uses no divisor
+      }else{
+        const oppRank=scheduleMap[p.LeftRank];
+        if(oppRank){
+          const oppName=nameByBeginRank[oppRank]||'';
+          const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
+          const pre=document.createElement('span'); pre.textContent=`#${oppRank} `; schedLine.appendChild(pre);
+          const nameSpan=document.createElement('span'); if(shouldHi) nameSpan.className='repeat-opp'; nameSpan.textContent=oppName; schedLine.appendChild(nameSpan);
+        }else{
+          schedLine.classList.add('empty'); schedLine.innerHTML='&nbsp;';
+        }
+      }
+      tdRes.appendChild(schedLine);
+
+      // challenge lines (add divisor explanation: 2 if scheduled played, else 4)
+      const myChals=challenges.get(meKey)||[];
+      for(let i=0;i<2;i++){
+        const line=document.createElement('div'); line.className='match-line';
+        const cr=myChals[i];
+        if(cr){
+          // Mobile: use C instead of Challenge
+          const pill=document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='C'; line.appendChild(pill);
+          const span=document.createElement('span'); span.className='result ' + (cr.isLoss?'lost':'won'); span.textContent=cr.text; line.appendChild(span);
+          const chalDiv = hasScheduledPlayed ? 2 : 4; // explanation only
+          if (cr.points) appendPointsPill(line, cr, chalDiv);
+        }else{
+          line.classList.add('empty'); line.innerHTML='&nbsp;';
+        }
+        tdRes.appendChild(line);
+      }
+
+      // Mobile bottom row: ONLY Round X+1 rank and points
+      const mStats=document.createElement('div'); mStats.className='m-stats';
+      const rightRankTxt = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '—';
+      const rightPtsTxt  = (!isNaN(p.RightPts)) ? fmtPts(p.RightPts) : '—';
+      mStats.innerHTML = `R${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
+      tdRes.appendChild(mStats);
+
+      tr.appendChild(tdRes);
+
+      /* col 4: Round X+1 Ranking - Points */
+      const tdRight=document.createElement('td');
+      tdRight.className='rp right rp-right';
+
+      const rankText = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '';
+      const ptsText  = (!isNaN(p.RightPts)) ? `${fmtPts(p.RightPts)} pts` : '';
+      tdRight.innerHTML = `${rankText || '&nbsp;'}<span class="sub">${ptsText || '&nbsp;'}</span>`;
+      tr.appendChild(tdRight);
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('ladder').style.display=''; document.getElementById('status').style.display='none'; setStatus('');
+  }catch(err){
+    console.error(err);
+    setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
+  }
+}
+
+/* round picker */
+function buildRoundSelect(){
+  const sel=document.getElementById('roundSelect'); sel.innerHTML='';
+  for(let r=1;r<=CurrentRound;r++){ const opt=document.createElement('option'); opt.value=String(r); opt.textContent=`Round ${r}`; sel.appendChild(opt); }
+  sel.value=String(ROUND);
+  sel.addEventListener('change',()=>{ const r=parseInt(sel.value,10); if(!isNaN(r)&&r>=1&&r<=CurrentRound) init(r); });
+}
+
+/* modal – restored explanatory text (no in-page calculation of points) */
+const backdropEl=document.getElementById('backdrop'); const modalEl=document.getElementById('modal');
+const modalBody=document.getElementById('modalBody'); const modalTitle=document.getElementById('modalTitle');
+document.getElementById('modalClose').addEventListener('click', closeModal); backdropEl.addEventListener('click', closeModal);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+function openModal(title, html){ modalTitle.textContent=title||'Info'; modalBody.innerHTML=html; backdropEl.classList.add('show'); modalEl.classList.add('show'); document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden'; }
+function closeModal(){ modalEl.classList.remove('show'); backdropEl.classList.remove('show'); document.documentElement.style.overflow=''; document.body.style.overflow=''; }
+
+function handlePointsClick(e){
+  const loserBtn = e.target.closest('.loser-pts');
+  const winnerBtn = e.target.closest('.winner-pts');
+  if (!loserBtn && !winnerBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (loserBtn){
+    const pts = loserBtn.getAttribute('data-points') || '';
+    const gw = loserBtn.getAttribute('data-gw') || '0';
+    const div = loserBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+
+    const html = `
+      <p><strong>Points (from CSV):</strong> ${pts}</p>
+      <p><strong>Total games won:</strong> ${gw}</p>
+      ${isChallenge ? `
+        <p><strong>Challenge divisor used:</strong> ${div}</p>
+        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+      ` : ''}
+      <p class="tip">Loser points are equal to games won (capped at 10). Values shown here are read directly from <em>LosePoints</em> in the Scores CSV.</p>
+    `;
+    openModal('Loser Points', html);
+    return;
+  }
+
+  if (winnerBtn){
+    const pts = winnerBtn.getAttribute('data-points') || '';
+    const upset = (winnerBtn.getAttribute('data-upset') || 'NO').toUpperCase();
+    const gw = winnerBtn.getAttribute('data-gw') || '0';
+    const gl = winnerBtn.getAttribute('data-gl') || '0';
+    const gd = winnerBtn.getAttribute('data-gdiff') || '0';
+    const wr = winnerBtn.getAttribute('data-wrank') || '';
+    const orr = winnerBtn.getAttribute('data-orank') || '';
+    const rdiff = (wr && orr) ? Math.abs(Number(wr)-Number(orr)) : '';
+    const div = winnerBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+
+    const topAlert = (upset === 'YES') ? `<p><strong>UPSET ALERT!</strong></p>` : '';
+    const body = (upset === 'YES')
+      ? `
+        <p><strong>Points:</strong> ${pts}</p>
+        <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
+        <p><strong>Your Rank:</strong> ${wr}, <strong>Opponent Rank:</strong> ${orr}, <strong>Rank diff:</strong> ${rdiff}</p>
+        ${isChallenge ? `
+          <p><strong>Challenge divisor used:</strong> ${div}</p>
+          <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+        ` : ''}
+        <p class="tip">Upset winners are normally: <code>10 + (game diff × rank diff / 2)</code>, min 15, max 25.</p>
+      `
+      : `
+        <p><strong>Points:</strong> ${pts}</p>
+        <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Diff:</strong> ${gd}</p>
+        ${isChallenge ? `
+          <p><strong>Challenge divisor used:</strong> ${div}</p>
+          <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+        ` : ''}
+        <p class="tip">Non-upset winners are normally: <code>10 + (game diff)</code>, minimum 11.</p>
+      `;
+
+    openModal('Winner Points', `${topAlert}${body}`);
+  }
+}
+document.addEventListener('click', handlePointsClick, {capture:false});
+document.addEventListener('pointerup', handlePointsClick, {capture:false});
+
+/* boot */
+(async function boot(){
+  await fetchCurrentRound();
+  buildRoundSelect();
+  ROUND = computeRoundFromURL();
+  init(ROUND);
+})();
+</script>
+</body>
+</html>
