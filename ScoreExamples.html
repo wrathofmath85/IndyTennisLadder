@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Score Submission Guide — Indy Tennis Ladder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#0b0e14;
+    --panel:#11161f;
+    --card:#0f1521;
+    --card2:#0e1420;
+    --muted:#8ea0b4;
+    --text:#e9eef5;
+    --rule:#253043;
+    --accent:#5dd0ff;
+    --accent-ink:#052c3a;
+    --ok:#3bd37f;
+    --bad:#ff6b6b;
+    --warn:#f5a623;
+    --chip:#1a2332;
+    --chipBorder:#2a364a;
+    --chipBlue:#173049;
+    --chipBlueBorder:#284564;
+    --chipPurple:#251e42;
+    --chipPurpleBorder:#3b2f6a;
+    --shadow:0 20px 60px rgba(0,0,0,.5);
+    font-family:'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing:border-box; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    padding: 32px 24px 80px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .wrap { width: 100%; max-width: 900px; }
+
+  /* ── Header ── */
+  .site-header {
+    background: linear-gradient(180deg, #0f1521, #0d131e);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 28px 28px 22px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .site-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 800px 300px at 60% -40%, rgba(93,208,255,.07), transparent 70%);
+    pointer-events: none;
+  }
+  .site-header h1 {
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -.2px;
+  }
+  .site-header p {
+    color: var(--muted);
+    font-size: .95rem;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .82rem; font-weight: 600;
+    color: var(--accent); text-decoration: none;
+    margin-bottom: 16px;
+    opacity: .8;
+    transition: opacity .15s;
+  }
+  .back-link:hover { opacity: 1; }
+
+  /* ── TOC nav ── */
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 32px;
+  }
+  .toc a {
+    font-size: .8rem; font-weight: 700;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--chipBorder);
+    background: var(--chip);
+    color: var(--muted);
+    text-decoration: none;
+    transition: border-color .15s, color .15s;
+  }
+  .toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Example card ── */
+  .example {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    margin-bottom: 28px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+  }
+
+  .example-header {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(90deg, #0f1826, var(--panel));
+  }
+  .ex-number {
+    flex: 0 0 auto;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 900;
+    background: var(--accent); color: var(--accent-ink);
+    margin-top: 1px;
+  }
+  .ex-title-wrap {}
+  .ex-title {
+    font-size: 1.05rem; font-weight: 800;
+    margin: 0 0 4px;
+    letter-spacing: -.1px;
+  }
+  .ex-subtitle { color: var(--muted); font-size: .875rem; margin: 0; line-height: 1.4; }
+
+  /* badges in header */
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px; font-size: .75rem; font-weight: 700;
+    border: 1px solid var(--chipBorder); background: var(--chip); color: var(--muted);
+  }
+  .badge-scheduled { background: var(--chipBlue); border-color: var(--chipBlueBorder); color: #a8d4f5; }
+  .badge-challenge  { background: var(--chipPurple); border-color: var(--chipPurpleBorder); color: #c3aff5; }
+  .badge-completed  { background: #122b1e; border-color: #1e4a31; color: #3bd37f; }
+  .badge-retired    { background: #2b1f10; border-color: #4a3218; color: #f5a623; }
+  .badge-walkover   { background: #2b1016; border-color: #4a1820; color: #ff6b6b; }
+  .badge-tb         { background: #1a1f2e; border-color: #2e3650; color: #9ab0d4; }
+
+  /* ── Walkthrough steps ── */
+  .walkthrough {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .walkthrough-label {
+    font-size: .7rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); opacity: .7;
+    margin-bottom: 14px;
+  }
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px dashed #1a2840;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    flex: 0 0 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 900;
+    background: #1a2840; border: 1px solid #2a3f60;
+    color: var(--accent); margin-top: 1px;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-action {
+    font-weight: 700; font-size: .9rem; margin: 0 0 3px;
+  }
+  .step-detail {
+    color: var(--muted); font-size: .83rem; margin: 0; line-height: 1.45;
+  }
+  .step-detail code {
+    font-family: 'DM Mono', monospace;
+    background: #0e1829;
+    border: 1px solid #1e2f48;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: .8rem;
+    color: var(--accent);
+  }
+
+  /* ── Score visual ── */
+  .score-visual {
+    padding: 18px 22px 20px;
+  }
+  .score-visual-label {
+    font-size: .7rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: #3bd37f; opacity: .7;
+    margin-bottom: 14px;
+  }
+
+  .score-table {
+    background: var(--card2);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: .875rem;
+  }
+  .score-thead {
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: #101a2a;
+    padding: 8px 12px;
+    font-weight: 800; font-size: .8rem;
+    color: #b9c6d8;
+  }
+  .score-thead .sh-right { text-align: center; }
+  .score-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+    border-top: 1px solid #172033;
+    align-items: center;
+  }
+  .score-row:first-of-type { border-top: none; }
+  .score-row.tb-row { border-top: 1px dashed #1a2840; }
+
+  .player-cell { display: flex; align-items: center; gap: 8px; }
+  .player-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+  .player-dot.loser { background: #2a3f60; }
+  .player-name { font-weight: 700; }
+  .player-name.winner-name { color: var(--ok); }
+
+  .sets-cell {
+    display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+  }
+  .set-box {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: #0e1420;
+    font-weight: 700; font-size: .9rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .set-box.win  { border-color: #1e4a31; background: #0d2318; color: var(--ok); }
+  .set-box.lose { border-color: #2a364a; background: #0e1420; color: #5a7090; }
+  .set-box.tb   { border-color: #2e3650; background: #131c2e; color: #9ab0d4; font-size: .78rem; }
+  .set-box.blank{ border-color: #182030; background: #0c1018; color: #2a3a54; font-size: .75rem; }
+  .set-box.match-tb { border-color: #284c37; background: #0f2318; color: #5dd0a0; font-size: .8rem; }
+
+  .tb-label-cell { color: var(--muted); font-size: .8rem; font-style: italic; }
+
+  /* ── Result line ── */
+  .result-line {
+    padding: 12px 22px 14px;
+    background: #0d1320;
+    border-top: 1px solid var(--rule);
+    font-size: .88rem;
+  }
+  .result-label {
+    font-size: .68rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 5px; opacity: .6;
+  }
+  .result-text .rw { color: var(--ok); font-weight: 800; }
+  .result-text .rs { color: #b9c6d8; font-weight: 600; }
+  .result-text .rt { color: var(--muted); }
+
+  /* ── Note box ── */
+  .note-box {
+    margin: 14px 22px 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #101a2a;
+    border: 1px solid #1e3050;
+    border-left: 3px solid var(--accent);
+    font-size: .83rem;
+    color: #a8c4e0;
+    line-height: 1.5;
+  }
+  .note-box strong { color: var(--text); }
+
+  .note-warn {
+    border-left-color: var(--warn);
+    background: #1a1408;
+    border-color: #2e2410;
+    color: #d4b080;
+  }
+  .note-warn strong { color: #f5c060; }
+
+  /* ── Divider between examples ── */
+  .section-divider {
+    text-align: center;
+    color: #2a3a54;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin: 10px 0 28px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: #1a2840;
+  }
+
+  @media (max-width: 600px){
+    body { padding: 16px 12px 60px; }
+    .site-header { padding: 18px 16px; }
+    .example-header, .walkthrough, .score-visual, .result-line { padding-left: 14px; padding-right: 14px; }
+    .note-box { margin-left: 14px; margin-right: 14px; }
+    .set-box { width: 28px; height: 28px; font-size: .8rem; }
+    .score-thead, .score-row { padding-left: 10px; padding-right: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back-link" href="SubmitScores.html">← Back to Score Submission</a>
+
+  <header class="site-header">
+    <h1>Score Submission Guide</h1>
+    <p>Five common scenarios showing exactly how to fill out the score submission form. Find your situation below and follow the steps.</p>
+  </header>
+
+  <nav class="toc" aria-label="Examples">
+    <a href="#ex1">1 · Straight sets win</a>
+    <a href="#ex2">2 · Three-set win</a>
+    <a href="#ex3">3 · Match tiebreak</a>
+    <a href="#ex4">4 · Retired mid-match</a>
+    <a href="#ex5">5 · Walkover</a>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════
+       EXAMPLE 1 — Straight sets, no tiebreaks
+  ══════════════════════════════════════════════ -->
+  <section class="example" id="ex1">
+    <div class="example-header">
+      <div class="ex-number">1</div>
+      <div class="ex-title-wrap">
+        <h2 class="ex-title">Straight Sets Win</h2>
+        <p class="ex-subtitle">Winner takes both sets cleanly. The most common outcome.</p>
+        <div class="badge-row">
+          <span class="badge badge-scheduled">Scheduled</span>
+          <span class="badge badge-completed">Completed</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="walkthrough">
+      <div class="walkthrough-label">How to fill it out</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <p class="step-action">Match Type → Scheduled</p>
+            <p class="step-detail">This was your pre-assigned round matchup. Choose <code>Challenge</code> only if you arranged the match yourself.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <p class="step-action">Match Status → Completed</p>
+            <p class="step-detail">The match finished normally.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <p class="step-action">Winner → select the player who won</p>
+            <p class="step-detail">The scheduled opponent auto-fills below. You only pick the winner.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <p class="step-action">Enter S1 and S2 scores for each player</p>
+            <p class="step-detail">Use the dropdowns. In this example: winner won <code>6–3</code>, <code>6–1</code>. Leave S3 blank — the winner took two sets straight.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <p class="step-action">Leave Set tiebreak row empty</p>
+            <p class="step-detail">No set went to 7–6, so no tiebreak scores are needed.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <strong>Leave S3 completely blank</strong> when the match ends in two sets. Entering anything in S3 when the winner has already won two sets will cause a validation error.
+    </div>
+
+    <div class="score-visual" style="margin-top:14px;">
+      <div class="score-visual-label">What it looks like</div>
+      <div class="score-table">
+        <div class="score-thead">
+          <div>Player</div>
+          <div class="sh-right">S1 &nbsp; S2 &nbsp; S3</div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot"></div><span class="player-name winner-name">Player 1 (W)</span></div>
+          <div class="sets-cell">
+            <span class="set-box win">6</span>
+            <span class="set-box win">6</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot loser"></div><span class="player-name">Player 2</span></div>
+          <div class="sets-cell">
+            <span class="set-box lose">3</span>
+            <span class="set-box lose">1</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+        <div class="score-row tb-row">
+          <div class="tb-label-cell">Set tiebreak (loser's score)</div>
+          <div class="sets-cell">
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-line">
+      <div class="result-label">Preview line</div>
+      <div class="result-text"><span class="rw">Player 1</span> <span class="rs">def. Player 2 6–3, 6–1</span> <span class="rt">(Scheduled)</span></div>
+    </div>
+  </section>
+
+  <div class="section-divider">next example</div>
+
+  <!-- ══════════════════════════════════════════════
+       EXAMPLE 2 — Three full sets, set tiebreak in set 2
+  ══════════════════════════════════════════════ -->
+  <section class="example" id="ex2">
+    <div class="example-header">
+      <div class="ex-number">2</div>
+      <div class="ex-title-wrap">
+        <h2 class="ex-title">Three-Set Win with a Set Tiebreak</h2>
+        <p class="ex-subtitle">Each player wins one set, then a full third set decides it. One set went to 7–6 so a tiebreak score is needed.</p>
+        <div class="badge-row">
+          <span class="badge badge-scheduled">Scheduled</span>
+          <span class="badge badge-completed">Completed</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="walkthrough">
+      <div class="walkthrough-label">How to fill it out</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <p class="step-action">Match Type → Scheduled, Status → Completed</p>
+            <p class="step-detail">Standard completed match.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <p class="step-action">Leave the "match tiebreak" checkbox unchecked</p>
+            <p class="step-detail">This was a full third set, not a 10-point match tiebreak. The checkbox is only for super-tiebreaks.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <p class="step-action">Enter all three sets</p>
+            <p class="step-detail">Winner: <code>6</code> <code>6</code> <code>6</code> — Opponent: <code>3</code> <code>7</code> <code>2</code>. Split 1–1 after two sets, winner takes set 3.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <p class="step-action">Set 2 was 7–6 → enter the tiebreak loser's score in S2 TB</p>
+            <p class="step-detail">The loser of the set tiebreak scored <code>3</code>, so enter <code>3</code> in the S2 TB box. S1 TB and S3 TB stay blank (those sets weren't 7–6).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <strong>The tiebreak row records the loser's score only.</strong> If the tiebreak was 7–3, enter <code>3</code>. If it was 7–5, enter <code>5</code>. The TB boxes only unlock when the corresponding set is 7–6.
+    </div>
+
+    <div class="score-visual" style="margin-top:14px;">
+      <div class="score-visual-label">What it looks like</div>
+      <div class="score-table">
+        <div class="score-thead">
+          <div>Player</div>
+          <div class="sh-right">S1 &nbsp; S2 &nbsp; S3</div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot"></div><span class="player-name winner-name">Player 1 (W)</span></div>
+          <div class="sets-cell">
+            <span class="set-box win">6</span>
+            <span class="set-box lose">6</span>
+            <span class="set-box win">6</span>
+          </div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot loser"></div><span class="player-name">Player 2</span></div>
+          <div class="sets-cell">
+            <span class="set-box lose">3</span>
+            <span class="set-box win">7</span>
+            <span class="set-box lose">2</span>
+          </div>
+        </div>
+        <div class="score-row tb-row">
+          <div class="tb-label-cell">Set tiebreak (loser's score)</div>
+          <div class="sets-cell">
+            <span class="set-box blank">—</span>
+            <span class="set-box tb">3</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-line">
+      <div class="result-label">Preview line</div>
+      <div class="result-text"><span class="rw">Player 1</span> <span class="rs">def. Player 2 6–3, 6–7, 6–2</span> <span class="rt">(Scheduled)</span></div>
+    </div>
+  </section>
+
+  <div class="section-divider">next example</div>
+
+  <!-- ══════════════════════════════════════════════
+       EXAMPLE 3 — Match tiebreak (super tiebreak)
+  ══════════════════════════════════════════════ -->
+  <section class="example" id="ex3">
+    <div class="example-header">
+      <div class="ex-number">3</div>
+      <div class="ex-title-wrap">
+        <h2 class="ex-title">Match Tiebreak (10-Point Super Tiebreak)</h2>
+        <p class="ex-subtitle">Instead of a full third set, the match is decided by a 10-point tiebreak. Common in challenge matches.</p>
+        <div class="badge-row">
+          <span class="badge badge-challenge">Challenge</span>
+          <span class="badge badge-completed">Completed</span>
+          <span class="badge badge-tb">Match TB</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="walkthrough">
+      <div class="walkthrough-label">How to fill it out</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <p class="step-action">Match Type → Challenge</p>
+            <p class="step-detail">This match was arranged outside the scheduled pairings.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <p class="step-action">Check "Use 10-point match tiebreak instead of full third set"</p>
+            <p class="step-detail">This switches the S3 column to accept a freeform number (not limited to 0–7) and hides the set tiebreak row for S3.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <p class="step-action">Enter S1 and S2 scores as normal</p>
+            <p class="step-detail">Winner: <code>6</code> <code>7</code> — Opponent: <code>6</code> <code>5</code>. S2 was 7–5 (not a tiebreak set).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <p class="step-action">Enter match tiebreak scores in the S3 boxes</p>
+            <p class="step-detail">Winner scored <code>10</code>, loser scored <code>6</code> — enter those in the S3 column. Must win by 2, minimum 10 points.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <strong>The match tiebreak winner must have at least 10 points and win by 2.</strong> Valid examples: 10–6, 10–8, 12–10, 15–13. The "Set tiebreak" row is hidden for S3 when the match tiebreak checkbox is on.
+    </div>
+
+    <div class="score-visual" style="margin-top:14px;">
+      <div class="score-visual-label">What it looks like (Match TB mode)</div>
+      <div class="score-table">
+        <div class="score-thead">
+          <div>Player</div>
+          <div class="sh-right">S1 &nbsp; S2 &nbsp; Match TB</div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot"></div><span class="player-name winner-name">Player 1 (W)</span></div>
+          <div class="sets-cell">
+            <span class="set-box win">6</span>
+            <span class="set-box win">7</span>
+            <span class="set-box match-tb">10</span>
+          </div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot loser"></div><span class="player-name">Player 2</span></div>
+          <div class="sets-cell">
+            <span class="set-box lose">6</span>
+            <span class="set-box lose">5</span>
+            <span class="set-box match-tb">6</span>
+          </div>
+        </div>
+        <div class="score-row tb-row">
+          <div class="tb-label-cell">Set tiebreak (loser's score)</div>
+          <div class="sets-cell">
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+            <span class="set-box blank" style="font-size:.65rem;color:#1e3050;">hidden</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-line">
+      <div class="result-label">Preview line</div>
+      <div class="result-text"><span class="rw">Player 1</span> <span class="rs">def. Player 2 6–6, 7–5, [10–6]</span> <span class="rt">(Challenge)</span></div>
+    </div>
+  </section>
+
+  <div class="section-divider">next example</div>
+
+  <!-- ══════════════════════════════════════════════
+       EXAMPLE 4 — Retired mid-match
+  ══════════════════════════════════════════════ -->
+  <section class="example" id="ex4">
+    <div class="example-header">
+      <div class="ex-number">4</div>
+      <div class="ex-title-wrap">
+        <h2 class="ex-title">Retired Mid-Match</h2>
+        <p class="ex-subtitle">A player retired due to injury or other reasons before the match concluded. Enter whatever score existed at the point of retirement.</p>
+        <div class="badge-row">
+          <span class="badge badge-scheduled">Scheduled</span>
+          <span class="badge badge-retired">Retired</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="walkthrough">
+      <div class="walkthrough-label">How to fill it out</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <p class="step-action">Match Status → Retired</p>
+            <p class="step-detail">Do not use Completed. Selecting Retired signals to the scoring system that the match did not finish normally.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <p class="step-action">Winner → the player who was winning (or would have won)</p>
+            <p class="step-detail">Typically this is the player who did not retire.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <p class="step-action">Enter the score that existed at retirement</p>
+            <p class="step-detail">In this example the match was <code>4–0</code> in set 1 when the player retired. Enter <code>4</code> and <code>0</code> for S1, and <code>0</code>/<code>0</code> for S2 if the second set hadn't started. Leave S3 blank.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <p class="step-action">At least one score box must be filled</p>
+            <p class="step-detail">The form requires some score progress to be recorded. If the retirement happened immediately (no games played), contact the league admin.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box note-warn">
+      <strong>The "Ret." suffix appears automatically</strong> in the preview line — you don't add it yourself. Just enter the scores as they stood and select Retired status.
+    </div>
+
+    <div class="score-visual" style="margin-top:14px;">
+      <div class="score-visual-label">What it looks like</div>
+      <div class="score-table">
+        <div class="score-thead">
+          <div>Player</div>
+          <div class="sh-right">S1 &nbsp; S2 &nbsp; S3</div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot"></div><span class="player-name winner-name">Player 1 (W)</span></div>
+          <div class="sets-cell">
+            <span class="set-box win">4</span>
+            <span class="set-box lose">0</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot loser"></div><span class="player-name">Player 2</span></div>
+          <div class="sets-cell">
+            <span class="set-box lose">0</span>
+            <span class="set-box lose">0</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+        <div class="score-row tb-row">
+          <div class="tb-label-cell">Set tiebreak (loser's score)</div>
+          <div class="sets-cell">
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-line">
+      <div class="result-label">Preview line</div>
+      <div class="result-text"><span class="rw">Player 1</span> <span class="rs">def. Player 2 4–0, 0–0 Ret.</span> <span class="rt">(Scheduled)</span></div>
+    </div>
+  </section>
+
+  <div class="section-divider">next example</div>
+
+  <!-- ══════════════════════════════════════════════
+       EXAMPLE 5 — Walkover
+  ══════════════════════════════════════════════ -->
+  <section class="example" id="ex5">
+    <div class="example-header">
+      <div class="ex-number">5</div>
+      <div class="ex-title-wrap">
+        <h2 class="ex-title">Walkover</h2>
+        <p class="ex-subtitle">One player did not show up or had to withdraw before the match began. No scores are played.</p>
+        <div class="badge-row">
+          <span class="badge badge-scheduled">Scheduled</span>
+          <span class="badge badge-walkover">Walkover</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="walkthrough">
+      <div class="walkthrough-label">How to fill it out</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <p class="step-action">Match Status → Walkover</p>
+            <p class="step-detail">All score fields disable automatically. You do not need to enter any scores.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <p class="step-action">Winner → select the player who received the walkover</p>
+            <p class="step-detail">This is the player who showed up and was ready to play.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <p class="step-action">Leave all score boxes as-is (they're disabled)</p>
+            <p class="step-detail">The form will display zeros but these are ignored. Only the winner and walkover status are recorded.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <p class="step-action">Submit</p>
+            <p class="step-detail">The preview line will read "wins by walkover" confirming the status is set correctly.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box note-warn">
+      <strong>Not sure if it's a Walkover or Retired?</strong> Walkover = match never started. Retired = match started but didn't finish. If any balls were hit, use Retired.
+    </div>
+
+    <div class="score-visual" style="margin-top:14px;">
+      <div class="score-visual-label">What it looks like</div>
+      <div class="score-table">
+        <div class="score-thead">
+          <div>Player</div>
+          <div class="sh-right">S1 &nbsp; S2 &nbsp; S3</div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot"></div><span class="player-name winner-name">Player 1 (W)</span></div>
+          <div class="sets-cell">
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+          </div>
+        </div>
+        <div class="score-row">
+          <div class="player-cell"><div class="player-dot loser"></div><span class="player-name">Player 2</span></div>
+          <div class="sets-cell">
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+            <span class="set-box blank" style="color:#2a3a54;">—</span>
+          </div>
+        </div>
+        <div class="score-row tb-row">
+          <div class="tb-label-cell">Set tiebreak (loser's score)</div>
+          <div class="sets-cell">
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+            <span class="set-box blank">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-line">
+      <div class="result-label">Preview line</div>
+      <div class="result-text"><span class="rw">Player 1</span> <span class="rs">wins by walkover over Player 2</span> <span class="rt">(Scheduled)</span></div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
