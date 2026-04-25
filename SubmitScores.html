@@ -372,8 +372,8 @@
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="successTitle">
     <div class="modal-title" id="successTitle">✅ Score Submitted</div>
     <div class="modal-body">
-      scores have been submitted and you should receive an e-mail confirmation.<br>
-      Please allow up to 5 minutes for the standings website to show your score
+      Scores have been submitted and you should receive an email confirmation.<br>
+      Please allow up to 5 minutes for the standings website to show your score.
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="closeSuccess">OK</button>
@@ -415,7 +415,7 @@ const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbw2ay_oH-0SpwH2Cq4V0SbhLAXhqtmwh8K-bX-8-usBGsSHekyV5SfBUG5w7S1EluX7/exec';
 
-const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2024Standings';
+const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2026SinglesStandings';
 const UPDATE_NOTE      = 'Please give the website up to 5 minutes to update before contacting Dan with concerns';
 
 // EmailJS config (fill these in)
@@ -1252,6 +1252,26 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     document.getElementById('msg').textContent='Setup error: '+e.message;
   }
 })();
+
+/* Re-load player/schedule data when user returns to this tab after being away,
+   so the winner dropdown and opponent list never go stale. */
+let _lastVisibleSS = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') { _lastVisibleSS = Date.now(); return; }
+  const away = Date.now() - _lastVisibleSS;
+  if (away < 60000) return; // skip if away less than 60 s
+  _lastVisibleSS = Date.now();
+  const prevRound = RoundNumber;
+  await fetchRoundNumber();
+  if (RoundNumber !== prevRound){
+    document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
+    document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
+  }
+  await Promise.all([loadPlayers(), loadScheduleForRound()]);
+  refreshWinnerOptions();
+  recomputeOpponentForMode();
+  updateRowLabels();
+});
 </script>
 </body>
 </html>
