@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Indy Tennis Ladder – Round 1 Score Entry</title>
+<title>Indy Tennis Ladder – Score Entry</title>
 <style>
   :root{
     --bg:#0b0e14;
@@ -245,18 +245,43 @@
     background:#0f1724; color:var(--text);
     border:1px solid var(--line);
   }
+
+  /* Step labels */
+  .step-label{
+    font-size:.75rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:12px; opacity:.8;
+  }
+
+  /* Score preview card */
+  .preview-text{
+    font-size:1rem; font-weight:700; color:var(--text); line-height:1.5;
+  }
+  .preview-text .pre-winner{ color:var(--success); }
+  .preview-text .pre-score{ color:#b9c6d8; font-weight:600; }
+  .preview-text .pre-empty{ color:var(--muted); font-style:italic; font-weight:400; font-size:.9rem; }
+
+  /* Sticky submit bar */
+  .submit-bar{
+    position:sticky; bottom:0;
+    background:linear-gradient(0deg, #0b0e14 70%, transparent);
+    padding:16px 0 calc(16px + env(safe-area-inset-bottom));
+    display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+    z-index:100;
+  }
+  .submit-bar .error{ margin-top:0; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1 id="titleH1">Round 1 Score Submission</h1>
-    <p class="muted">Pick the winner, then enter the score. Third set can be a full set or a 10-point match tiebreak.</p>
+    <h1 id="titleH1">Loading…</h1>
+    <p class="muted">The winner is the person who won the match, regardless of who is submitting. Third set can be a full set or a 10-point match tiebreak.</p>
   </header>
 
   <section class="card">
     <fieldset>
       <legend class="sr-only">Players</legend>
+      <div class="step-label">Step 1 — Match Type</div>
       <div class="grid">
         <label>Match Type</label>
         <div class="chips" id="matchTypeChips" role="tablist" aria-label="Match type">
@@ -271,7 +296,7 @@
 
   <section class="card">
     <fieldset>
-      <legend>Scores</legend>
+      <legend class="step-label">Step 2 — Enter Scores</legend>
 
       <div class="row-inline" style="margin-bottom:8px;">
         <span class="muted">Match status:</span>
@@ -335,7 +360,7 @@
 
         <!-- Tie-break row -->
         <div class="scores-row">
-          <div class="who"><b>Tie-break</b> <span class="muted" style="margin-left:6px;">(loser points)</span></div>
+          <div class="who"><b>Set tiebreak</b> <span class="muted" style="margin-left:6px;">(loser's score)</span></div>
           <div class="triple" aria-label="Tie-breaks">
             <input id="s1tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S1 TB" disabled />
             <input id="s2tb" class="tight-num disabled-like" type="number" min="0" inputmode="numeric" placeholder="S2 TB" disabled />
@@ -343,14 +368,19 @@
           </div>
         </div>
       </div>
-
-      <div id="msg" class="error" role="alert" aria-live="polite"></div>
     </fieldset>
   </section>
 
-  <div class="row-inline">
-    <button id="submitBtn" disabled>Submit score</button>
+  <!-- Step 3: Review & Submit -->
+  <section class="card" id="previewCard" style="display:none;">
+    <div class="step-label">Step 3 — Review &amp; Submit</div>
+    <div id="previewText" class="preview-text"></div>
+  </section>
+
+  <div class="submit-bar">
+    <button id="submitBtn" disabled>Submit Score</button>
     <span id="ok" class="success" style="display:none;">Submitted. Thanks!</span>
+    <div id="msg" class="error" role="alert" aria-live="polite" style="margin-top:0;"></div>
   </div>
 </div>
 
@@ -387,7 +417,7 @@
 <script>
 /*** ======= CONFIG ======= ***/
 // Pull RoundNumber from a tiny CSV (row 2 under column "Current Round")
-const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSQVvOJ0QcM4OuUYeUYCTr9KSULN5PUf0KeTGT5iQcxvOy6G9W8KmiZGneahPmpVLiTuOgDCL42aTjb/pub?gid=972964638&single=true&output=csv';
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
 
 let RoundNumber = 1; // fallback until CSV loads
 
@@ -1157,6 +1187,7 @@ async function submitForm(){
     });
     clearInvalids();
     refreshTBEnabled();
+    updatePreview();
 
     showSuccessModal();
 
@@ -1175,6 +1206,40 @@ async function submitForm(){
   if (el && el.tagName==='SELECT') fillScoreDropdown(el);
 });
 
+/* ===== Score preview ===== */
+function updatePreview(){
+  const card = document.getElementById('previewCard');
+  const el   = document.getElementById('previewText');
+  const winner   = document.getElementById('winner').value;
+  const opponent = getOpponentValue();
+  if (!winner || !opponent || /not found|no opponent/i.test(opponent)){
+    card.style.display='none';
+    el.innerHTML='';
+    return;
+  }
+  card.style.display='';
+
+  const isTB  = document.getElementById('isTb').checked;
+  const s1w = readScore('s1w'), s1o = readScore('s1o');
+  const s2w = readScore('s2w'), s2o = readScore('s2o');
+  const s3w = readScore('s3w'), s3o = readScore('s3o');
+
+  const fmtSet = (w, o) => (w !== '' && o !== '') ? `${w}–${o}` : null;
+  const sets = [fmtSet(s1w,s1o), fmtSet(s2w,s2o)].filter(Boolean);
+  if (s3w !== '' && s3o !== '') sets.push(isTB ? `[${s3w}–${s3o}]` : fmtSet(s3w,s3o));
+
+  const scoreStr = sets.length ? sets.join(', ') : '';
+  const matchType = getMatchType();
+
+  if (status === 'Walkover'){
+    el.innerHTML = `<span class="pre-winner">${winner}</span> wins by walkover over ${opponent} <span class="pre-score">(${matchType})</span>`;
+  } else if (status === 'Retired'){
+    el.innerHTML = `<span class="pre-winner">${winner}</span> def. ${opponent}${scoreStr ? ` <span class="pre-score">${scoreStr} Ret.</span>` : ''} <span class="pre-score">(${matchType})</span>`;
+  } else {
+    el.innerHTML = `<span class="pre-winner">${winner}</span> def. ${opponent}${scoreStr ? ` <span class="pre-score">${scoreStr}</span>` : ' <span class="pre-empty">— enter scores above</span>'} <span class="pre-score">(${matchType})</span>`;
+  }
+}
+
 document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
   ch.addEventListener('click', ()=>{
     setMatchTypeChip(ch.dataset.type);
@@ -1183,21 +1248,22 @@ document.querySelectorAll('#matchTypeChips .chip').forEach(ch=>{
     if (document.getElementById('winner').value !== prevWinner) setOpponentValue('');
     recomputeOpponentForMode();
     clearInvalids();
+    updatePreview();
   });
 });
 
 document.getElementById('isTb').addEventListener('change', e=>{
-  toggleTBUI(e.target.checked); clearInvalids();
+  toggleTBUI(e.target.checked); clearInvalids(); updatePreview();
 });
 ['chip-completed','chip-retired','chip-walkover'].forEach(id=>{
-  document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); });
+  document.getElementById(id).addEventListener('click', e=>{ setStatusChip(e.target.dataset.status); clearInvalids(); updatePreview(); });
 });
 
 ['s1w','s1o','s2w','s2o','s3w','s3o','s3wSel','s3oSel'].forEach(id=>{
   const el=document.getElementById(id);
   if (el){
     const ev = el.tagName==='SELECT' ? 'change' : 'input';
-    el.addEventListener(ev, refreshTBEnabled);
+    el.addEventListener(ev, ()=>{ refreshTBEnabled(); updatePreview(); });
   }
 });
 
@@ -1212,12 +1278,14 @@ document.getElementById('isTb').addEventListener('change', e=>{
 document.getElementById('winner').addEventListener('change', ()=>{
   recomputeOpponentForMode();
   updateRowLabels();
+  updatePreview();
 });
 
 document.getElementById('opponentSelect').addEventListener('change', ()=>{
   const name = document.getElementById('opponentSelect').value;
   document.getElementById('opponentNameText').textContent = name || '';
   updateRowLabels();
+  updatePreview();
 });
 
 document.getElementById('submitBtn').addEventListener('click', submitForm);

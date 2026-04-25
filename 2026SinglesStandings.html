@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Indy Tennis Ladder — Rankings</title>
+<title>2026 Indy Tennis Singles Ladder</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -23,8 +23,16 @@
 
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
-  .round-select{ appearance:none; font-size:12px; padding:6px 28px 6px 10px; border-radius:999px;
+
+  /* Round select with visible chevron */
+  .round-select-wrap{ position:relative; display:inline-block; }
+  .round-select-wrap::after{
+    content:'▾'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:11px; pointer-events:none;
+  }
+  .round-select{ appearance:none; font-size:12px; padding:6px 26px 6px 10px; border-radius:999px;
     background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
+
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
 
@@ -33,15 +41,45 @@
   thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule);
     padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); white-space:nowrap; }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:middle; white-space:nowrap; }
-  tbody tr:hover{ background:#0e1420;}
+  tbody tr:hover{ background:rgba(255,255,255,.03); }
+
+  /* ===== Rainbow group bands (groups of 8 by rank) ===== */
+  /* Each row gets a 3px left border coloured by its rank group.
+     The row background is a very faint tint of the same hue. */
+  tbody tr.group-1{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
+  tbody tr.group-2{ border-left:3px solid rgba(255,150,30,.75); background:rgba(255,150,30,.04); }
+  tbody tr.group-3{ border-left:3px solid rgba(255,220,0,.75);  background:rgba(255,220,0,.04); }
+  tbody tr.group-4{ border-left:3px solid rgba(60,200,80,.75);  background:rgba(60,200,80,.04); }
+  tbody tr.group-5{ border-left:3px solid rgba(30,180,200,.75); background:rgba(30,180,200,.04); }
+  tbody tr.group-6{ border-left:3px solid rgba(80,120,255,.75); background:rgba(80,120,255,.04); }
+  tbody tr.group-7{ border-left:3px solid rgba(160,60,220,.75); background:rgba(160,60,220,.04); }
+  /* groups 8+ cycle back through — enough for any league size */
+  tbody tr.group-8{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
+  tbody tr:hover{ background:rgba(255,255,255,.06) !important; }
 
   /* left/right rank+points columns */
   .rp{ width:210px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
   .rp .sub{ display:block; margin-top:4px; font-size:12px; color:var(--muted); font-weight:600; }
-  .rp.right{ width:230px; }
+  .rp.right{ width:260px; }
+
+  /* rank movement arrow in the right column */
+  .move{ display:inline-block; font-size:11px; font-weight:800; padding:1px 6px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+  .move-up{   background:rgba(59,211,127,.15); color:#3bd37f; }
+  .move-down{ background:rgba(255,107,107,.15); color:#ff6b6b; }
+  .move-same{ background:rgba(255,255,255,.06); color:#6e7f98; }
 
   .name{ font-weight:700; }
-  .phone{ display:block; margin-top:4px; font-weight:600; font-size:12px; color:var(--muted); letter-spacing:.2px; }
+
+  /* Phone hidden behind a tap/click — show on hover/focus */
+  .phone-wrap{ display:block; margin-top:4px; }
+  .phone-toggle{
+    background:none; border:none; padding:0; cursor:pointer;
+    font-size:12px; color:#3a4f6a; font-weight:600; letter-spacing:.2px;
+    transition:color .15s;
+  }
+  .phone-toggle:hover{ color:var(--muted); }
+  .phone-reveal{ font-size:12px; font-weight:600; color:var(--muted); letter-spacing:.2px; display:none; }
+  .phone-reveal.shown{ display:inline; }
 
   /* mobile head line (rank + name + (round pts)) */
   .m-head{ display:none; align-items:baseline; gap:10px; flex-wrap:wrap; }
@@ -59,6 +97,9 @@
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
 
+  /* Pending match indicator */
+  .pending{ color:#3a4f6a; font-style:italic; font-size:13px; }
+
   .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4; }
 
   .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
@@ -66,11 +107,19 @@
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  .winner-pts, .loser-pts{ display:inline-flex; align-items:center; gap:6px; margin-left:10px; padding:2px 8px;
-    border-radius:999px; font-size:12px; cursor:pointer; user-select:none; position:relative; z-index:3; pointer-events:auto; white-space:nowrap; }
+  /* Points pills — interactive with hover/focus states and a ? hint */
+  .winner-pts, .loser-pts{
+    display:inline-flex; align-items:center; gap:5px; margin-left:10px; padding:2px 8px 2px 6px;
+    border-radius:999px; font-size:12px; cursor:pointer; user-select:none;
+    position:relative; z-index:3; pointer-events:auto; white-space:nowrap;
+    transition: filter .15s, transform .1s;
+  }
+  .winner-pts:hover, .loser-pts:hover{ filter:brightness(1.25); transform:scale(1.04); }
+  .winner-pts:focus-visible, .loser-pts:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
   .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+  .pts-hint{ font-size:10px; opacity:.55; margin-left:1px; }
 
   .matches{ white-space:nowrap; min-width:520px; }
   .match-line{ display:flex; align-items:center; gap:8px; min-height:26px; }
@@ -96,24 +145,21 @@
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
 
-  .footer-note{ color:#6e7f98; font-size:12px; margin-top:10px; }
-
   @media (max-width:720px){
     thead{ display:none; }
     table,tbody,tr,td{ display:block; width:100%; min-width:0; }
     .panel{ overflow:visible; }
-    tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; }
-    tbody tr:hover{ background:transparent; }
+    tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; border-left-width:3px; border-left-style:solid; }
+    tbody tr:hover{ background:rgba(255,255,255,.04) !important; }
     tbody td{ border:0; padding:6px 0; white-space:normal; }
 
-    .rp-left{ display:none; }     /* hide left rank/pts column on mobile */
-    .rp-right{ display:none; }    /* hide right rank/pts column on mobile */
+    .rp-left{ display:none; }
+    .rp-right{ display:none; }
 
     .m-head{ display:flex; }
     .name{ display:none; }
     .matches{ order:2; min-width:0; }
 
-    /* Mobile: abbreviate Scheduled/Challenge badges to S/C */
     .badge-scheduled{ padding:2px 7px; }
     .badge-challenge{ padding:2px 7px; }
 
@@ -128,7 +174,9 @@
     <header>
       <div class="title">
         <h1>Indy Tennis Ladder</h1>
-        <select id="roundSelect" class="round-select" aria-label="Select round"></select>
+        <div class="round-select-wrap">
+          <select id="roundSelect" class="round-select" aria-label="Select round"></select>
+        </div>
       </div>
       <div class="meta" id="roundMeta"></div>
     </header>
@@ -148,7 +196,7 @@
       </table>
     </div>
 
-    <div class="footer-note">Tip: you can also use <code>?round=2</code> while testing.</div>
+
   </div>
 
   <div class="backdrop" id="backdrop" aria-hidden="true"></div>
@@ -429,8 +477,20 @@ async function init(round){
       wrap.appendChild(mHead);
 
       const nameEl=document.createElement('div'); nameEl.className='name'; nameEl.textContent=playerName||''; wrap.appendChild(nameEl);
-      const ph=phoneByName[nameKey(playerName)]||''; const phoneEl=document.createElement('span'); phoneEl.className='phone';
-      phoneEl.textContent=ph?ph:'(no phone)'; wrap.appendChild(phoneEl);
+
+      // Phone: hidden by default, revealed on click
+      const ph=phoneByName[nameKey(playerName)]||'';
+      if (ph) {
+        const phoneWrap=document.createElement('span'); phoneWrap.className='phone-wrap';
+        const toggleBtn=document.createElement('button'); toggleBtn.className='phone-toggle'; toggleBtn.type='button'; toggleBtn.textContent='Show phone';
+        const reveal=document.createElement('span'); reveal.className='phone-reveal'; reveal.textContent=ph;
+        toggleBtn.addEventListener('click', ()=>{
+          const shown = reveal.classList.toggle('shown');
+          toggleBtn.textContent = shown ? 'Hide' : 'Show phone';
+        });
+        phoneWrap.appendChild(toggleBtn); phoneWrap.appendChild(reveal);
+        wrap.appendChild(phoneWrap);
+      }
       return wrap;
     }
 
@@ -447,13 +507,19 @@ async function init(round){
       btn.setAttribute('data-wrank', String(matchObj.wRank||''));
       btn.setAttribute('data-orank', String(matchObj.oRank||''));
       if (chalDiv) btn.setAttribute('data-chaldiv', String(chalDiv));
-      btn.innerHTML = `<b>${matchObj.points || ''}</b> pts`;
+      btn.setAttribute('title', 'Click to see points breakdown');
+      btn.innerHTML = `<b>${matchObj.points || ''}</b> pts<span class="pts-hint" aria-hidden="true">?</span>`;
       container.appendChild(btn);
     }
 
     players.forEach(p=>{
       const tr=document.createElement('tr');
       const meKey=nameKey(p.Participant);
+
+      // Rainbow group: groups of 8, cycling through 7 colours
+      const groupNum = Math.ceil(p.LeftRank / 8);
+      const groupClass = 'group-' + (((groupNum - 1) % 7) + 1);
+      tr.classList.add(groupClass);
 
       /* col 1: Round X Ranking - Points */
       const tdLeft=document.createElement('td');
@@ -483,12 +549,11 @@ async function init(round){
       const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(p.Participant, scheduledOppName);
 
       if(sr){
-        // Mobile: use S instead of Scheduled
         const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
         const span=document.createElement('span'); span.className='result ' + (sr.isLoss?'lost':'won');
         appendTextWithHighlight(span, sr.text, scheduledOppName, shouldHi);
         schedLine.appendChild(span);
-        if (sr.points) appendPointsPill(schedLine, sr, null); // scheduled uses no divisor
+        if (sr.points) appendPointsPill(schedLine, sr, null);
       }else{
         const oppRank=scheduleMap[p.LeftRank];
         if(oppRank){
@@ -496,22 +561,23 @@ async function init(round){
           const pill=document.createElement('span'); pill.className='badge badge-scheduled'; pill.textContent='S'; schedLine.appendChild(pill);
           const pre=document.createElement('span'); pre.textContent=`#${oppRank} `; schedLine.appendChild(pre);
           const nameSpan=document.createElement('span'); if(shouldHi) nameSpan.className='repeat-opp'; nameSpan.textContent=oppName; schedLine.appendChild(nameSpan);
+          // Pending indicator
+          const pend=document.createElement('span'); pend.className='pending'; pend.textContent=' — pending'; schedLine.appendChild(pend);
         }else{
           schedLine.classList.add('empty'); schedLine.innerHTML='&nbsp;';
         }
       }
       tdRes.appendChild(schedLine);
 
-      // challenge lines (add divisor explanation: 2 if scheduled played, else 4)
+      // challenge lines
       const myChals=challenges.get(meKey)||[];
       for(let i=0;i<2;i++){
         const line=document.createElement('div'); line.className='match-line';
         const cr=myChals[i];
         if(cr){
-          // Mobile: use C instead of Challenge
           const pill=document.createElement('span'); pill.className='badge badge-challenge'; pill.textContent='C'; line.appendChild(pill);
           const span=document.createElement('span'); span.className='result ' + (cr.isLoss?'lost':'won'); span.textContent=cr.text; line.appendChild(span);
-          const chalDiv = hasScheduledPlayed ? 2 : 4; // explanation only
+          const chalDiv = hasScheduledPlayed ? 2 : 4;
           if (cr.points) appendPointsPill(line, cr, chalDiv);
         }else{
           line.classList.add('empty'); line.innerHTML='&nbsp;';
@@ -519,7 +585,7 @@ async function init(round){
         tdRes.appendChild(line);
       }
 
-      // Mobile bottom row: ONLY Round X+1 rank and points
+      // Mobile bottom row: Round X+1 rank and points
       const mStats=document.createElement('div'); mStats.className='m-stats';
       const rightRankTxt = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '—';
       const rightPtsTxt  = (!isNaN(p.RightPts)) ? fmtPts(p.RightPts) : '—';
@@ -528,13 +594,23 @@ async function init(round){
 
       tr.appendChild(tdRes);
 
-      /* col 4: Round X+1 Ranking - Points */
+      /* col 4: Round X+1 Ranking - Points with movement arrow */
       const tdRight=document.createElement('td');
       tdRight.className='rp right rp-right';
 
-      const rankText = (!isNaN(p.RightRank) && p.RightRank>0) ? `#${p.RightRank}` : '';
+      const hasRight = !isNaN(p.RightRank) && p.RightRank > 0;
+      const rankText = hasRight ? `#${p.RightRank}` : '';
       const ptsText  = (!isNaN(p.RightPts)) ? `${fmtPts(p.RightPts)} pts` : '';
-      tdRight.innerHTML = `${rankText || '&nbsp;'}<span class="sub">${ptsText || '&nbsp;'}</span>`;
+
+      let moveHtml = '';
+      if (hasRight) {
+        const diff = p.LeftRank - p.RightRank; // positive = moved up (lower rank number)
+        if (diff > 0)       moveHtml = `<span class="move move-up">↑${diff}</span>`;
+        else if (diff < 0)  moveHtml = `<span class="move move-down">↓${Math.abs(diff)}</span>`;
+        else                moveHtml = `<span class="move move-same">—</span>`;
+      }
+
+      tdRight.innerHTML = `${rankText || '&nbsp;'}${moveHtml}<span class="sub">${ptsText || '&nbsp;'}</span>`;
       tr.appendChild(tdRight);
 
       tbody.appendChild(tr);
