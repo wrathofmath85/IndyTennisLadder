@@ -269,12 +269,34 @@
     z-index:100;
   }
   .submit-bar .error{ margin-top:0; }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: .88rem;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--line);
+  transition: color .15s ease, background .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.back-link:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.10);
+}
+
 </style>
 </head>
 <body>
 <div class="wrap">
 
-   <a class="back-link" href="ScoreExamples.html">Not sure how to enter a score?  Click Here!</a>
+   <a class="back-link" href="ScoreExamples.html">❓ How to enter a score</a>
 
   <header>
     <h1 id="titleH1">Loading…</h1>
