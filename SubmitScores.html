@@ -387,7 +387,7 @@
 <script>
 /*** ======= CONFIG ======= ***/
 // Pull RoundNumber from a tiny CSV (row 2 under column "Current Round")
-const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSQVvOJ0QcM4OuUYeUYCTr9KSULN5PUf0KeTGT5iQcxvOy6G9W8KmiZGneahPmpVLiTuOgDCL42aTjb/pub?gid=972964638&single=true&output=csv';
 
 let RoundNumber = 1; // fallback until CSV loads
 
@@ -411,8 +411,8 @@ async function fetchRoundNumber(){
   }
 }
 
-const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=0&single=true&output=csv';
-const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=1596015267&single=true&output=csv';
+const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSQVvOJ0QcM4OuUYeUYCTr9KSULN5PUf0KeTGT5iQcxvOy6G9W8KmiZGneahPmpVLiTuOgDCL42aTjb/pub?gid=0&single=true&output=csv';
+const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSQVvOJ0QcM4OuUYeUYCTr9KSULN5PUf0KeTGT5iQcxvOy6G9W8KmiZGneahPmpVLiTuOgDCL42aTjb/pub?gid=1596015267&single=true&output=csv';
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbw2ay_oH-0SpwH2Cq4V0SbhLAXhqtmwh8K-bX-8-usBGsSHekyV5SfBUG5w7S1EluX7/exec';
 
 const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2026SinglesStandings';
