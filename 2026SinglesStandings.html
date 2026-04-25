@@ -184,7 +184,8 @@ const CSV = {
 let ROUND = 1;
 
 /* ===== helpers ===== */
-function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(url,{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
+function bustUrl(url){ return url + (url.includes('?') ? '&' : '?') + '_bust=' + Date.now(); }
+function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(bustUrl(url),{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
 const nameKey = s => String(s||'').trim().toLowerCase();
 const num = v => (v===null||v===undefined||v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
 const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
@@ -636,6 +637,19 @@ document.addEventListener('pointerup', handlePointsClick, {capture:false});
   ROUND = computeRoundFromURL();
   init(ROUND);
 })();
+
+/* Re-fetch fresh data when the user returns to this tab after being away */
+let _lastVisible = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') { _lastVisible = Date.now(); return; }
+  const away = Date.now() - _lastVisible;
+  if (away < 60000) return; // skip if away less than 60 s
+  _lastVisible = Date.now();
+  const prevRound = CurrentRound;
+  await fetchCurrentRound();
+  if (CurrentRound !== prevRound) buildRoundSelect();
+  init(ROUND);
+});
 </script>
 </body>
 </html>
