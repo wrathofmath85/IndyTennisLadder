@@ -18,114 +18,85 @@
   body{ margin:24px; display:flex; justify-content:center; }
   .wrap{ width:100%; max-width:1200px; }
 
+  /* ===== HEADER ===== */
   header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule);
     border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
-
   .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
   .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
   .title .doubles-badge{ background:#2a1a00; border:1px solid #5a3a00; color:var(--accent); font-size:12px; font-weight:800;
     padding:3px 10px; border-radius:999px; letter-spacing:.05em; text-transform:uppercase; }
-
   .round-select-wrap{ position:relative; display:inline-block; }
-  .round-select-wrap::after{
-    content:'▾'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
-    color:var(--muted); font-size:11px; pointer-events:none;
-  }
+  .round-select-wrap::after{ content:'▾'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:11px; pointer-events:none; }
   .round-select{ appearance:none; font-size:12px; padding:6px 26px 6px 10px; border-radius:999px;
     background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
-
   .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
   .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
 
+  /* ===== DESKTOP TABLE ===== */
   .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:auto; -webkit-overflow-scrolling:touch; }
   table{ width:100%; min-width:1040px; border-collapse:collapse; font-size:14px; table-layout:auto; }
   thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule);
     padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); white-space:nowrap; }
   tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:middle; white-space:nowrap; }
   tbody tr:hover{ background:rgba(255,255,255,.03); }
-
-  tbody tr.group-1{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
-  tbody tr.group-2{ border-left:3px solid rgba(255,150,30,.75); background:rgba(255,150,30,.04); }
-  tbody tr.group-3{ border-left:3px solid rgba(255,220,0,.75);  background:rgba(255,220,0,.04); }
-  tbody tr.group-4{ border-left:3px solid rgba(60,200,80,.75);  background:rgba(60,200,80,.04); }
-  tbody tr.group-5{ border-left:3px solid rgba(30,180,200,.75); background:rgba(30,180,200,.04); }
-  tbody tr.group-6{ border-left:3px solid rgba(80,120,255,.75); background:rgba(80,120,255,.04); }
-  tbody tr.group-7{ border-left:3px solid rgba(160,60,220,.75); background:rgba(160,60,220,.04); }
-  tbody tr.group-8{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
+  tbody tr.group-1{ border-left:3px solid rgba(255,80,80,.75);   background:rgba(255,80,80,.04); }
+  tbody tr.group-2{ border-left:3px solid rgba(255,150,30,.75);  background:rgba(255,150,30,.04); }
+  tbody tr.group-3{ border-left:3px solid rgba(255,220,0,.75);   background:rgba(255,220,0,.04); }
+  tbody tr.group-4{ border-left:3px solid rgba(60,200,80,.75);   background:rgba(60,200,80,.04); }
+  tbody tr.group-5{ border-left:3px solid rgba(30,180,200,.75);  background:rgba(30,180,200,.04); }
+  tbody tr.group-6{ border-left:3px solid rgba(80,120,255,.75);  background:rgba(80,120,255,.04); }
+  tbody tr.group-7{ border-left:3px solid rgba(160,60,220,.75);  background:rgba(160,60,220,.04); }
   tbody tr:hover{ background:rgba(255,255,255,.06) !important; }
 
-  .rp{ width:210px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rp{ width:210px; color:#cdd8e6; font-variant-numeric:tabular-nums; }
   .rp .sub{ display:block; margin-top:4px; font-size:12px; color:var(--muted); font-weight:600; }
   .rp.right{ width:260px; }
-
   .move{ display:inline-block; font-size:11px; font-weight:800; padding:1px 6px; border-radius:999px; margin-left:6px; vertical-align:middle; }
   .move-up{   background:rgba(59,211,127,.15); color:#3bd37f; }
   .move-down{ background:rgba(255,107,107,.15); color:#ff6b6b; }
   .move-same{ background:rgba(255,255,255,.06); color:#6e7f98; }
-
-  .name{ font-weight:700; }
-
-  /* Team contact info — two players stacked */
   .team-cell{ min-width:220px; }
   .team-name{ font-weight:800; color:#e9eef5; }
   .player-row{ display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
-  .player-name{ font-size:12px; font-weight:600; color:#b9c6d8; }
+  .player-label{ font-size:12px; font-weight:600; color:#b9c6d8; }
+
+  /* Phone reveal */
   .phone-wrap{ display:inline-block; }
-  .phone-toggle{
-    background:none; border:none; padding:0; cursor:pointer;
-    font-size:12px; color:#3a4f6a; font-weight:600; letter-spacing:.2px;
-    transition:color .15s;
-  }
+  .phone-toggle{ background:none; border:none; padding:0; cursor:pointer; font-size:12px; color:#3a4f6a; font-weight:600; transition:color .15s; }
   .phone-toggle:hover{ color:var(--muted); }
   .phone-reveal{ font-size:12px; font-weight:600; color:var(--muted); letter-spacing:.2px; display:none; }
   .phone-reveal.shown{ display:inline; }
-
-  .m-head{ display:none; align-items:baseline; gap:10px; flex-wrap:wrap; }
-  .m-rank{ font-weight:900; font-variant-numeric: tabular-nums; color:#cdd8e6; flex:0 0 auto; }
-  .m-name{ font-weight:900; color:#e9eef5; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .m-pts{
-    font-size:12px; font-weight:800; color:#cdd8e6;
-    padding:2px 8px; border-radius:999px;
-    background:#101827; border:1px solid #253043;
-    white-space:nowrap;
-  }
-  .m-pts b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
 
   .result{ font-weight:600; }
   .won{ color:var(--ok); }
   .lost{ color:var(--bad); }
   .pending{ color:#3a4f6a; font-style:italic; font-size:13px; }
-
-  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4; }
+  .loading,.error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4; }
 
   .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
     background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; flex:0 0 auto; }
   .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
   .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
 
-  .winner-pts, .loser-pts{
+  .winner-pts,.loser-pts{
     display:inline-flex; align-items:center; gap:5px; margin-left:10px; padding:2px 8px 2px 6px;
     border-radius:999px; font-size:12px; cursor:pointer; user-select:none;
     position:relative; z-index:3; pointer-events:auto; white-space:nowrap;
-    transition: filter .15s, transform .1s;
+    transition:filter .15s, transform .1s;
   }
-  .winner-pts:hover, .loser-pts:hover{ filter:brightness(1.25); transform:scale(1.04); }
-  .winner-pts:focus-visible, .loser-pts:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .winner-pts:hover,.loser-pts:hover{ filter:brightness(1.25); transform:scale(1.04); }
   .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
   .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
   .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
   .pts-hint{ font-size:10px; opacity:.55; margin-left:1px; }
 
-  .matches{ white-space:nowrap; min-width:520px; }
-  .match-line{ display:flex; align-items:center; gap:8px; min-height:26px; }
-  .match-line.empty{ opacity:.0; }
-
+  .matches{ white-space:nowrap; min-width:460px; }
+  .match-line{ display:flex; align-items:center; gap:8px; min-height:26px; flex-wrap:wrap; }
+  .match-line.empty{ opacity:0; min-height:26px; }
   .repeat-opp{ background:#fff200; color:#000; padding:1px 6px; border-radius:8px; font-weight:900; box-shadow:0 0 0 1px rgba(0,0,0,.35) inset; }
 
-  .m-stats{ display:none; margin-top:10px; padding-top:10px; border-top:1px dashed #23324a; color:var(--muted);
-    font-size:13px; white-space:nowrap; gap:14px; align-items:center; }
-  .m-stats b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
-
+  /* ===== MODAL ===== */
   .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:10000; }
   .backdrop.show{ opacity:1; pointer-events:auto; }
   .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule);
@@ -133,78 +104,129 @@
   .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule);
     background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
-  .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
+  .modal-title{ font-weight:700; font-size:18px; }
   .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px;
     font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
   .modal-body{ padding:16px; color:#d2deee; }
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
 
+  /* ===== MOBILE CARDS =====
+     On narrow screens the table is hidden; we render stacked cards instead.
+     Each card shows: rank + team name + R1 pts / phones / matches / R2 strip */
+  .mobile-list{ display:none; margin-top:18px; }
+
+  .m-card{
+    background:var(--panel);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    margin-bottom:10px;
+    overflow:hidden;
+    border-left-width:4px;
+    border-left-style:solid;
+    border-left-color:#3a4f6a; /* overridden per-card by JS */
+  }
+  .m-card-inner{ padding:14px 14px 10px; }
+
+  /* Row 1: rank number + team name + pts pill */
+  .m-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .m-rank{ font-size:20px; font-weight:900; color:#cdd8e6; font-variant-numeric:tabular-nums; flex-shrink:0; min-width:36px; }
+  .m-team-name{ font-size:15px; font-weight:800; color:#e9eef5; flex:1; min-width:0; }
+  .m-pts-pill{
+    font-size:12px; font-weight:800; color:#cdd8e6;
+    padding:3px 10px; border-radius:999px;
+    background:#101827; border:1px solid #253043;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .m-pts-pill b{ color:#e9eef5; font-variant-numeric:tabular-nums; }
+
+  /* Row 2: phone numbers */
+  .m-phones{
+    display:flex; gap:14px; flex-wrap:wrap;
+    padding:6px 0 10px;
+    margin-bottom:10px;
+    border-bottom:1px solid var(--rule);
+  }
+  .m-phone-item{ display:flex; align-items:center; gap:6px; }
+  .m-phone-label{ font-size:12px; color:#b9c6d8; font-weight:600; }
+
+  /* Match lines */
+  .m-matches{ display:flex; flex-direction:column; gap:8px; }
+  .m-match-line{
+    display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;
+    font-size:13px; line-height:1.5;
+  }
+  .m-match-line .badge{ margin-right:0; flex-shrink:0; }
+  .m-match-line .winner-pts,
+  .m-match-line .loser-pts{ margin-left:0; margin-top:2px; }
+
+  /* Bottom strip: next-round rank + movement */
+  .m-bottom{
+    background:#0d121b;
+    border-top:1px solid var(--rule);
+    padding:8px 14px;
+    font-size:12px;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .m-bottom b{ color:#e9eef5; font-variant-numeric:tabular-nums; }
+
   @media (max-width:720px){
-    thead{ display:none; }
-    table,tbody,tr,td{ display:block; width:100%; min-width:0; }
-    .panel{ overflow:visible; }
-    tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; border-left-width:3px; border-left-style:solid; }
-    tbody tr:hover{ background:rgba(255,255,255,.04) !important; }
-    tbody td{ border:0; padding:6px 0; white-space:normal; }
-    .rp-left{ display:none; }
-    .rp-right{ display:none; }
-    .m-head{ display:flex; }
-    .team-cell{ display:none; }
-    .matches{ order:2; min-width:0; }
-    .badge-scheduled{ padding:2px 7px; }
-    .badge-challenge{ padding:2px 7px; }
-    .m-stats{ display:flex; }
-    .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
-    .match-line.empty{ display:none; }
+    body{ margin:12px; }
+    .panel{ display:none; }
+    .mobile-list{ display:block; }
   }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="title">
-        <h1>IndyTennis Doubles Ladder</h1>
-        <span class="doubles-badge">Doubles</span>
-        <div class="round-select-wrap">
-          <select id="roundSelect" class="round-select" aria-label="Select round"></select>
-        </div>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>IndyTennis Doubles Ladder</h1>
+      <span class="doubles-badge">Doubles</span>
+      <div class="round-select-wrap">
+        <select id="roundSelect" class="round-select" aria-label="Select round"></select>
       </div>
-      <div class="meta" id="roundMeta"></div>
-    </header>
-
-    <div class="panel">
-      <div class="loading" id="status">Loading data…</div>
-      <table id="ladder" style="display:none;">
-        <thead>
-          <tr>
-            <th class="rp" id="thLeft">Round 1 Ranking - Points</th>
-            <th>Team</th>
-            <th class="matches">Result</th>
-            <th class="rp right" id="thRight">Round 2 Ranking - Points</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
     </div>
+    <div class="meta" id="roundMeta"></div>
+  </header>
+
+  <!-- Desktop table -->
+  <div class="panel">
+    <div class="loading" id="status">Loading data…</div>
+    <table id="ladder" style="display:none;">
+      <thead>
+        <tr>
+          <th class="rp" id="thLeft">Round 1 Ranking - Points</th>
+          <th>Team</th>
+          <th class="matches">Result</th>
+          <th class="rp right" id="thRight">Round 2 Ranking - Points</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
   </div>
 
-  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
-  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle">Info</div>
-      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
+  <!-- Mobile card list -->
+  <div class="mobile-list" id="mobileList"></div>
+</div>
+
+<div class="backdrop" id="backdrop" aria-hidden="true"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-header">
+    <div class="modal-title" id="modalTitle">Info</div>
+    <button class="modal-close" id="modalClose" aria-label="Close">×</button>
   </div>
+  <div class="modal-body" id="modalBody"></div>
+</div>
 
 <script>
 /* ===== CONFIG ===== */
-// TODO: Replace these with your Doubles Google Sheet CSV URLs
 const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=972964638&single=true&output=csv';
-
 let CurrentRound = 1;
-
 const CSV = {
   Players:     'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=0&single=true&output=csv',
   Schedule:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1596015267&single=true&output=csv',
@@ -215,487 +237,415 @@ const CSV = {
   ScoresRound4:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1779797386&single=true&output=csv',
   ScoresRound5:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1138515130&single=true&output=csv',
 };
-
 let ROUND = 1;
 
-/* ===== helpers ===== */
-function bustUrl(url){ return url + (url.includes('?') ? '&' : '?') + '_bust=' + Date.now(); }
-function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(bustUrl(url),{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
-const nameKey = s => String(s||'').trim().toLowerCase();
-const num = v => (v===null||v===undefined||v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
-const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
-const fmt = v => (v===undefined||v===null) ? '' : String(v);
-const round2 = x => Math.round((Number(x)+Number.EPSILON)*100)/100;
-const fmtPts = v => (v===undefined||v===null||v==='') ? '' : (isNaN(Number(v)) ? '' : round2(v).toFixed(2));
+/* ===== Helpers ===== */
+function bustUrl(u){ return u+(u.includes('?')?'&':'?')+'_bust='+Date.now(); }
+function loadCSV(u){ return new Promise((res,rej)=>Papa.parse(bustUrl(u),{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
+const nameKey=s=>String(s||'').trim().toLowerCase();
+const num=v=>(v===null||v===undefined||v==='')? NaN:+String(v).replace(/[% ,]/g,'');
+const safeNum=v=>{const n=num(v);return isNaN(n)?0:n;};
+const fmt=v=>(v===undefined||v===null)?'':String(v);
+const round2=x=>Math.round((Number(x)+Number.EPSILON)*100)/100;
+const fmtPts=v=>(v===undefined||v===null||v==='')? '':(isNaN(Number(v))?'':round2(v).toFixed(2));
 
-function fmtDateRange(startRaw, endRaw){
-  const parse = (val)=>{ if(val===''||val==null) return null;
-    if(/^\d+(\.\d+)?$/.test(String(val))){ const d=Number(val); const base=new Date(Date.UTC(1899,11,30)); return new Date(base.getTime()+d*86400000); }
-    const d=new Date(val); return isNaN(d)?null:d; };
-  const s=parse(startRaw), e=parse(endRaw);
-  const nice = d => d.toLocaleDateString(undefined,{month:'short', day:'numeric'});
-  if(s&&e) return `${nice(s)} – ${nice(e)}`; if(s) return nice(s); if(e) return nice(e);
-  return [fmt(startRaw),fmt(endRaw)].filter(Boolean).join(' – ');
+function fmtDateRange(s0,e0){
+  const parse=v=>{if(v===''||v==null)return null;if(/^\d+(\.\d+)?$/.test(String(v))){const d=Number(v),base=new Date(Date.UTC(1899,11,30));return new Date(base.getTime()+d*86400000);}const d=new Date(v);return isNaN(d)?null:d;};
+  const s=parse(s0),e=parse(e0),nice=d=>d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  if(s&&e)return`${nice(s)} – ${nice(e)}`;if(s)return nice(s);if(e)return nice(e);
+  return[fmt(s0),fmt(e0)].filter(Boolean).join(' – ');
 }
 
-function setStatus(msg,isError=false){ const st=document.getElementById('status'); st.textContent=msg; st.className=isError?'error':'loading'; }
-async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
-function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
+function setStatus(msg,isError=false){const st=document.getElementById('status');st.textContent=msg;st.className=isError?'error':'loading';}
+async function fetchCurrentRound(){try{const rows=await loadCSV(CURRENT_ROUND_CSV);const r0=rows?.[0]||{};const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]);if(!Number.isNaN(val)&&val>=1)CurrentRound=val;}catch{}}
+function computeRoundFromURL(){const u=new URLSearchParams(location.search);const q=parseInt(u.get('round'),10);return(!isNaN(q)&&q>=1&&q<=CurrentRound)?q:CurrentRound;}
+function readPts(row,r){return num(row[`R${r}Pts`]??row[`R${r}CPts`]??row[`R${r}Points`]??row[`R${r}CPoints`]);}
+function readRank(row,r){return num(row[`R${r}Rank`]);}
 
-function colRank(r){ return `R${r}Rank`; }
-function colPts(r){ return `R${r}Pts`; }
-function readPts(row, r){
-  return num(row[colPts(r)] ?? row[`R${r}CPts`] ?? row[`R${r}Points`] ?? row[`R${r}CPoints`]);
+function hasThirdSetTB(row){return fmt(row.TB_W)!==''||fmt(row.TB_O)!=='';}
+function formatThirdEntry(row,p){
+  if(!hasThirdSetTB(row)){const W3=fmt(row.S3_W),O3=fmt(row.S3_O);if(W3===''&&O3==='')return'';return p==='winner'?`${W3}-${O3}`:`${O3}-${W3}`;}
+  const a=fmt(row.TB_W),b=fmt(row.TB_O);if(a===''&&b==='')return'';
+  return p==='winner'?` ${a}-${b}`:`  ${b}-${a}`;
 }
-function readRank(row, r){ return num(row[colRank(r)]); }
+function statusText(row){return String(row.Status||row.STATUS||'').trim();}
+function isWalkover(row){const s=statusText(row).toLowerCase();return s==='walkover'||s==='wo'||s==='w/o'||s.includes('walkover');}
+function isRetired(row){const s=statusText(row).toLowerCase();return s==='retired'||s==='ret'||s.includes('retired');}
 
-function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
-function formatThirdEntry(row, perspective){
-  if (!hasThirdSetTB(row)){
-    const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
-    if (W3 === '' && O3 === '') return '';
-    return perspective === 'winner' ? `${W3}-${O3}` : `${O3}-${W3}`;
-  }
-  const a = fmt(row.TB_W), b = fmt(row.TB_O);
-  if (a === '' && b === '') return '';
-  return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
-}
-function statusText(row){ return String(row.Status||row.STATUS||'').trim(); }
-function isWalkoverStatus(row){ const s=statusText(row).toLowerCase(); return s==='walkover'||s==='wo'||s==='w/o'||s.includes('walkover'); }
-function isRetiredStatus(row){ const s=statusText(row).toLowerCase(); return s==='retired'||s==='ret'||s.includes('retired'); }
-
-function resultString(row, perspective, beginRankByName){
-  const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
-  const wRank = beginRankByName[nameKey(winner)] || '?';
-  const oRank = beginRankByName[nameKey(opponent)] || '?';
-  const walkover = isWalkoverStatus(row), retired = isRetiredStatus(row);
-  let scorePart;
-  if (walkover){ scorePart='walkover'; }
+function resultString(row,p,rankByName){
+  const w=fmt(row.Winner),o=fmt(row.Opponent);
+  const wR=rankByName[nameKey(w)]||'?',oR=rankByName[nameKey(o)]||'?';
+  let sc;
+  if(isWalkover(row)){sc='walkover';}
   else{
-    const W1=fmt(row.S1_W), O1=fmt(row.S1_O);
-    const W2=fmt(row.S2_W), O2=fmt(row.S2_O);
-    const set1=`${W1}-${O1}`, set2=`${W2}-${O2}`, set3=formatThirdEntry(row, perspective);
-    scorePart = (perspective==='winner')
-      ? `${set1} ${set2}${set3}` : `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row,'opponent')}`;
-    if (retired) scorePart += ' Ret';
+    const W1=fmt(row.S1_W),O1=fmt(row.S1_O),W2=fmt(row.S2_W),O2=fmt(row.S2_O);
+    sc=(p==='winner')?`${W1}-${O1} ${W2}-${O2}${formatThirdEntry(row,'winner')}`:`${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row,'opponent')}`;
+    if(isRetired(row))sc+=' Ret';
   }
-  return (perspective==='winner')
-    ? `Beat #${oRank} ${opponent} ${scorePart}`
-    : `Lost to #${wRank} ${winner} ${scorePart}`;
+  return(p==='winner')?`Beat #${oR} ${o} ${sc}`:`Lost to #${wR} ${w} ${sc}`;
 }
 
 function parseGameTotals(row){
-  if ('GamesWon' in row && 'GamesLost' in row){
-    const w = safeNum(row.GamesWon), o = safeNum(row.GamesLost);
-    return { wGames:w, oGames:o, diff: Math.max(0, w - o) };
-  }
-  const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
-  const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
-  const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
-  const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
-  let wGames = W1 + W2, oGames = O1 + O2;
-  if (hasThirdSetTB(row)){
-    if (TBW > TBO){ wGames += 1; } else if (TBO > TBW){ oGames += 1; }
-  } else if (W3 !== 0 || O3 !== 0){ wGames += W3; oGames += O3; }
-  return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
+  if('GamesWon' in row&&'GamesLost' in row){const w=safeNum(row.GamesWon),o=safeNum(row.GamesLost);return{wGames:w,oGames:o,diff:Math.max(0,w-o)};}
+  const W1=safeNum(row.S1_W),O1=safeNum(row.S1_O),W2=safeNum(row.S2_W),O2=safeNum(row.S2_O),W3=safeNum(row.S3_W),O3=safeNum(row.S3_O),TBW=safeNum(row.TB_W),TBO=safeNum(row.TB_O);
+  let wG=W1+W2,oG=O1+O2;
+  if(hasThirdSetTB(row)){if(TBW>TBO)wG+=1;else if(TBO>TBW)oG+=1;}else if(W3!==0||O3!==0){wG+=W3;oG+=O3;}
+  return{wGames:wG,oGames:oG,diff:Math.max(0,wG-oG)};
 }
 
-let RECENT_OPP_CACHE_ROUND=null, RECENT_OPP_BY_PLAYER=new Map();
-async function buildRecentOpponentsForCurrentRound(){
-  if (RECENT_OPP_CACHE_ROUND === CurrentRound) return;
-  RECENT_OPP_BY_PLAYER = new Map(); RECENT_OPP_CACHE_ROUND = CurrentRound;
-  const start=Math.max(1,CurrentRound-3), end=CurrentRound-1; if(end<1) return;
-  const urls=[]; for(let r=start;r<=end;r++) urls.push(CSV[`ScoresRound${r}`]);
+let RECENT_OPP_CACHE_ROUND=null,RECENT_OPP_BY_PLAYER=new Map();
+async function buildRecentOpponents(){
+  if(RECENT_OPP_CACHE_ROUND===CurrentRound)return;
+  RECENT_OPP_BY_PLAYER=new Map();RECENT_OPP_CACHE_ROUND=CurrentRound;
+  const start=Math.max(1,CurrentRound-3),end=CurrentRound-1;if(end<1)return;
+  const urls=[];for(let r=start;r<=end;r++)urls.push(CSV[`ScoresRound${r}`]);
   try{
-    const rounds = await Promise.all(urls.filter(Boolean).map(loadCSV));
+    const rounds=await Promise.all(urls.filter(Boolean).map(loadCSV));
     rounds.flat().forEach(row=>{
-      const t=String(row.MatchType||'').trim(); if(t!=='Scheduled'&&t!=='Challenge') return;
-      const w=fmt(row.Winner), o=fmt(row.Opponent); if(!w||!o) return;
-      const wk=nameKey(w), ok=nameKey(o);
-      if(!RECENT_OPP_BY_PLAYER.has(wk)) RECENT_OPP_BY_PLAYER.set(wk,new Set());
-      if(!RECENT_OPP_BY_PLAYER.has(ok)) RECENT_OPP_BY_PLAYER.set(ok,new Set());
-      RECENT_OPP_BY_PLAYER.get(wk).add(ok); RECENT_OPP_BY_PLAYER.get(ok).add(wk);
+      const t=String(row.MatchType||'').trim();if(t!=='Scheduled'&&t!=='Challenge')return;
+      const w=fmt(row.Winner),o=fmt(row.Opponent);if(!w||!o)return;
+      const wk=nameKey(w),ok=nameKey(o);
+      if(!RECENT_OPP_BY_PLAYER.has(wk))RECENT_OPP_BY_PLAYER.set(wk,new Set());
+      if(!RECENT_OPP_BY_PLAYER.has(ok))RECENT_OPP_BY_PLAYER.set(ok,new Set());
+      RECENT_OPP_BY_PLAYER.get(wk).add(ok);RECENT_OPP_BY_PLAYER.get(ok).add(wk);
     });
   }catch{}
 }
-function hasPlayedRecently(teamName, oppName){
-  const set=RECENT_OPP_BY_PLAYER.get(nameKey(teamName)); return !!(set && set.has(nameKey(oppName)));
-}
-function appendTextWithHighlight(container, fullText, oppName, hi){
-  if (!hi || !oppName){ container.textContent = fullText; return; }
-  const hay=String(fullText||''), needle=String(oppName||'');
-  const i=hay.toLowerCase().indexOf(needle.toLowerCase());
-  if(i<0){ container.textContent=fullText; return; }
-  const before=hay.slice(0,i), match=hay.slice(i,i+needle.length), after=hay.slice(i+needle.length);
-  container.textContent=''; if(before) container.appendChild(document.createTextNode(before));
-  const span=document.createElement('span'); span.className='repeat-opp'; span.textContent=match; container.appendChild(span);
-  if(after) container.appendChild(document.createTextNode(after));
+function hasPlayedRecently(a,b){const s=RECENT_OPP_BY_PLAYER.get(nameKey(a));return !!(s&&s.has(nameKey(b)));}
+
+function highlightText(container,text,opp,hi){
+  if(!hi||!opp){container.textContent=text;return;}
+  const h=String(text||''),n=String(opp||''),i=h.toLowerCase().indexOf(n.toLowerCase());
+  if(i<0){container.textContent=text;return;}
+  container.textContent='';
+  if(h.slice(0,i))container.appendChild(document.createTextNode(h.slice(0,i)));
+  const sp=document.createElement('span');sp.className='repeat-opp';sp.textContent=h.slice(i,i+n.length);container.appendChild(sp);
+  if(h.slice(i+n.length))container.appendChild(document.createTextNode(h.slice(i+n.length)));
 }
 
-/* ===== Build a phone-reveal button ===== */
 function makePhoneReveal(phone){
-  if (!phone) return null;
-  const wrap = document.createElement('span');
-  wrap.className='phone-wrap';
-  const btn = document.createElement('button');
-  btn.className='phone-toggle'; btn.type='button'; btn.textContent='📞';
-  btn.setAttribute('aria-label','Show phone');
-  const rev = document.createElement('span');
-  rev.className='phone-reveal'; rev.textContent=phone;
-  btn.addEventListener('click',()=>{ rev.classList.toggle('shown'); btn.textContent = rev.classList.contains('shown') ? '🙈' : '📞'; });
-  wrap.appendChild(btn); wrap.appendChild(rev);
+  if(!phone)return null;
+  const wrap=document.createElement('span');wrap.className='phone-wrap';
+  const btn=document.createElement('button');btn.className='phone-toggle';btn.type='button';btn.textContent='📞';btn.setAttribute('aria-label','Show phone');
+  const rev=document.createElement('span');rev.className='phone-reveal';rev.textContent=phone;
+  btn.addEventListener('click',()=>{rev.classList.toggle('shown');btn.textContent=rev.classList.contains('shown')?'🙈':'📞';});
+  wrap.appendChild(btn);wrap.appendChild(rev);
   return wrap;
 }
 
-/* ===== core ===== */
+const GROUP_COLORS=['rgba(255,80,80,.75)','rgba(255,150,30,.75)','rgba(255,220,0,.75)','rgba(60,200,80,.75)','rgba(30,180,200,.75)','rgba(80,120,255,.75)','rgba(160,60,220,.75)'];
+function groupColor(rank){return GROUP_COLORS[((Math.ceil(rank/8)-1)%7)];}
+
+/* ===== CORE INIT ===== */
 async function init(round){
-  ROUND = round;
-  document.getElementById('thLeft').textContent  = `Round ${ROUND} Ranking - Points`;
-  document.getElementById('thRight').textContent = `Round ${ROUND+1} Ranking - Points`;
-  const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
-  const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
+  ROUND=round;
+  document.getElementById('thLeft').textContent=`Round ${ROUND} Ranking - Points`;
+  document.getElementById('thRight').textContent=`Round ${ROUND+1} Ranking - Points`;
+  const sel=document.getElementById('roundSelect');if(sel.value!==String(ROUND))sel.value=String(ROUND);
+  const url=new URL(location.href);url.searchParams.set('round',String(ROUND));history.replaceState(null,'',url);
 
   try{
-    setStatus('Loading data…'); document.getElementById('ladder').style.display='none'; document.getElementById('status').style.display='';
-    if (ROUND === CurrentRound) await buildRecentOpponentsForCurrentRound();
+    setStatus('Loading data…');
+    document.getElementById('ladder').style.display='none';
+    document.getElementById('status').style.display='';
+    document.getElementById('mobileList').innerHTML='';
 
-    const roundKey = `ScoresRound${ROUND}`;
-    const [playersRaw, scoresRawAll, scheduleRaw, datesRaw] = await Promise.all([
-      loadCSV(CSV.Players), loadCSV(CSV[roundKey]), loadCSV(CSV.Schedule), loadCSV(CSV.Dates)
+    if(ROUND===CurrentRound)await buildRecentOpponents();
+
+    const roundKey=`ScoresRound${ROUND}`;
+    const [playersRaw,scoresRawAll,scheduleRaw,datesRaw]=await Promise.all([
+      loadCSV(CSV.Players),loadCSV(CSV[roundKey]),loadCSV(CSV.Schedule),loadCSV(CSV.Dates)
     ]);
 
-    /* meta */
-    const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
-    if (roundRow){
-      const meta=document.getElementById('roundMeta'); meta.textContent='';
-      const a=document.createElement('span'); a.textContent = fmtDateRange(roundRow.Start, roundRow.End) || ''; meta.appendChild(a);
-      const type=fmt(roundRow.Type); if(type){ const dot=document.createElement('span'); dot.className='dot'; dot.textContent=type; meta.appendChild(dot); }
+    /* Date meta */
+    const roundRow=(datesRaw||[]).find(r=>Number(r.Round)===Number(ROUND));
+    if(roundRow){
+      const meta=document.getElementById('roundMeta');meta.textContent='';
+      const a=document.createElement('span');a.textContent=fmtDateRange(roundRow.Start,roundRow.End)||'';meta.appendChild(a);
+      const type=fmt(roundRow.Type);if(type){const dot=document.createElement('span');dot.className='dot';dot.textContent=type;meta.appendChild(dot);}
     }
 
-    /* Build lookup for team contact info (supports two emails + two phones) */
-    const contactByTeam = {};
-    const activeTeamsRaw = (playersRaw||[]).filter(r=>{
-      const start=num(r.RStart), end=num(r.REnd), rr=Number(ROUND);
-      return (isNaN(start)||start<=rr) && (isNaN(end)||end>=rr);
+    /* Contact info */
+    const contactByTeam={};
+    const activeTeamsRaw=(playersRaw||[]).filter(r=>{
+      const start=num(r.RStart),end=num(r.REnd),rr=Number(ROUND);
+      return(isNaN(start)||start<=rr)&&(isNaN(end)||end>=rr);
     }).map(r=>{
-      const teamName = fmt(r.Team || r.Participant || r.Name);
-      contactByTeam[nameKey(teamName)] = {
-        email1:  fmt(r.EMAIL1 || r.Email1 || r.Email || ''),
-        email2:  fmt(r.EMAIL2 || r.Email2 || ''),
-        phone1:  fmt(r.PHONE1 || r.Phone1 || r.PHONE || r.Phone || ''),
-        phone2:  fmt(r.PHONE2 || r.Phone2 || ''),
+      const teamName=fmt(r.Team||r.Participant||r.Name);
+      contactByTeam[nameKey(teamName)]={
+        phone1:fmt(r.PHONE1||r.Phone1||r.PHONE||r.Phone||''),
+        phone2:fmt(r.PHONE2||r.Phone2||''),
       };
       return r;
     });
 
-    /* ranks & points from Players */
-    const teams = activeTeamsRaw
-      .map(r => {
-        const teamName = fmt(r.Team || r.Participant || r.Name);
-        const LeftRank  = readRank(r, ROUND);
-        const LeftPts   = readPts(r, ROUND);
-        const RightRank = readRank(r, ROUND+1);
-        const RightPts  = readPts(r, ROUND+1);
-        return { name: teamName, LeftRank, LeftPts, RightRank, RightPts, raw: r };
-      })
-      .filter(t => t.name && !isNaN(t.LeftRank) && t.LeftRank > 0)
-      .sort((a,b) => a.LeftRank - b.LeftRank);
+    /* Teams sorted by rank */
+    const teams=activeTeamsRaw.map(r=>{
+      const name=fmt(r.Team||r.Participant||r.Name);
+      return{name,LeftRank:readRank(r,ROUND),LeftPts:readPts(r,ROUND),RightRank:readRank(r,ROUND+1),RightPts:readPts(r,ROUND+1)};
+    }).filter(t=>t.name&&!isNaN(t.LeftRank)&&t.LeftRank>0).sort((a,b)=>a.LeftRank-b.LeftRank);
 
-    const beginRankByName = {}, nameByBeginRank = {};
-    teams.forEach(t => {
-      if(!isNaN(t.LeftRank) && t.LeftRank>0){
-        beginRankByName[nameKey(t.name)] = t.LeftRank;
-        nameByBeginRank[t.LeftRank] = t.name;
-      }
-    });
+    const rankByName={},nameByRank={};
+    teams.forEach(t=>{if(!isNaN(t.LeftRank)&&t.LeftRank>0){rankByName[nameKey(t.name)]=t.LeftRank;nameByRank[t.LeftRank]=t.name;}});
 
-    /* Schedule map: rank -> opponent rank for this round */
-    const scheduleCol = `Round ${ROUND}`;
-    const scheduleMap = {};
-    (scheduleRaw||[]).forEach(r=>{
-      const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]);
-      if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp;
-    });
+    /* Schedule map */
+    const schedCol=`Round ${ROUND}`,scheduleMap={};
+    (scheduleRaw||[]).forEach(r=>{const rnk=Number(r.Ranking),opp=Number(r[schedCol]);if(!isNaN(rnk)&&!isNaN(opp))scheduleMap[rnk]=opp;});
 
-    /* Scores: sort into scheduled and challenge maps */
-    const scoresRaw = (scoresRawAll||[]).filter(r=>{
-      const t=String(r.MatchType||'').trim(); return t==='Scheduled'||t==='Challenge';
-    });
-
-    const scheduledMap = new Map();   // nameKey -> matchRow
-    const challengesMap = new Map();  // nameKey -> [matchRow, matchRow]
-    const pushChal = (k,m)=>{ const arr=challengesMap.get(k)||[]; if(arr.length<2){arr.push(m);challengesMap.set(k,arr);} };
-
+    /* Scores maps */
+    const scoresRaw=(scoresRawAll||[]).filter(r=>{const t=String(r.MatchType||'').trim();return t==='Scheduled'||t==='Challenge';});
+    const scheduledMap=new Map(),challengesMap=new Map();
+    const pushChal=(k,m)=>{const arr=challengesMap.get(k)||[];if(arr.length<2){arr.push(m);challengesMap.set(k,arr);}};
     scoresRaw.forEach(r=>{
-      const type=String(r.MatchType||'').trim(); if(type!=='Scheduled'&&type!=='Challenge') return;
-      const winner=fmt(r.Winner), opponent=fmt(r.Opponent); if(!winner||!opponent) return;
-      const wKey=nameKey(winner), oKey=nameKey(opponent);
-      if(type==='Scheduled'){ scheduledMap.set(wKey,r); scheduledMap.set(oKey,r); }
-      else { pushChal(wKey,r); pushChal(oKey,r); }
+      const type=String(r.MatchType||'').trim();if(type!=='Scheduled'&&type!=='Challenge')return;
+      const w=fmt(r.Winner),o=fmt(r.Opponent);if(!w||!o)return;
+      const wk=nameKey(w),ok=nameKey(o);
+      if(type==='Scheduled'){scheduledMap.set(wk,r);scheduledMap.set(ok,r);}
+      else{pushChal(wk,r);pushChal(ok,r);}
     });
 
-    const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+    const tbody=document.getElementById('tbody');tbody.innerHTML='';
+    const mobileList=document.getElementById('mobileList');mobileList.innerHTML='';
 
-    teams.forEach((t,i) => {
-      const groupNum = Math.ceil(t.LeftRank / 8);
-      const groupClass = 'group-' + (((groupNum - 1) % 7) + 1);
-      const tr=document.createElement('tr'); tr.className=groupClass;
+    teams.forEach(t=>{
+      const meKey=nameKey(t.name);
+      const contact=contactByTeam[meKey]||{};
+      const phones=[contact.phone1,contact.phone2].filter(Boolean);
+      const groupNum=Math.ceil(t.LeftRank/8);
+      const groupClass='group-'+(((groupNum-1)%7)+1);
+      const sr=scheduledMap.get(meKey);
+      const hasScheduledPlayed=!!sr;
+      const myChals=challengesMap.get(meKey)||[];
 
-      /* col 1: Left rank/pts */
-      const tdLeft=document.createElement('td');
-      tdLeft.className='rp rp-left';
-      tdLeft.innerHTML=`#${t.LeftRank}<span class="sub">${isNaN(t.LeftPts)?'&nbsp;':fmtPts(t.LeftPts)+' pts'}</span>`;
-      tr.appendChild(tdLeft);
+      /* Scheduled opponent name (played or pending) */
+      let schedOppName='';
+      if(sr){schedOppName=nameKey(fmt(sr.Winner))===meKey?fmt(sr.Opponent):fmt(sr.Winner);}
+      else{const oR=scheduleMap[t.LeftRank];schedOppName=oR?(nameByRank[oR]||''):'';}
+      const hi=(ROUND===CurrentRound)&&schedOppName&&hasPlayedRecently(t.name,schedOppName);
 
-      /* col 2: Mobile head + Team info */
-      const tdTeam=document.createElement('td');
-      tdTeam.className='team-cell';
-
-      const mHead=document.createElement('div'); mHead.className='m-head';
-      const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${t.LeftRank}`;
-      const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=t.name;
-      const mPts=document.createElement('span'); mPts.className='m-pts';
-      mPts.innerHTML=`R${ROUND}: <b>${isNaN(t.LeftPts)?'—':fmtPts(t.LeftPts)}</b> pts`;
-      mHead.appendChild(mRank); mHead.appendChild(mName); mHead.appendChild(mPts);
-      tdTeam.appendChild(mHead);
-
-      const teamNameDiv=document.createElement('div'); teamNameDiv.className='team-name'; teamNameDiv.textContent=t.name;
-      tdTeam.appendChild(teamNameDiv);
-
-      const contact = contactByTeam[nameKey(t.name)] || {};
-      const phones = [contact.phone1, contact.phone2].filter(Boolean);
-      phones.forEach((ph, idx) => {
-        const row = document.createElement('div'); row.className='player-row';
-        const phoneReveal = makePhoneReveal(ph);
-        if (phoneReveal){
-          const label = document.createElement('span');
-          label.className='player-name'; label.textContent=`Player ${idx+1}:`;
-          row.appendChild(label);
-          row.appendChild(phoneReveal);
+      /* Points pill factory */
+      function makePill(isWin,row,chalDiv){
+        const gt=parseGameTotals(row);
+        if(isWin){
+          const pts=fmt(row.WinPoints||row.WinnerPoints||row.WPts||'');if(!pts)return null;
+          const p=document.createElement('span');p.className='winner-pts';
+          p.setAttribute('data-points',pts);p.setAttribute('data-gw',gt.wGames);p.setAttribute('data-gl',gt.oGames);p.setAttribute('data-gdiff',gt.diff);
+          if(chalDiv)p.setAttribute('data-chaldiv',chalDiv);
+          p.innerHTML=`🏆 <b>${fmtPts(pts)}</b><span class="pts-hint">?</span>`;
+          return p;
+        }else{
+          const pts=fmt(row.LosePoints||row.LoserPoints||row.LPts||'');if(!pts)return null;
+          const p=document.createElement('span');p.className='loser-pts';
+          p.setAttribute('data-points',pts);p.setAttribute('data-gw',gt.oGames);
+          if(chalDiv)p.setAttribute('data-chaldiv',chalDiv);
+          p.innerHTML=`<b>${fmtPts(pts)}</b><span class="pts-hint">?</span>`;
+          return p;
         }
-        tdTeam.appendChild(row);
+      }
+
+      /* Populate a scheduled match line (shared between desktop + mobile) */
+      function fillSched(line){
+        if(sr){
+          const p=nameKey(fmt(sr.Winner))===meKey?'winner':'opponent';
+          const span=document.createElement('span');span.className='result '+(p==='winner'?'won':'lost');
+          highlightText(span,resultString(sr,p,rankByName),schedOppName,hi);
+          line.appendChild(span);
+          const pill=makePill(p==='winner',sr,null);if(pill)line.appendChild(pill);
+        }else{
+          const oR=scheduleMap[t.LeftRank];
+          if(oR){
+            const oppName=nameByRank[oR]||'';
+            const pre=document.createElement('span');pre.textContent=`vs #${oR} `;line.appendChild(pre);
+            const ns=document.createElement('span');if(hi)ns.className='repeat-opp';ns.textContent=oppName;line.appendChild(ns);
+            const pend=document.createElement('span');pend.className='pending';pend.textContent=' — pending';line.appendChild(pend);
+          }
+        }
+      }
+
+      /* Populate a challenge match line */
+      function fillChal(line,cr){
+        const p=nameKey(fmt(cr.Winner))===meKey?'winner':'opponent';
+        const oppName=p==='winner'?fmt(cr.Opponent):fmt(cr.Winner);
+        const span=document.createElement('span');span.className='result '+(p==='winner'?'won':'lost');
+        highlightText(span,resultString(cr,p,rankByName),oppName,false);
+        line.appendChild(span);
+        const cd=cr.ChalDiv||cr.ChallengeDivisor||(hasScheduledPlayed?2:4);
+        const pill=makePill(p==='winner',cr,cd);if(pill)line.appendChild(pill);
+      }
+
+      /* ── DESKTOP ROW ── */
+      const tr=document.createElement('tr');tr.className=groupClass;
+
+      // Left rank/pts
+      const tdL=document.createElement('td');tdL.className='rp rp-left';
+      tdL.innerHTML=`#${t.LeftRank}<span class="sub">${isNaN(t.LeftPts)?'&nbsp;':fmtPts(t.LeftPts)+' pts'}</span>`;
+      tr.appendChild(tdL);
+
+      // Team + phones
+      const tdT=document.createElement('td');tdT.className='team-cell';
+      const tn=document.createElement('div');tn.className='team-name';tn.textContent=t.name;tdT.appendChild(tn);
+      phones.forEach((ph,i)=>{
+        const row=document.createElement('div');row.className='player-row';
+        const lbl=document.createElement('span');lbl.className='player-label';lbl.textContent=`Player ${i+1}:`;row.appendChild(lbl);
+        const rev=makePhoneReveal(ph);if(rev)row.appendChild(rev);
+        tdT.appendChild(row);
+      });
+      tr.appendChild(tdT);
+
+      // Results
+      const tdR=document.createElement('td');tdR.className='matches';
+      const sl=document.createElement('div');
+      if(sr||scheduleMap[t.LeftRank]){
+        sl.className='match-line';
+        const b=document.createElement('span');b.className='badge badge-scheduled';b.textContent='Scheduled';sl.appendChild(b);
+        fillSched(sl);
+      }else{sl.className='match-line empty';sl.innerHTML='&nbsp;';}
+      tdR.appendChild(sl);
+      for(let ci=0;ci<2;ci++){
+        const cr=myChals[ci];
+        if(cr){
+          const cl=document.createElement('div');cl.className='match-line';
+          const b=document.createElement('span');b.className='badge badge-challenge';b.textContent='Challenge';cl.appendChild(b);
+          fillChal(cl,cr);tdR.appendChild(cl);
+        }else{const cl=document.createElement('div');cl.className='match-line empty';cl.innerHTML='&nbsp;';tdR.appendChild(cl);}
+      }
+      tr.appendChild(tdR);
+
+      // Right rank/pts
+      const tdRR=document.createElement('td');tdRR.className='rp right rp-right';
+      const hasR=!isNaN(t.RightRank)&&t.RightRank>0;
+      let mv='';
+      if(hasR){const d=t.LeftRank-t.RightRank;mv=d>0?`<span class="move move-up">↑${d}</span>`:d<0?`<span class="move move-down">↓${Math.abs(d)}</span>`:`<span class="move move-same">—</span>`;}
+      tdRR.innerHTML=`${hasR?`#${t.RightRank}`:'&nbsp;'}${mv}<span class="sub">${hasR?fmtPts(t.RightPts)+' pts':'&nbsp;'}</span>`;
+      tr.appendChild(tdRR);
+      tbody.appendChild(tr);
+
+      /* ── MOBILE CARD ── */
+      const card=document.createElement('div');card.className='m-card';
+      card.style.borderLeftColor=groupColor(t.LeftRank);
+
+      const inner=document.createElement('div');inner.className='m-card-inner';
+
+      // Top row: rank + team name + pts pill
+      const mTop=document.createElement('div');mTop.className='m-top';
+      const mRank=document.createElement('div');mRank.className='m-rank';mRank.textContent=`#${t.LeftRank}`;mTop.appendChild(mRank);
+      const mName=document.createElement('div');mName.className='m-team-name';mName.textContent=t.name;mTop.appendChild(mName);
+      if(!isNaN(t.LeftPts)){
+        const mPill=document.createElement('div');mPill.className='m-pts-pill';
+        mPill.innerHTML=`R${ROUND} <b>${fmtPts(t.LeftPts)}</b> pts`;mTop.appendChild(mPill);
+      }
+      inner.appendChild(mTop);
+
+      // Phones
+      if(phones.length){
+        const mPh=document.createElement('div');mPh.className='m-phones';
+        phones.forEach((ph,i)=>{
+          const item=document.createElement('div');item.className='m-phone-item';
+          const lbl=document.createElement('span');lbl.className='m-phone-label';lbl.textContent=`P${i+1}:`;item.appendChild(lbl);
+          const rev=makePhoneReveal(ph);if(rev)item.appendChild(rev);
+          mPh.appendChild(item);
+        });
+        inner.appendChild(mPh);
+      }
+
+      // Matches
+      const mMatches=document.createElement('div');mMatches.className='m-matches';
+
+      // Scheduled
+      if(sr||scheduleMap[t.LeftRank]){
+        const ml=document.createElement('div');ml.className='m-match-line';
+        const b=document.createElement('span');b.className='badge badge-scheduled';b.textContent='Scheduled';ml.appendChild(b);
+        fillSched(ml);
+        mMatches.appendChild(ml);
+      }
+
+      // Challenges
+      myChals.forEach(cr=>{
+        const ml=document.createElement('div');ml.className='m-match-line';
+        const b=document.createElement('span');b.className='badge badge-challenge';b.textContent='Challenge';ml.appendChild(b);
+        fillChal(ml,cr);
+        mMatches.appendChild(ml);
       });
 
-      tr.appendChild(tdTeam);
-
-      /* col 3: match results */
-      const tdRes=document.createElement('td');
-      tdRes.className='matches';
-
-      const meKey = nameKey(t.name);
-      const hasScheduledPlayed = scheduledMap.has(meKey);
-
-      /* ---- Scheduled line ---- */
-      const schedLine=document.createElement('div'); schedLine.className='match-line';
-      const sr = scheduledMap.get(meKey);
-
-      // Determine scheduled opponent name (whether played or pending)
-      let scheduledOppName='';
-      if(sr){
-        scheduledOppName = nameKey(fmt(sr.Winner))===meKey ? fmt(sr.Opponent) : fmt(sr.Winner);
-      } else {
-        const oppRank = scheduleMap[t.LeftRank];
-        scheduledOppName = oppRank ? (nameByBeginRank[oppRank]||'') : '';
-      }
-      const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(t.name, scheduledOppName);
-
-      if(sr){
-        // Score has been submitted — show result
-        const badge=document.createElement('span'); badge.className='badge badge-scheduled'; badge.textContent='Scheduled'; schedLine.appendChild(badge);
-        const perspective = nameKey(fmt(sr.Winner))===meKey ? 'winner' : 'opponent';
-        const resultTxt = resultString(sr, perspective, beginRankByName);
-        const span=document.createElement('span'); span.className='result '+(perspective==='winner'?'won':'lost');
-        appendTextWithHighlight(span, resultTxt, scheduledOppName, shouldHi);
-        schedLine.appendChild(span);
-        // Points pill
-        const gTotals = parseGameTotals(sr);
-        if(perspective==='winner'){
-          const wPts=fmt(sr.WinPoints||sr.WinnerPoints||sr.WPts||'');
-          if(wPts!==''){
-            const pill=document.createElement('span'); pill.className='winner-pts';
-            pill.setAttribute('data-points',wPts); pill.setAttribute('data-gw',gTotals.wGames);
-            pill.setAttribute('data-gl',gTotals.oGames); pill.setAttribute('data-gdiff',gTotals.diff);
-            pill.innerHTML=`🏆 <b>${fmtPts(wPts)}</b><span class="pts-hint">?</span>`;
-            schedLine.appendChild(pill);
-          }
-        } else {
-          const lPts=fmt(sr.LosePoints||sr.LoserPoints||sr.LPts||'');
-          if(lPts!==''){
-            const pill=document.createElement('span'); pill.className='loser-pts';
-            pill.setAttribute('data-points',lPts); pill.setAttribute('data-gw',gTotals.oGames);
-            pill.innerHTML=`<b>${fmtPts(lPts)}</b><span class="pts-hint">?</span>`;
-            schedLine.appendChild(pill);
-          }
-        }
-      } else {
-        // No score yet — show pending opponent from schedule
-        const oppRank = scheduleMap[t.LeftRank];
-        if(oppRank){
-          const oppName = nameByBeginRank[oppRank]||'';
-          const badge=document.createElement('span'); badge.className='badge badge-scheduled'; badge.textContent='Scheduled'; schedLine.appendChild(badge);
-          const pre=document.createElement('span'); pre.textContent=`vs #${oppRank} `; schedLine.appendChild(pre);
-          const nameSpan=document.createElement('span'); if(shouldHi) nameSpan.className='repeat-opp'; nameSpan.textContent=oppName; schedLine.appendChild(nameSpan);
-          const pend=document.createElement('span'); pend.className='pending'; pend.textContent=' — pending'; schedLine.appendChild(pend);
-        } else {
-          schedLine.classList.add('empty'); schedLine.innerHTML='&nbsp;';
-        }
-      }
-      tdRes.appendChild(schedLine);
-
-      /* ---- Challenge lines (up to 2) ---- */
-      const myChals = challengesMap.get(meKey) || [];
-      for(let ci=0; ci<2; ci++){
-        const chalLine=document.createElement('div');
-        const cr = myChals[ci];
-        if(cr){
-          chalLine.className='match-line';
-          const badge=document.createElement('span'); badge.className='badge badge-challenge'; badge.textContent='Challenge'; chalLine.appendChild(badge);
-          const perspective = nameKey(fmt(cr.Winner))===meKey ? 'winner' : 'opponent';
-          const resultTxt = resultString(cr, perspective, beginRankByName);
-          const oppName = perspective==='winner' ? fmt(cr.Opponent) : fmt(cr.Winner);
-          const span=document.createElement('span'); span.className='result '+(perspective==='winner'?'won':'lost');
-          appendTextWithHighlight(span, resultTxt, oppName, false);
-          chalLine.appendChild(span);
-          // Points pill
-          const gTotals = parseGameTotals(cr);
-          const chalDiv = cr.ChalDiv || cr.ChallengeDivisor || (hasScheduledPlayed ? 2 : 4);
-          if(perspective==='winner'){
-            const wPts=fmt(cr.WinPoints||cr.WinnerPoints||cr.WPts||'');
-            if(wPts!==''){
-              const pill=document.createElement('span'); pill.className='winner-pts';
-              pill.setAttribute('data-points',wPts); pill.setAttribute('data-gw',gTotals.wGames);
-              pill.setAttribute('data-gl',gTotals.oGames); pill.setAttribute('data-gdiff',gTotals.diff);
-              pill.setAttribute('data-chaldiv',chalDiv);
-              pill.innerHTML=`🏆 <b>${fmtPts(wPts)}</b><span class="pts-hint">?</span>`;
-              chalLine.appendChild(pill);
-            }
-          } else {
-            const lPts=fmt(cr.LosePoints||cr.LoserPoints||cr.LPts||'');
-            if(lPts!==''){
-              const pill=document.createElement('span'); pill.className='loser-pts';
-              pill.setAttribute('data-points',lPts); pill.setAttribute('data-gw',gTotals.oGames);
-              pill.setAttribute('data-chaldiv',chalDiv);
-              pill.innerHTML=`<b>${fmtPts(lPts)}</b><span class="pts-hint">?</span>`;
-              chalLine.appendChild(pill);
-            }
-          }
-        } else {
-          chalLine.className='match-line empty'; chalLine.innerHTML='&nbsp;';
-        }
-        tdRes.appendChild(chalLine);
+      if(mMatches.children.length===0){
+        const ml=document.createElement('div');ml.className='m-match-line';
+        const sp=document.createElement('span');sp.className='pending';sp.textContent='No match scheduled';ml.appendChild(sp);
+        mMatches.appendChild(ml);
       }
 
-      // Mobile bottom stats
-      const mStats=document.createElement('div'); mStats.className='m-stats';
-      const rightRankTxt = (!isNaN(t.RightRank) && t.RightRank>0) ? `#${t.RightRank}` : '—';
-      const rightPtsTxt  = (!isNaN(t.RightPts)) ? fmtPts(t.RightPts) : '—';
-      mStats.innerHTML = `R${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
-      tdRes.appendChild(mStats);
-      tr.appendChild(tdRes);
+      inner.appendChild(mMatches);
+      card.appendChild(inner);
 
-      /* col 4: Right rank/pts with movement */
-      const tdRight=document.createElement('td'); tdRight.className='rp right rp-right';
-      const hasRight = !isNaN(t.RightRank) && t.RightRank > 0;
-      const rankText = hasRight ? `#${t.RightRank}` : '';
-      const ptsText  = (!isNaN(t.RightPts)) ? `${fmtPts(t.RightPts)} pts` : '';
-      let moveHtml = '';
-      if (hasRight){
-        const diff = t.LeftRank - t.RightRank;
-        if (diff > 0)       moveHtml = `<span class="move move-up">↑${diff}</span>`;
-        else if (diff < 0)  moveHtml = `<span class="move move-down">↓${Math.abs(diff)}</span>`;
-        else                moveHtml = `<span class="move move-same">—</span>`;
+      // Bottom strip: next round rank + movement + pts
+      const mBot=document.createElement('div');mBot.className='m-bottom';
+      if(hasR){
+        const d=t.LeftRank-t.RightRank;
+        const mv2=d>0?`<span class="move move-up">↑${d}</span>`:d<0?`<span class="move move-down">↓${Math.abs(d)}</span>`:`<span class="move move-same">—</span>`;
+        mBot.innerHTML=`R${ROUND+1}: <b>#${t.RightRank}</b>${mv2} &nbsp;·&nbsp; <b>${fmtPts(t.RightPts)}</b> pts`;
+      }else{
+        mBot.innerHTML=`R${ROUND+1}: <span style="color:#3a4f6a">not yet ranked</span>`;
       }
-      tdRight.innerHTML = `${rankText || '&nbsp;'}${moveHtml}<span class="sub">${ptsText || '&nbsp;'}</span>`;
-      tr.appendChild(tdRight);
-
-      tbody.appendChild(tr);
+      card.appendChild(mBot);
+      mobileList.appendChild(card);
     });
 
-    document.getElementById('ladder').style.display=''; document.getElementById('status').style.display='none'; setStatus('');
+    document.getElementById('ladder').style.display='';
+    document.getElementById('status').style.display='none';
+    setStatus('');
+
   }catch(err){
     console.error(err);
-    setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
+    setStatus('There was a problem loading your data. Double-check the CSV links and headers.',true);
   }
 }
 
 function buildRoundSelect(){
-  const sel=document.getElementById('roundSelect'); sel.innerHTML='';
-  for(let r=1;r<=CurrentRound;r++){ const opt=document.createElement('option'); opt.value=String(r); opt.textContent=`Round ${r}`; sel.appendChild(opt); }
+  const sel=document.getElementById('roundSelect');sel.innerHTML='';
+  for(let r=1;r<=CurrentRound;r++){const opt=document.createElement('option');opt.value=String(r);opt.textContent=`Round ${r}`;sel.appendChild(opt);}
   sel.value=String(ROUND);
-  sel.addEventListener('change',()=>{ const r=parseInt(sel.value,10); if(!isNaN(r)&&r>=1&&r<=CurrentRound) init(r); });
+  sel.addEventListener('change',()=>{const r=parseInt(sel.value,10);if(!isNaN(r)&&r>=1&&r<=CurrentRound)init(r);});
 }
 
-/* modal */
-const backdropEl=document.getElementById('backdrop'); const modalEl=document.getElementById('modal');
-const modalBody=document.getElementById('modalBody'); const modalTitle=document.getElementById('modalTitle');
-document.getElementById('modalClose').addEventListener('click', closeModal); backdropEl.addEventListener('click', closeModal);
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
-function openModal(title, html){ modalTitle.textContent=title||'Info'; modalBody.innerHTML=html; backdropEl.classList.add('show'); modalEl.classList.add('show'); document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden'; }
-function closeModal(){ modalEl.classList.remove('show'); backdropEl.classList.remove('show'); document.documentElement.style.overflow=''; document.body.style.overflow=''; }
+/* Modal */
+const backdropEl=document.getElementById('backdrop'),modalEl=document.getElementById('modal');
+const modalBody=document.getElementById('modalBody'),modalTitle=document.getElementById('modalTitle');
+document.getElementById('modalClose').addEventListener('click',closeModal);
+backdropEl.addEventListener('click',closeModal);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+function openModal(title,html){modalTitle.textContent=title||'Info';modalBody.innerHTML=html;backdropEl.classList.add('show');modalEl.classList.add('show');document.documentElement.style.overflow='hidden';}
+function closeModal(){modalEl.classList.remove('show');backdropEl.classList.remove('show');document.documentElement.style.overflow='';}
 
 function handlePointsClick(e){
-  const loserBtn = e.target.closest('.loser-pts');
-  const winnerBtn = e.target.closest('.winner-pts');
-  if (!loserBtn && !winnerBtn) return;
-  e.preventDefault(); e.stopPropagation();
-
-  if (loserBtn){
-    const pts = loserBtn.getAttribute('data-points') || '';
-    const gw = loserBtn.getAttribute('data-gw') || '0';
-    const div = loserBtn.getAttribute('data-chaldiv') || '';
-    const isChallenge = !!div;
-    const html = `
-      <p><strong>Points (from CSV):</strong> ${pts}</p>
-      <p><strong>Total games won:</strong> ${gw}</p>
-      ${isChallenge ? `
-        <p><strong>Challenge divisor used:</strong> ${div}</p>
-        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
-      ` : ''}
-      <p class="tip">Loser points equal games won (capped at 10). Values read from <em>LosePoints</em> in the Scores CSV.</p>
-    `;
-    openModal('Loser Points', html);
+  const lb=e.target.closest('.loser-pts'),wb=e.target.closest('.winner-pts');
+  if(!lb&&!wb)return;
+  e.preventDefault();e.stopPropagation();
+  if(lb){
+    const pts=lb.getAttribute('data-points')||'',gw=lb.getAttribute('data-gw')||'0',div=lb.getAttribute('data-chaldiv')||'';
+    openModal('Loser Points',`<p><strong>Points:</strong> ${pts}</p><p><strong>Games won:</strong> ${gw}</p>${div?`<p><strong>Challenge divisor:</strong> ${div}</p><p class="tip">Divided by 2 if scheduled match played; by 4 if not.</p>`:''}<p class="tip">Loser points = games won (max 10).</p>`);
     return;
   }
-
-  if (winnerBtn){
-    const pts = winnerBtn.getAttribute('data-points') || '';
-    const gw = winnerBtn.getAttribute('data-gw') || '0';
-    const gl = winnerBtn.getAttribute('data-gl') || '0';
-    const gd = winnerBtn.getAttribute('data-gdiff') || '0';
-    const div = winnerBtn.getAttribute('data-chaldiv') || '';
-    const isChallenge = !!div;
-    const html = `
-      <p><strong>Points:</strong> ${pts}</p>
-      <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Game diff:</strong> ${gd}</p>
-      ${isChallenge ? `
-        <p><strong>Challenge divisor used:</strong> ${div}</p>
-        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
-      ` : ''}
-      <p class="tip">Winner points = <code>10 + (game diff)</code>, minimum 11.<br>Loser points = games won, maximum 10.</p>
-    `;
-    openModal('Winner Points', html);
-  }
+  const pts=wb.getAttribute('data-points')||'',gw=wb.getAttribute('data-gw')||'0',gl=wb.getAttribute('data-gl')||'0',gd=wb.getAttribute('data-gdiff')||'0',div=wb.getAttribute('data-chaldiv')||'';
+  openModal('Winner Points',`<p><strong>Points:</strong> ${pts}</p><p><strong>Games won:</strong> ${gw}, <strong>lost:</strong> ${gl}, <strong>diff:</strong> ${gd}</p>${div?`<p><strong>Challenge divisor:</strong> ${div}</p><p class="tip">Divided by 2 if scheduled match played; by 4 if not.</p>`:''}<p class="tip">Winner points = 10 + game diff, min 11.</p>`);
 }
-document.addEventListener('click', handlePointsClick, {capture:false});
-document.addEventListener('pointerup', handlePointsClick, {capture:false});
+document.addEventListener('click',handlePointsClick,{capture:false});
+document.addEventListener('pointerup',handlePointsClick,{capture:false});
 
-/* boot */
+/* Boot */
 (async function boot(){
   await fetchCurrentRound();
   buildRoundSelect();
-  ROUND = computeRoundFromURL();
+  ROUND=computeRoundFromURL();
   init(ROUND);
 })();
 
-let _lastVisible = Date.now();
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'hidden') { _lastVisible = Date.now(); return; }
-  const away = Date.now() - _lastVisible;
-  if (away < 60000) return;
-  _lastVisible = Date.now();
-  const prevRound = CurrentRound;
+let _lastVisible=Date.now();
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='hidden'){_lastVisible=Date.now();return;}
+  if(Date.now()-_lastVisible<60000)return;
+  _lastVisible=Date.now();
+  const prev=CurrentRound;
   await fetchCurrentRound();
-  if (CurrentRound !== prevRound) buildRoundSelect();
+  if(CurrentRound!==prev)buildRoundSelect();
   init(ROUND);
 });
 </script>
