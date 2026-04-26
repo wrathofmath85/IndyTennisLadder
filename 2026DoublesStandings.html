@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>2026 Indy Tennis Doubles Ladder</title>
+<title>2026 IndyTennis Doubles Ladder</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -164,7 +164,7 @@
   <div class="wrap">
     <header>
       <div class="title">
-        <h1>Indy Tennis Doubles Ladder</h1>
+        <h1>IndyTennis Doubles Ladder</h1>
         <span class="doubles-badge">Doubles</span>
         <div class="round-select-wrap">
           <select id="roundSelect" class="round-select" aria-label="Select round"></select>
@@ -201,7 +201,7 @@
 <script>
 /* ===== CONFIG ===== */
 // TODO: Replace these with your Doubles Google Sheet CSV URLs
-const CURRENT_ROUND_CSV = 'REPLACE_WITH_DOUBLES_CURRENT_ROUND_CSV_URL';
+const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=972964638&single=true&output=csv';
 
 let CurrentRound = 1;
 
@@ -388,7 +388,7 @@ async function init(round){
       return r;
     });
 
-    /* ranks & points from Players (left = round ROUND, right = round ROUND+1) */
+    /* ranks & points from Players */
     const teams = activeTeamsRaw
       .map(r => {
         const teamName = fmt(r.Team || r.Participant || r.Name);
@@ -401,19 +401,45 @@ async function init(round){
       .filter(t => t.name && !isNaN(t.LeftRank) && t.LeftRank > 0)
       .sort((a,b) => a.LeftRank - b.LeftRank);
 
-    const beginRankByName = {};
-    teams.forEach(t => { if(!isNaN(t.LeftRank) && t.LeftRank>0) beginRankByName[nameKey(t.name)] = t.LeftRank; });
+    const beginRankByName = {}, nameByBeginRank = {};
+    teams.forEach(t => {
+      if(!isNaN(t.LeftRank) && t.LeftRank>0){
+        beginRankByName[nameKey(t.name)] = t.LeftRank;
+        nameByBeginRank[t.LeftRank] = t.name;
+      }
+    });
 
-    /* scores for this round */
+    /* Schedule map: rank -> opponent rank for this round */
+    const scheduleCol = `Round ${ROUND}`;
+    const scheduleMap = {};
+    (scheduleRaw||[]).forEach(r=>{
+      const rnk=Number(r.Ranking), opp=Number(r[scheduleCol]);
+      if(!isNaN(rnk)&&!isNaN(opp)) scheduleMap[rnk]=opp;
+    });
+
+    /* Scores: sort into scheduled and challenge maps */
     const scoresRaw = (scoresRawAll||[]).filter(r=>{
       const t=String(r.MatchType||'').trim(); return t==='Scheduled'||t==='Challenge';
+    });
+
+    const scheduledMap = new Map();   // nameKey -> matchRow
+    const challengesMap = new Map();  // nameKey -> [matchRow, matchRow]
+    const pushChal = (k,m)=>{ const arr=challengesMap.get(k)||[]; if(arr.length<2){arr.push(m);challengesMap.set(k,arr);} };
+
+    scoresRaw.forEach(r=>{
+      const type=String(r.MatchType||'').trim(); if(type!=='Scheduled'&&type!=='Challenge') return;
+      const winner=fmt(r.Winner), opponent=fmt(r.Opponent); if(!winner||!opponent) return;
+      const wKey=nameKey(winner), oKey=nameKey(opponent);
+      if(type==='Scheduled'){ scheduledMap.set(wKey,r); scheduledMap.set(oKey,r); }
+      else { pushChal(wKey,r); pushChal(oKey,r); }
     });
 
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
 
     teams.forEach((t,i) => {
-      const groupNum = Math.floor(i/8)+1;
-      const tr=document.createElement('tr'); tr.className=`group-${groupNum}`;
+      const groupNum = Math.ceil(t.LeftRank / 8);
+      const groupClass = 'group-' + (((groupNum - 1) % 7) + 1);
+      const tr=document.createElement('tr'); tr.className=groupClass;
 
       /* col 1: Left rank/pts */
       const tdLeft=document.createElement('td');
@@ -425,7 +451,6 @@ async function init(round){
       const tdTeam=document.createElement('td');
       tdTeam.className='team-cell';
 
-      // Mobile head (hidden on desktop)
       const mHead=document.createElement('div'); mHead.className='m-head';
       const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${t.LeftRank}`;
       const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=t.name;
@@ -434,15 +459,10 @@ async function init(round){
       mHead.appendChild(mRank); mHead.appendChild(mName); mHead.appendChild(mPts);
       tdTeam.appendChild(mHead);
 
-      // Team name
       const teamNameDiv=document.createElement('div'); teamNameDiv.className='team-name'; teamNameDiv.textContent=t.name;
       tdTeam.appendChild(teamNameDiv);
 
-      // Contact rows for each player in the team — parse from EMAIL1/EMAIL2/PHONE1/PHONE2
       const contact = contactByTeam[nameKey(t.name)] || {};
-
-      // We'll show player info if we can find individual player names from the team name
-      // Team name is typically "Team LastName1/LastName2" – show phones for both players
       const phones = [contact.phone1, contact.phone2].filter(Boolean);
       phones.forEach((ph, idx) => {
         const row = document.createElement('div'); row.className='player-row';
@@ -462,70 +482,107 @@ async function init(round){
       const tdRes=document.createElement('td');
       tdRes.className='matches';
 
-      const teamMatches = scoresRaw.filter(r => nameKey(fmt(r.Winner))===nameKey(t.name) || nameKey(fmt(r.Opponent))===nameKey(t.name));
-      const scheduledMatch = teamMatches.find(r => String(r.MatchType||'').trim()==='Scheduled');
-      const challengeMatches = teamMatches.filter(r => String(r.MatchType||'').trim()==='Challenge');
+      const meKey = nameKey(t.name);
+      const hasScheduledPlayed = scheduledMap.has(meKey);
 
-      const allSlots = [scheduledMatch, challengeMatches[0], challengeMatches[1]].filter(r=>r!=null);
-      const maxLines = Math.max(allSlots.length, 1);
+      /* ---- Scheduled line ---- */
+      const schedLine=document.createElement('div'); schedLine.className='match-line';
+      const sr = scheduledMap.get(meKey);
 
-      for(let li=0; li<maxLines; li++){
-        const row = allSlots[li];
-        const ml=document.createElement('div');
-        if(!row){ ml.className='match-line empty'; ml.innerHTML='&nbsp;'; tdRes.appendChild(ml); continue; }
+      // Determine scheduled opponent name (whether played or pending)
+      let scheduledOppName='';
+      if(sr){
+        scheduledOppName = nameKey(fmt(sr.Winner))===meKey ? fmt(sr.Opponent) : fmt(sr.Winner);
+      } else {
+        const oppRank = scheduleMap[t.LeftRank];
+        scheduledOppName = oppRank ? (nameByBeginRank[oppRank]||'') : '';
+      }
+      const shouldHi = (ROUND===CurrentRound) && scheduledOppName && hasPlayedRecently(t.name, scheduledOppName);
 
-        ml.className='match-line';
-        const isChallenge = String(row.MatchType||'').trim()==='Challenge';
-        const badge=document.createElement('span');
-        badge.className=isChallenge?'badge badge-challenge':'badge badge-scheduled';
-        badge.textContent=isChallenge?'Challenge':'Scheduled';
-        ml.appendChild(badge);
-
-        const perspective = nameKey(fmt(row.Winner))===nameKey(t.name)?'winner':'opponent';
-        const resultTxt = resultString(row, perspective, beginRankByName);
-        const oppName = perspective==='winner' ? fmt(row.Opponent) : fmt(row.Winner);
-        const hi = ROUND===CurrentRound && hasPlayedRecently(t.name, oppName);
-
-        const span=document.createElement('span');
-        span.className='result '+(perspective==='winner'?'won':'lost');
-        appendTextWithHighlight(span, resultTxt, oppName, hi);
-        ml.appendChild(span);
-
-        // Points pills
-        const gTotals = parseGameTotals(row);
-        const chalDiv = row.ChalDiv || row.ChallengeDivisor || '';
-
-        if (perspective === 'winner'){
-          const wPts = fmt(row.WinPoints || row.WinnerPoints || row.WPts || '');
-          if (wPts !== ''){
+      if(sr){
+        // Score has been submitted — show result
+        const badge=document.createElement('span'); badge.className='badge badge-scheduled'; badge.textContent='Scheduled'; schedLine.appendChild(badge);
+        const perspective = nameKey(fmt(sr.Winner))===meKey ? 'winner' : 'opponent';
+        const resultTxt = resultString(sr, perspective, beginRankByName);
+        const span=document.createElement('span'); span.className='result '+(perspective==='winner'?'won':'lost');
+        appendTextWithHighlight(span, resultTxt, scheduledOppName, shouldHi);
+        schedLine.appendChild(span);
+        // Points pill
+        const gTotals = parseGameTotals(sr);
+        if(perspective==='winner'){
+          const wPts=fmt(sr.WinPoints||sr.WinnerPoints||sr.WPts||'');
+          if(wPts!==''){
             const pill=document.createElement('span'); pill.className='winner-pts';
-            pill.setAttribute('data-points', wPts);
-            pill.setAttribute('data-gw', gTotals.wGames);
-            pill.setAttribute('data-gl', gTotals.oGames);
-            pill.setAttribute('data-gdiff', gTotals.diff);
-            if (chalDiv) pill.setAttribute('data-chaldiv', chalDiv);
+            pill.setAttribute('data-points',wPts); pill.setAttribute('data-gw',gTotals.wGames);
+            pill.setAttribute('data-gl',gTotals.oGames); pill.setAttribute('data-gdiff',gTotals.diff);
             pill.innerHTML=`🏆 <b>${fmtPts(wPts)}</b><span class="pts-hint">?</span>`;
-            ml.appendChild(pill);
+            schedLine.appendChild(pill);
           }
         } else {
-          const lPts = fmt(row.LosePoints || row.LoserPoints || row.LPts || '');
-          if (lPts !== ''){
+          const lPts=fmt(sr.LosePoints||sr.LoserPoints||sr.LPts||'');
+          if(lPts!==''){
             const pill=document.createElement('span'); pill.className='loser-pts';
-            pill.setAttribute('data-points', lPts);
-            pill.setAttribute('data-gw', gTotals.oGames);
-            if (chalDiv) pill.setAttribute('data-chaldiv', chalDiv);
+            pill.setAttribute('data-points',lPts); pill.setAttribute('data-gw',gTotals.oGames);
             pill.innerHTML=`<b>${fmtPts(lPts)}</b><span class="pts-hint">?</span>`;
-            ml.appendChild(pill);
+            schedLine.appendChild(pill);
           }
         }
-
-        tdRes.appendChild(ml);
+      } else {
+        // No score yet — show pending opponent from schedule
+        const oppRank = scheduleMap[t.LeftRank];
+        if(oppRank){
+          const oppName = nameByBeginRank[oppRank]||'';
+          const badge=document.createElement('span'); badge.className='badge badge-scheduled'; badge.textContent='Scheduled'; schedLine.appendChild(badge);
+          const pre=document.createElement('span'); pre.textContent=`vs #${oppRank} `; schedLine.appendChild(pre);
+          const nameSpan=document.createElement('span'); if(shouldHi) nameSpan.className='repeat-opp'; nameSpan.textContent=oppName; schedLine.appendChild(nameSpan);
+          const pend=document.createElement('span'); pend.className='pending'; pend.textContent=' — pending'; schedLine.appendChild(pend);
+        } else {
+          schedLine.classList.add('empty'); schedLine.innerHTML='&nbsp;';
+        }
       }
+      tdRes.appendChild(schedLine);
 
-      if (allSlots.length === 0){
-        const ml=document.createElement('div'); ml.className='match-line';
-        const span=document.createElement('span'); span.className='pending'; span.textContent='No results yet';
-        ml.appendChild(span); tdRes.appendChild(ml);
+      /* ---- Challenge lines (up to 2) ---- */
+      const myChals = challengesMap.get(meKey) || [];
+      for(let ci=0; ci<2; ci++){
+        const chalLine=document.createElement('div');
+        const cr = myChals[ci];
+        if(cr){
+          chalLine.className='match-line';
+          const badge=document.createElement('span'); badge.className='badge badge-challenge'; badge.textContent='Challenge'; chalLine.appendChild(badge);
+          const perspective = nameKey(fmt(cr.Winner))===meKey ? 'winner' : 'opponent';
+          const resultTxt = resultString(cr, perspective, beginRankByName);
+          const oppName = perspective==='winner' ? fmt(cr.Opponent) : fmt(cr.Winner);
+          const span=document.createElement('span'); span.className='result '+(perspective==='winner'?'won':'lost');
+          appendTextWithHighlight(span, resultTxt, oppName, false);
+          chalLine.appendChild(span);
+          // Points pill
+          const gTotals = parseGameTotals(cr);
+          const chalDiv = cr.ChalDiv || cr.ChallengeDivisor || (hasScheduledPlayed ? 2 : 4);
+          if(perspective==='winner'){
+            const wPts=fmt(cr.WinPoints||cr.WinnerPoints||cr.WPts||'');
+            if(wPts!==''){
+              const pill=document.createElement('span'); pill.className='winner-pts';
+              pill.setAttribute('data-points',wPts); pill.setAttribute('data-gw',gTotals.wGames);
+              pill.setAttribute('data-gl',gTotals.oGames); pill.setAttribute('data-gdiff',gTotals.diff);
+              pill.setAttribute('data-chaldiv',chalDiv);
+              pill.innerHTML=`🏆 <b>${fmtPts(wPts)}</b><span class="pts-hint">?</span>`;
+              chalLine.appendChild(pill);
+            }
+          } else {
+            const lPts=fmt(cr.LosePoints||cr.LoserPoints||cr.LPts||'');
+            if(lPts!==''){
+              const pill=document.createElement('span'); pill.className='loser-pts';
+              pill.setAttribute('data-points',lPts); pill.setAttribute('data-gw',gTotals.oGames);
+              pill.setAttribute('data-chaldiv',chalDiv);
+              pill.innerHTML=`<b>${fmtPts(lPts)}</b><span class="pts-hint">?</span>`;
+              chalLine.appendChild(pill);
+            }
+          }
+        } else {
+          chalLine.className='match-line empty'; chalLine.innerHTML='&nbsp;';
+        }
+        tdRes.appendChild(chalLine);
       }
 
       // Mobile bottom stats
