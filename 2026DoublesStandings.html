@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2026 Indy Tennis Doubles Ladder</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#11161f; --muted:#8ea0b4; --text:#e9eef5; --rule:#253043;
+    --accent:#ffb347; --accent-ink:#3a1f00; --ok:#3bd37f; --bad:#ff6b6b;
+    --chip:#1a2332; --chipBorder:#2a364a; --chipBlue:#173049; --chipBlueBorder:#284564;
+    --chipPurple:#251e42; --chipPurpleBorder:#3b2f6a; --shadow: 0 20px 60px rgba(0,0,0,.45);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text); min-height:100%;}
+  body{ margin:24px; display:flex; justify-content:center; }
+  .wrap{ width:100%; max-width:1200px; }
+
+  header{ background:linear-gradient(180deg,#0f1521,#0d131e); border:1px solid var(--rule);
+    border-radius:14px; padding:18px 18px 14px; box-shadow: var(--shadow);}
+
+  .title{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .title h1{ font-size:22px; margin:0; letter-spacing:.2px;}
+  .title .doubles-badge{ background:#2a1a00; border:1px solid #5a3a00; color:var(--accent); font-size:12px; font-weight:800;
+    padding:3px 10px; border-radius:999px; letter-spacing:.05em; text-transform:uppercase; }
+
+  .round-select-wrap{ position:relative; display:inline-block; }
+  .round-select-wrap::after{
+    content:'▾'; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:11px; pointer-events:none;
+  }
+  .round-select{ appearance:none; font-size:12px; padding:6px 26px 6px 10px; border-radius:999px;
+    background:var(--chip); border:1px solid var(--chipBorder); color:var(--muted); cursor:pointer; }
+
+  .meta{ margin-top:8px; color:var(--muted); font-size:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  .meta .dot::before{content:"•"; margin:0 8px; color:#3a4b66;}
+
+  .panel{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px; overflow:auto; -webkit-overflow-scrolling:touch; }
+  table{ width:100%; min-width:1040px; border-collapse:collapse; font-size:14px; table-layout:auto; }
+  thead th{ text-align:left; font-weight:600; color:#b9c6d8; background:#0f1521; border-bottom:1px solid var(--rule);
+    padding:12px; position:sticky; top:0; z-index:2; box-shadow:0 2px 0 0 var(--rule); white-space:nowrap; }
+  tbody td{ border-bottom:1px solid var(--rule); padding:12px; vertical-align:middle; white-space:nowrap; }
+  tbody tr:hover{ background:rgba(255,255,255,.03); }
+
+  tbody tr.group-1{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
+  tbody tr.group-2{ border-left:3px solid rgba(255,150,30,.75); background:rgba(255,150,30,.04); }
+  tbody tr.group-3{ border-left:3px solid rgba(255,220,0,.75);  background:rgba(255,220,0,.04); }
+  tbody tr.group-4{ border-left:3px solid rgba(60,200,80,.75);  background:rgba(60,200,80,.04); }
+  tbody tr.group-5{ border-left:3px solid rgba(30,180,200,.75); background:rgba(30,180,200,.04); }
+  tbody tr.group-6{ border-left:3px solid rgba(80,120,255,.75); background:rgba(80,120,255,.04); }
+  tbody tr.group-7{ border-left:3px solid rgba(160,60,220,.75); background:rgba(160,60,220,.04); }
+  tbody tr.group-8{ border-left:3px solid rgba(255,80,80,.75);  background:rgba(255,80,80,.04); }
+  tbody tr:hover{ background:rgba(255,255,255,.06) !important; }
+
+  .rp{ width:210px; color:#cdd8e6; font-variant-numeric: tabular-nums; }
+  .rp .sub{ display:block; margin-top:4px; font-size:12px; color:var(--muted); font-weight:600; }
+  .rp.right{ width:260px; }
+
+  .move{ display:inline-block; font-size:11px; font-weight:800; padding:1px 6px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+  .move-up{   background:rgba(59,211,127,.15); color:#3bd37f; }
+  .move-down{ background:rgba(255,107,107,.15); color:#ff6b6b; }
+  .move-same{ background:rgba(255,255,255,.06); color:#6e7f98; }
+
+  .name{ font-weight:700; }
+
+  /* Team contact info — two players stacked */
+  .team-cell{ min-width:220px; }
+  .team-name{ font-weight:800; color:#e9eef5; }
+  .player-row{ display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+  .player-name{ font-size:12px; font-weight:600; color:#b9c6d8; }
+  .phone-wrap{ display:inline-block; }
+  .phone-toggle{
+    background:none; border:none; padding:0; cursor:pointer;
+    font-size:12px; color:#3a4f6a; font-weight:600; letter-spacing:.2px;
+    transition:color .15s;
+  }
+  .phone-toggle:hover{ color:var(--muted); }
+  .phone-reveal{ font-size:12px; font-weight:600; color:var(--muted); letter-spacing:.2px; display:none; }
+  .phone-reveal.shown{ display:inline; }
+
+  .m-head{ display:none; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .m-rank{ font-weight:900; font-variant-numeric: tabular-nums; color:#cdd8e6; flex:0 0 auto; }
+  .m-name{ font-weight:900; color:#e9eef5; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-pts{
+    font-size:12px; font-weight:800; color:#cdd8e6;
+    padding:2px 8px; border-radius:999px;
+    background:#101827; border:1px solid #253043;
+    white-space:nowrap;
+  }
+  .m-pts b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
+
+  .result{ font-weight:600; }
+  .won{ color:var(--ok); }
+  .lost{ color:var(--bad); }
+  .pending{ color:#3a4f6a; font-style:italic; font-size:13px; }
+
+  .loading, .error{ margin:22px 0; padding:14px 16px; border-radius:10px; background:#0f1521; border:1px solid var(--rule); color:#8ea0b4; }
+
+  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--chipBorder);
+    background:var(--chip); color:var(--muted); font-size:12px; margin-right:8px; white-space:nowrap; flex:0 0 auto; }
+  .badge-scheduled{ background:var(--chipBlue); border-color:var(--chipBlueBorder); }
+  .badge-challenge{ background:var(--chipPurple); border-color:var(--chipPurpleBorder); }
+
+  .winner-pts, .loser-pts{
+    display:inline-flex; align-items:center; gap:5px; margin-left:10px; padding:2px 8px 2px 6px;
+    border-radius:999px; font-size:12px; cursor:pointer; user-select:none;
+    position:relative; z-index:3; pointer-events:auto; white-space:nowrap;
+    transition: filter .15s, transform .1s;
+  }
+  .winner-pts:hover, .loser-pts:hover{ filter:brightness(1.25); transform:scale(1.04); }
+  .winner-pts:focus-visible, .loser-pts:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .loser-pts{ background:#1a2230; border:1px solid #2a3548; color:#bcd0e5; }
+  .winner-pts{ background:#12261b; border:1px solid #284c37; color:#c9edd7; }
+  .loser-pts b,.winner-pts b{ font-variant-numeric:tabular-nums; color:#e9eef5; }
+  .pts-hint{ font-size:10px; opacity:.55; margin-left:1px; }
+
+  .matches{ white-space:nowrap; min-width:520px; }
+  .match-line{ display:flex; align-items:center; gap:8px; min-height:26px; }
+  .match-line.empty{ opacity:.0; }
+
+  .repeat-opp{ background:#fff200; color:#000; padding:1px 6px; border-radius:8px; font-weight:900; box-shadow:0 0 0 1px rgba(0,0,0,.35) inset; }
+
+  .m-stats{ display:none; margin-top:10px; padding-top:10px; border-top:1px dashed #23324a; color:var(--muted);
+    font-size:13px; white-space:nowrap; gap:14px; align-items:center; }
+  .m-stats b{ color:#e9eef5; font-variant-numeric: tabular-nums; }
+
+  .backdrop{ position:fixed; inset:0; background:rgba(8,12,20,.55); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:10000; }
+  .backdrop.show{ opacity:1; pointer-events:auto; }
+  .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-46%) scale(.98); background:#0f1521; border:1px solid var(--rule);
+    border-radius:16px; box-shadow:var(--shadow); width:min(92vw,560px); opacity:0; transition:opacity .15s ease, transform .18s ease; z-index:10001; }
+  .modal.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--rule);
+    background:#11192a; border-top-left-radius:16px; border-top-right-radius:16px; }
+  .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
+  .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px;
+    font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
+  .modal-body{ padding:16px; color:#d2deee; }
+  .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
+  .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
+
+  @media (max-width:720px){
+    thead{ display:none; }
+    table,tbody,tr,td{ display:block; width:100%; min-width:0; }
+    .panel{ overflow:visible; }
+    tbody tr{ padding:14px 12px; border-bottom:1px solid var(--rule); background:transparent; border-left-width:3px; border-left-style:solid; }
+    tbody tr:hover{ background:rgba(255,255,255,.04) !important; }
+    tbody td{ border:0; padding:6px 0; white-space:normal; }
+    .rp-left{ display:none; }
+    .rp-right{ display:none; }
+    .m-head{ display:flex; }
+    .team-cell{ display:none; }
+    .matches{ order:2; min-width:0; }
+    .badge-scheduled{ padding:2px 7px; }
+    .badge-challenge{ padding:2px 7px; }
+    .m-stats{ display:flex; }
+    .winner-pts,.loser-pts{ margin-left:0; margin-top:6px; }
+    .match-line.empty{ display:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Indy Tennis Doubles Ladder</h1>
+        <span class="doubles-badge">Doubles</span>
+        <div class="round-select-wrap">
+          <select id="roundSelect" class="round-select" aria-label="Select round"></select>
+        </div>
+      </div>
+      <div class="meta" id="roundMeta"></div>
+    </header>
+
+    <div class="panel">
+      <div class="loading" id="status">Loading data…</div>
+      <table id="ladder" style="display:none;">
+        <thead>
+          <tr>
+            <th class="rp" id="thLeft">Round 1 Ranking - Points</th>
+            <th>Team</th>
+            <th class="matches">Result</th>
+            <th class="rp right" id="thRight">Round 2 Ranking - Points</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Info</div>
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+
+<script>
+/* ===== CONFIG ===== */
+// TODO: Replace these with your Doubles Google Sheet CSV URLs
+const CURRENT_ROUND_CSV = 'REPLACE_WITH_DOUBLES_CURRENT_ROUND_CSV_URL';
+
+let CurrentRound = 1;
+
+const CSV = {
+  Players:     'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=0&single=true&output=csv',
+  Schedule:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1596015267&single=true&output=csv',
+  Dates:       'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=838168726&single=true&output=csv',
+  ScoresRound1:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1813586077&single=true&output=csv',
+  ScoresRound2:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=667416587&single=true&output=csv',
+  ScoresRound3:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1340896382&single=true&output=csv',
+  ScoresRound4:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1779797386&single=true&output=csv',
+  ScoresRound5:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1138515130&single=true&output=csv',
+};
+
+let ROUND = 1;
+
+/* ===== helpers ===== */
+function bustUrl(url){ return url + (url.includes('?') ? '&' : '?') + '_bust=' + Date.now(); }
+function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(bustUrl(url),{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
+const nameKey = s => String(s||'').trim().toLowerCase();
+const num = v => (v===null||v===undefined||v==='') ? NaN : +String(v).toString().replace(/[% ,]/g,'');
+const safeNum = v => { const n = num(v); return isNaN(n)?0:n; };
+const fmt = v => (v===undefined||v===null) ? '' : String(v);
+const round2 = x => Math.round((Number(x)+Number.EPSILON)*100)/100;
+const fmtPts = v => (v===undefined||v===null||v==='') ? '' : (isNaN(Number(v)) ? '' : round2(v).toFixed(2));
+
+function fmtDateRange(startRaw, endRaw){
+  const parse = (val)=>{ if(val===''||val==null) return null;
+    if(/^\d+(\.\d+)?$/.test(String(val))){ const d=Number(val); const base=new Date(Date.UTC(1899,11,30)); return new Date(base.getTime()+d*86400000); }
+    const d=new Date(val); return isNaN(d)?null:d; };
+  const s=parse(startRaw), e=parse(endRaw);
+  const nice = d => d.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+  if(s&&e) return `${nice(s)} – ${nice(e)}`; if(s) return nice(s); if(e) return nice(e);
+  return [fmt(startRaw),fmt(endRaw)].filter(Boolean).join(' – ');
+}
+
+function setStatus(msg,isError=false){ const st=document.getElementById('status'); st.textContent=msg; st.className=isError?'error':'loading'; }
+async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
+function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
+
+function colRank(r){ return `R${r}Rank`; }
+function colPts(r){ return `R${r}Pts`; }
+function readPts(row, r){
+  return num(row[colPts(r)] ?? row[`R${r}CPts`] ?? row[`R${r}Points`] ?? row[`R${r}CPoints`]);
+}
+function readRank(row, r){ return num(row[colRank(r)]); }
+
+function hasThirdSetTB(row){ return fmt(row.TB_W) !== '' || fmt(row.TB_O) !== ''; }
+function formatThirdEntry(row, perspective){
+  if (!hasThirdSetTB(row)){
+    const W3 = fmt(row.S3_W), O3 = fmt(row.S3_O);
+    if (W3 === '' && O3 === '') return '';
+    return perspective === 'winner' ? `${W3}-${O3}` : `${O3}-${W3}`;
+  }
+  const a = fmt(row.TB_W), b = fmt(row.TB_O);
+  if (a === '' && b === '') return '';
+  return perspective === 'winner' ? ` ${a}-${b}` : ` ${b}-${a}`;
+}
+function statusText(row){ return String(row.Status||row.STATUS||'').trim(); }
+function isWalkoverStatus(row){ const s=statusText(row).toLowerCase(); return s==='walkover'||s==='wo'||s==='w/o'||s.includes('walkover'); }
+function isRetiredStatus(row){ const s=statusText(row).toLowerCase(); return s==='retired'||s==='ret'||s.includes('retired'); }
+
+function resultString(row, perspective, beginRankByName){
+  const winner = fmt(row.Winner), opponent = fmt(row.Opponent);
+  const wRank = beginRankByName[nameKey(winner)] || '?';
+  const oRank = beginRankByName[nameKey(opponent)] || '?';
+  const walkover = isWalkoverStatus(row), retired = isRetiredStatus(row);
+  let scorePart;
+  if (walkover){ scorePart='walkover'; }
+  else{
+    const W1=fmt(row.S1_W), O1=fmt(row.S1_O);
+    const W2=fmt(row.S2_W), O2=fmt(row.S2_O);
+    const set1=`${W1}-${O1}`, set2=`${W2}-${O2}`, set3=formatThirdEntry(row, perspective);
+    scorePart = (perspective==='winner')
+      ? `${set1} ${set2}${set3}` : `${O1}-${W1} ${O2}-${W2}${formatThirdEntry(row,'opponent')}`;
+    if (retired) scorePart += ' Ret';
+  }
+  return (perspective==='winner')
+    ? `Beat #${oRank} ${opponent} ${scorePart}`
+    : `Lost to #${wRank} ${winner} ${scorePart}`;
+}
+
+function parseGameTotals(row){
+  if ('GamesWon' in row && 'GamesLost' in row){
+    const w = safeNum(row.GamesWon), o = safeNum(row.GamesLost);
+    return { wGames:w, oGames:o, diff: Math.max(0, w - o) };
+  }
+  const W1=safeNum(row.S1_W), O1=safeNum(row.S1_O);
+  const W2=safeNum(row.S2_W), O2=safeNum(row.S2_O);
+  const W3=safeNum(row.S3_W), O3=safeNum(row.S3_O);
+  const TBW=safeNum(row.TB_W), TBO=safeNum(row.TB_O);
+  let wGames = W1 + W2, oGames = O1 + O2;
+  if (hasThirdSetTB(row)){
+    if (TBW > TBO){ wGames += 1; } else if (TBO > TBW){ oGames += 1; }
+  } else if (W3 !== 0 || O3 !== 0){ wGames += W3; oGames += O3; }
+  return { wGames, oGames, diff: Math.max(0, wGames - oGames) };
+}
+
+let RECENT_OPP_CACHE_ROUND=null, RECENT_OPP_BY_PLAYER=new Map();
+async function buildRecentOpponentsForCurrentRound(){
+  if (RECENT_OPP_CACHE_ROUND === CurrentRound) return;
+  RECENT_OPP_BY_PLAYER = new Map(); RECENT_OPP_CACHE_ROUND = CurrentRound;
+  const start=Math.max(1,CurrentRound-3), end=CurrentRound-1; if(end<1) return;
+  const urls=[]; for(let r=start;r<=end;r++) urls.push(CSV[`ScoresRound${r}`]);
+  try{
+    const rounds = await Promise.all(urls.filter(Boolean).map(loadCSV));
+    rounds.flat().forEach(row=>{
+      const t=String(row.MatchType||'').trim(); if(t!=='Scheduled'&&t!=='Challenge') return;
+      const w=fmt(row.Winner), o=fmt(row.Opponent); if(!w||!o) return;
+      const wk=nameKey(w), ok=nameKey(o);
+      if(!RECENT_OPP_BY_PLAYER.has(wk)) RECENT_OPP_BY_PLAYER.set(wk,new Set());
+      if(!RECENT_OPP_BY_PLAYER.has(ok)) RECENT_OPP_BY_PLAYER.set(ok,new Set());
+      RECENT_OPP_BY_PLAYER.get(wk).add(ok); RECENT_OPP_BY_PLAYER.get(ok).add(wk);
+    });
+  }catch{}
+}
+function hasPlayedRecently(teamName, oppName){
+  const set=RECENT_OPP_BY_PLAYER.get(nameKey(teamName)); return !!(set && set.has(nameKey(oppName)));
+}
+function appendTextWithHighlight(container, fullText, oppName, hi){
+  if (!hi || !oppName){ container.textContent = fullText; return; }
+  const hay=String(fullText||''), needle=String(oppName||'');
+  const i=hay.toLowerCase().indexOf(needle.toLowerCase());
+  if(i<0){ container.textContent=fullText; return; }
+  const before=hay.slice(0,i), match=hay.slice(i,i+needle.length), after=hay.slice(i+needle.length);
+  container.textContent=''; if(before) container.appendChild(document.createTextNode(before));
+  const span=document.createElement('span'); span.className='repeat-opp'; span.textContent=match; container.appendChild(span);
+  if(after) container.appendChild(document.createTextNode(after));
+}
+
+/* ===== Build a phone-reveal button ===== */
+function makePhoneReveal(phone){
+  if (!phone) return null;
+  const wrap = document.createElement('span');
+  wrap.className='phone-wrap';
+  const btn = document.createElement('button');
+  btn.className='phone-toggle'; btn.type='button'; btn.textContent='📞';
+  btn.setAttribute('aria-label','Show phone');
+  const rev = document.createElement('span');
+  rev.className='phone-reveal'; rev.textContent=phone;
+  btn.addEventListener('click',()=>{ rev.classList.toggle('shown'); btn.textContent = rev.classList.contains('shown') ? '🙈' : '📞'; });
+  wrap.appendChild(btn); wrap.appendChild(rev);
+  return wrap;
+}
+
+/* ===== core ===== */
+async function init(round){
+  ROUND = round;
+  document.getElementById('thLeft').textContent  = `Round ${ROUND} Ranking - Points`;
+  document.getElementById('thRight').textContent = `Round ${ROUND+1} Ranking - Points`;
+  const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
+  const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
+
+  try{
+    setStatus('Loading data…'); document.getElementById('ladder').style.display='none'; document.getElementById('status').style.display='';
+    if (ROUND === CurrentRound) await buildRecentOpponentsForCurrentRound();
+
+    const roundKey = `ScoresRound${ROUND}`;
+    const [playersRaw, scoresRawAll, scheduleRaw, datesRaw] = await Promise.all([
+      loadCSV(CSV.Players), loadCSV(CSV[roundKey]), loadCSV(CSV.Schedule), loadCSV(CSV.Dates)
+    ]);
+
+    /* meta */
+    const roundRow = (datesRaw||[]).find(r => Number(r.Round) === Number(ROUND));
+    if (roundRow){
+      const meta=document.getElementById('roundMeta'); meta.textContent='';
+      const a=document.createElement('span'); a.textContent = fmtDateRange(roundRow.Start, roundRow.End) || ''; meta.appendChild(a);
+      const type=fmt(roundRow.Type); if(type){ const dot=document.createElement('span'); dot.className='dot'; dot.textContent=type; meta.appendChild(dot); }
+    }
+
+    /* Build lookup for team contact info (supports two emails + two phones) */
+    const contactByTeam = {};
+    const activeTeamsRaw = (playersRaw||[]).filter(r=>{
+      const start=num(r.RStart), end=num(r.REnd), rr=Number(ROUND);
+      return (isNaN(start)||start<=rr) && (isNaN(end)||end>=rr);
+    }).map(r=>{
+      const teamName = fmt(r.Team || r.Participant || r.Name);
+      contactByTeam[nameKey(teamName)] = {
+        email1:  fmt(r.EMAIL1 || r.Email1 || r.Email || ''),
+        email2:  fmt(r.EMAIL2 || r.Email2 || ''),
+        phone1:  fmt(r.PHONE1 || r.Phone1 || r.PHONE || r.Phone || ''),
+        phone2:  fmt(r.PHONE2 || r.Phone2 || ''),
+      };
+      return r;
+    });
+
+    /* ranks & points from Players (left = round ROUND, right = round ROUND+1) */
+    const teams = activeTeamsRaw
+      .map(r => {
+        const teamName = fmt(r.Team || r.Participant || r.Name);
+        const LeftRank  = readRank(r, ROUND);
+        const LeftPts   = readPts(r, ROUND);
+        const RightRank = readRank(r, ROUND+1);
+        const RightPts  = readPts(r, ROUND+1);
+        return { name: teamName, LeftRank, LeftPts, RightRank, RightPts, raw: r };
+      })
+      .filter(t => t.name && !isNaN(t.LeftRank) && t.LeftRank > 0)
+      .sort((a,b) => a.LeftRank - b.LeftRank);
+
+    const beginRankByName = {};
+    teams.forEach(t => { if(!isNaN(t.LeftRank) && t.LeftRank>0) beginRankByName[nameKey(t.name)] = t.LeftRank; });
+
+    /* scores for this round */
+    const scoresRaw = (scoresRawAll||[]).filter(r=>{
+      const t=String(r.MatchType||'').trim(); return t==='Scheduled'||t==='Challenge';
+    });
+
+    const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+
+    teams.forEach((t,i) => {
+      const groupNum = Math.floor(i/8)+1;
+      const tr=document.createElement('tr'); tr.className=`group-${groupNum}`;
+
+      /* col 1: Left rank/pts */
+      const tdLeft=document.createElement('td');
+      tdLeft.className='rp rp-left';
+      tdLeft.innerHTML=`#${t.LeftRank}<span class="sub">${isNaN(t.LeftPts)?'&nbsp;':fmtPts(t.LeftPts)+' pts'}</span>`;
+      tr.appendChild(tdLeft);
+
+      /* col 2: Mobile head + Team info */
+      const tdTeam=document.createElement('td');
+      tdTeam.className='team-cell';
+
+      // Mobile head (hidden on desktop)
+      const mHead=document.createElement('div'); mHead.className='m-head';
+      const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${t.LeftRank}`;
+      const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=t.name;
+      const mPts=document.createElement('span'); mPts.className='m-pts';
+      mPts.innerHTML=`R${ROUND}: <b>${isNaN(t.LeftPts)?'—':fmtPts(t.LeftPts)}</b> pts`;
+      mHead.appendChild(mRank); mHead.appendChild(mName); mHead.appendChild(mPts);
+      tdTeam.appendChild(mHead);
+
+      // Team name
+      const teamNameDiv=document.createElement('div'); teamNameDiv.className='team-name'; teamNameDiv.textContent=t.name;
+      tdTeam.appendChild(teamNameDiv);
+
+      // Contact rows for each player in the team — parse from EMAIL1/EMAIL2/PHONE1/PHONE2
+      const contact = contactByTeam[nameKey(t.name)] || {};
+
+      // We'll show player info if we can find individual player names from the team name
+      // Team name is typically "Team LastName1/LastName2" – show phones for both players
+      const phones = [contact.phone1, contact.phone2].filter(Boolean);
+      phones.forEach((ph, idx) => {
+        const row = document.createElement('div'); row.className='player-row';
+        const phoneReveal = makePhoneReveal(ph);
+        if (phoneReveal){
+          const label = document.createElement('span');
+          label.className='player-name'; label.textContent=`Player ${idx+1}:`;
+          row.appendChild(label);
+          row.appendChild(phoneReveal);
+        }
+        tdTeam.appendChild(row);
+      });
+
+      tr.appendChild(tdTeam);
+
+      /* col 3: match results */
+      const tdRes=document.createElement('td');
+      tdRes.className='matches';
+
+      const teamMatches = scoresRaw.filter(r => nameKey(fmt(r.Winner))===nameKey(t.name) || nameKey(fmt(r.Opponent))===nameKey(t.name));
+      const scheduledMatch = teamMatches.find(r => String(r.MatchType||'').trim()==='Scheduled');
+      const challengeMatches = teamMatches.filter(r => String(r.MatchType||'').trim()==='Challenge');
+
+      const allSlots = [scheduledMatch, challengeMatches[0], challengeMatches[1]].filter(r=>r!=null);
+      const maxLines = Math.max(allSlots.length, 1);
+
+      for(let li=0; li<maxLines; li++){
+        const row = allSlots[li];
+        const ml=document.createElement('div');
+        if(!row){ ml.className='match-line empty'; ml.innerHTML='&nbsp;'; tdRes.appendChild(ml); continue; }
+
+        ml.className='match-line';
+        const isChallenge = String(row.MatchType||'').trim()==='Challenge';
+        const badge=document.createElement('span');
+        badge.className=isChallenge?'badge badge-challenge':'badge badge-scheduled';
+        badge.textContent=isChallenge?'Challenge':'Scheduled';
+        ml.appendChild(badge);
+
+        const perspective = nameKey(fmt(row.Winner))===nameKey(t.name)?'winner':'opponent';
+        const resultTxt = resultString(row, perspective, beginRankByName);
+        const oppName = perspective==='winner' ? fmt(row.Opponent) : fmt(row.Winner);
+        const hi = ROUND===CurrentRound && hasPlayedRecently(t.name, oppName);
+
+        const span=document.createElement('span');
+        span.className='result '+(perspective==='winner'?'won':'lost');
+        appendTextWithHighlight(span, resultTxt, oppName, hi);
+        ml.appendChild(span);
+
+        // Points pills
+        const gTotals = parseGameTotals(row);
+        const chalDiv = row.ChalDiv || row.ChallengeDivisor || '';
+
+        if (perspective === 'winner'){
+          const wPts = fmt(row.WinPoints || row.WinnerPoints || row.WPts || '');
+          if (wPts !== ''){
+            const pill=document.createElement('span'); pill.className='winner-pts';
+            pill.setAttribute('data-points', wPts);
+            pill.setAttribute('data-gw', gTotals.wGames);
+            pill.setAttribute('data-gl', gTotals.oGames);
+            pill.setAttribute('data-gdiff', gTotals.diff);
+            if (chalDiv) pill.setAttribute('data-chaldiv', chalDiv);
+            pill.innerHTML=`🏆 <b>${fmtPts(wPts)}</b><span class="pts-hint">?</span>`;
+            ml.appendChild(pill);
+          }
+        } else {
+          const lPts = fmt(row.LosePoints || row.LoserPoints || row.LPts || '');
+          if (lPts !== ''){
+            const pill=document.createElement('span'); pill.className='loser-pts';
+            pill.setAttribute('data-points', lPts);
+            pill.setAttribute('data-gw', gTotals.oGames);
+            if (chalDiv) pill.setAttribute('data-chaldiv', chalDiv);
+            pill.innerHTML=`<b>${fmtPts(lPts)}</b><span class="pts-hint">?</span>`;
+            ml.appendChild(pill);
+          }
+        }
+
+        tdRes.appendChild(ml);
+      }
+
+      if (allSlots.length === 0){
+        const ml=document.createElement('div'); ml.className='match-line';
+        const span=document.createElement('span'); span.className='pending'; span.textContent='No results yet';
+        ml.appendChild(span); tdRes.appendChild(ml);
+      }
+
+      // Mobile bottom stats
+      const mStats=document.createElement('div'); mStats.className='m-stats';
+      const rightRankTxt = (!isNaN(t.RightRank) && t.RightRank>0) ? `#${t.RightRank}` : '—';
+      const rightPtsTxt  = (!isNaN(t.RightPts)) ? fmtPts(t.RightPts) : '—';
+      mStats.innerHTML = `R${ROUND+1}: <b>${rightRankTxt}</b> / <b>${rightPtsTxt}</b> pts`;
+      tdRes.appendChild(mStats);
+      tr.appendChild(tdRes);
+
+      /* col 4: Right rank/pts with movement */
+      const tdRight=document.createElement('td'); tdRight.className='rp right rp-right';
+      const hasRight = !isNaN(t.RightRank) && t.RightRank > 0;
+      const rankText = hasRight ? `#${t.RightRank}` : '';
+      const ptsText  = (!isNaN(t.RightPts)) ? `${fmtPts(t.RightPts)} pts` : '';
+      let moveHtml = '';
+      if (hasRight){
+        const diff = t.LeftRank - t.RightRank;
+        if (diff > 0)       moveHtml = `<span class="move move-up">↑${diff}</span>`;
+        else if (diff < 0)  moveHtml = `<span class="move move-down">↓${Math.abs(diff)}</span>`;
+        else                moveHtml = `<span class="move move-same">—</span>`;
+      }
+      tdRight.innerHTML = `${rankText || '&nbsp;'}${moveHtml}<span class="sub">${ptsText || '&nbsp;'}</span>`;
+      tr.appendChild(tdRight);
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('ladder').style.display=''; document.getElementById('status').style.display='none'; setStatus('');
+  }catch(err){
+    console.error(err);
+    setStatus('There was a problem loading your data. Double-check the CSV links and headers.', true);
+  }
+}
+
+function buildRoundSelect(){
+  const sel=document.getElementById('roundSelect'); sel.innerHTML='';
+  for(let r=1;r<=CurrentRound;r++){ const opt=document.createElement('option'); opt.value=String(r); opt.textContent=`Round ${r}`; sel.appendChild(opt); }
+  sel.value=String(ROUND);
+  sel.addEventListener('change',()=>{ const r=parseInt(sel.value,10); if(!isNaN(r)&&r>=1&&r<=CurrentRound) init(r); });
+}
+
+/* modal */
+const backdropEl=document.getElementById('backdrop'); const modalEl=document.getElementById('modal');
+const modalBody=document.getElementById('modalBody'); const modalTitle=document.getElementById('modalTitle');
+document.getElementById('modalClose').addEventListener('click', closeModal); backdropEl.addEventListener('click', closeModal);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+function openModal(title, html){ modalTitle.textContent=title||'Info'; modalBody.innerHTML=html; backdropEl.classList.add('show'); modalEl.classList.add('show'); document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden'; }
+function closeModal(){ modalEl.classList.remove('show'); backdropEl.classList.remove('show'); document.documentElement.style.overflow=''; document.body.style.overflow=''; }
+
+function handlePointsClick(e){
+  const loserBtn = e.target.closest('.loser-pts');
+  const winnerBtn = e.target.closest('.winner-pts');
+  if (!loserBtn && !winnerBtn) return;
+  e.preventDefault(); e.stopPropagation();
+
+  if (loserBtn){
+    const pts = loserBtn.getAttribute('data-points') || '';
+    const gw = loserBtn.getAttribute('data-gw') || '0';
+    const div = loserBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+    const html = `
+      <p><strong>Points (from CSV):</strong> ${pts}</p>
+      <p><strong>Total games won:</strong> ${gw}</p>
+      ${isChallenge ? `
+        <p><strong>Challenge divisor used:</strong> ${div}</p>
+        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+      ` : ''}
+      <p class="tip">Loser points equal games won (capped at 10). Values read from <em>LosePoints</em> in the Scores CSV.</p>
+    `;
+    openModal('Loser Points', html);
+    return;
+  }
+
+  if (winnerBtn){
+    const pts = winnerBtn.getAttribute('data-points') || '';
+    const gw = winnerBtn.getAttribute('data-gw') || '0';
+    const gl = winnerBtn.getAttribute('data-gl') || '0';
+    const gd = winnerBtn.getAttribute('data-gdiff') || '0';
+    const div = winnerBtn.getAttribute('data-chaldiv') || '';
+    const isChallenge = !!div;
+    const html = `
+      <p><strong>Points:</strong> ${pts}</p>
+      <p><strong>Games won:</strong> ${gw}, <strong>Games lost:</strong> ${gl}, <strong>Game diff:</strong> ${gd}</p>
+      ${isChallenge ? `
+        <p><strong>Challenge divisor used:</strong> ${div}</p>
+        <p class="tip">Challenge points are divided by 2 when the scheduled match is played; divided by 4 when it is not played.</p>
+      ` : ''}
+      <p class="tip">Winner points = <code>10 + (game diff)</code>, minimum 11.<br>Loser points = games won, maximum 10.</p>
+    `;
+    openModal('Winner Points', html);
+  }
+}
+document.addEventListener('click', handlePointsClick, {capture:false});
+document.addEventListener('pointerup', handlePointsClick, {capture:false});
+
+/* boot */
+(async function boot(){
+  await fetchCurrentRound();
+  buildRoundSelect();
+  ROUND = computeRoundFromURL();
+  init(ROUND);
+})();
+
+let _lastVisible = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') { _lastVisible = Date.now(); return; }
+  const away = Date.now() - _lastVisible;
+  if (away < 60000) return;
+  _lastVisible = Date.now();
+  const prevRound = CurrentRound;
+  await fetchCurrentRound();
+  if (CurrentRound !== prevRound) buildRoundSelect();
+  init(ROUND);
+});
+</script>
+</body>
+</html>
