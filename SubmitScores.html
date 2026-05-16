@@ -488,13 +488,30 @@ async function fetchRoundNumber(){
     // End Date — look for "End Date" or "EndDate" column
     const dIdx = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'') === 'enddate');
     if (dIdx >= 0 && firstData[dIdx]) {
-      // Parse the date string (e.g. "5/17/2026" or "2026-05-17")
-      const raw = firstData[dIdx];
-      const parsed = new Date(raw);
-      if (!isNaN(parsed.getTime())) {
-        // Deadline = end of that calendar day in local time (midnight = start of next day)
-        RoundEndDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1, 0, 0, 0, 0);
+      // Parse the date string robustly — handles "5/17/2026", "05/17/2026", "2026-05-17"
+      const raw = firstData[dIdx].trim();
+      console.log('[Deadline] Raw End Date from CSV:', raw);
+      let yr, mo, dy;
+      const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      const dashMatch  = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (slashMatch) {
+        mo = parseInt(slashMatch[1], 10) - 1; // 0-based month
+        dy = parseInt(slashMatch[2], 10);
+        yr = parseInt(slashMatch[3], 10);
+      } else if (dashMatch) {
+        yr = parseInt(dashMatch[1], 10);
+        mo = parseInt(dashMatch[2], 10) - 1;
+        dy = parseInt(dashMatch[3], 10);
       }
+      if (yr !== undefined) {
+        // Deadline = midnight at the START of the day AFTER the end date (local time)
+        RoundEndDate = new Date(yr, mo, dy + 1, 0, 0, 0, 0);
+        console.log('[Deadline] Parsed RoundEndDate (midnight after end day):', RoundEndDate.toString());
+      } else {
+        console.warn('[Deadline] Could not parse End Date:', raw);
+      }
+    } else {
+      console.warn('[Deadline] End Date column not found. Headers:', headers, '| Data:', firstData);
     }
   }catch(err){
     console.warn('Using fallback RoundNumber=1; CSV read failed:', err);
