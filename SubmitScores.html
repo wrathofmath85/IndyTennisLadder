@@ -15,6 +15,7 @@
     --accent-ink:#052c3a;
     --success:#3bd37f;
     --danger:#ff6b6b;
+    --warn:#f5a623;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
   html,body{background:linear-gradient(180deg,#0b0e14, #0b0e14 180px, #0d121b 100%); color:var(--text);}
@@ -32,6 +33,27 @@
   }
   h1{ margin:0 0 6px; font-size:1.5rem; letter-spacing:.2px;}
   .muted{ color:var(--muted); font-size:.95rem; }
+
+  /* ===== Deadline banner ===== */
+  .deadline-banner{
+    display:none;
+    margin-top:12px;
+    padding:10px 14px;
+    border-radius:10px;
+    font-size:.92rem;
+    font-weight:600;
+    line-height:1.4;
+  }
+  .deadline-banner.warn{
+    background: rgba(245,166,35,.12);
+    border: 1px solid rgba(245,166,35,.35);
+    color: var(--warn);
+  }
+  .deadline-banner.expired{
+    background: rgba(255,107,107,.12);
+    border: 1px solid rgba(255,107,107,.35);
+    color: var(--danger);
+  }
 
   .card{
     background:var(--card);
@@ -301,6 +323,8 @@
   <header>
     <h1 id="titleH1">Loading…</h1>
     <p class="muted">The winner is the person who won the match, regardless of who is submitting. Third set can be a full set or a 10-point match tiebreak.</p>
+    <!-- Deadline banner: shown once End Date is loaded -->
+    <div id="deadlineBanner" class="deadline-banner"></div>
   </header>
 
   <section class="card">
@@ -441,28 +465,82 @@
 
 <script>
 /*** ======= CONFIG ======= ***/
-// Pull RoundNumber from a tiny CSV (row 2 under column "Current Round")
+// Pull RoundNumber and EndDate from a tiny CSV (row 2 under columns "Current Round" and "End Date")
 const CURRENT_ROUND_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRaB85nmIHBvdq3f8PKp-9T0TwMrKC6pYKOkZIUbt11daYCpFyxLCOhBTykQ2iqypQDqwTTnxZiOPuy/pub?gid=972964638&single=true&output=csv';
 
 let RoundNumber = 1; // fallback until CSV loads
+let RoundEndDate = null; // Date object (midnight end of that day, local time) or null
 
 async function fetchRoundNumber(){
   try{
     const res = await fetch(CURRENT_ROUND_CSV, { cache:'no-store' });
     const text = await res.text();
-    // very small CSV: header row then one value row
     const lines = text.replace(/^\uFEFF/,'').trim().split(/\r?\n/);
-    const headers = (lines[0]||'').split(',');
-    const firstData = (lines[1]||'').split(',');
+    const headers = (lines[0]||'').split(',').map(h => h.trim());
+    const firstData = (lines[1]||'').split(',').map(v => v.trim());
 
-    // prefer header "Current Round", else use first column
-    const idx = headers.findIndex(h => h.trim().toLowerCase().replace(/\s+/g,'') === 'currentround');
-    const raw = idx >= 0 ? firstData[idx] : firstData[0];
-
+    // Current Round
+    const rIdx = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'') === 'currentround');
+    const raw = rIdx >= 0 ? firstData[rIdx] : firstData[0];
     const n = Number(raw);
     if (!Number.isNaN(n) && n >= 1) RoundNumber = n;
+
+    // End Date — look for "End Date" or "EndDate" column
+    const dIdx = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'') === 'enddate');
+    if (dIdx >= 0 && firstData[dIdx]) {
+      // Parse the date string (e.g. "5/17/2026" or "2026-05-17")
+      const raw = firstData[dIdx];
+      const parsed = new Date(raw);
+      if (!isNaN(parsed.getTime())) {
+        // Deadline = end of that calendar day in local time (midnight = start of next day)
+        RoundEndDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1, 0, 0, 0, 0);
+      }
+    }
   }catch(err){
     console.warn('Using fallback RoundNumber=1; CSV read failed:', err);
+  }
+}
+
+/**
+ * Format a Date object as a friendly string like "Saturday, May 17"
+ */
+function fmtDeadlineDate(d){
+  // d is midnight of the *next* day, so subtract 1ms to get the actual deadline day
+  const day = new Date(d.getTime() - 1);
+  return day.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+}
+
+/**
+ * Show deadline banner and (if past deadline) disable submit.
+ * Called after fetchRoundNumber() resolves.
+ */
+function applyDeadline(){
+  const banner = document.getElementById('deadlineBanner');
+  const btn    = document.getElementById('submitBtn');
+
+  if (!RoundEndDate) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const now = new Date();
+  const label = fmtDeadlineDate(RoundEndDate);
+
+  if (now >= RoundEndDate) {
+    // Past midnight — deadline expired
+    banner.textContent = `⛔ The deadline for Round ${RoundNumber} score submission was ${label} at midnight. No further scores are being accepted for this round.`;
+    banner.className = 'deadline-banner expired';
+    banner.style.display = 'block';
+    btn.disabled = true;
+    btn.title = 'Score submission deadline has passed.';
+    // Store flag so init() won't re-enable the button
+    window._deadlineExpired = true;
+  } else {
+    // Before midnight — show informational notice
+    banner.textContent = `📅 Scores for Round ${RoundNumber} are due by midnight on ${label}.`;
+    banner.className = 'deadline-banner warn';
+    banner.style.display = 'block';
+    window._deadlineExpired = false;
   }
 }
 
@@ -1125,6 +1203,12 @@ async function sendEmailConfirmation(payload){
 }
 
 async function submitForm(){
+  // Extra guard: re-check deadline at submit time
+  if (window._deadlineExpired) {
+    document.getElementById('msg').textContent = 'The score submission deadline has passed for this round.';
+    return;
+  }
+
   const btn=document.getElementById('submitBtn');
   const ok=document.getElementById('ok');
   const msg=document.getElementById('msg');
@@ -1222,6 +1306,8 @@ async function submitForm(){
     hideOverlay();
     btn.disabled=false;
     btn.textContent = oldBtnText;
+    // Re-disable if deadline expired during submission
+    if (window._deadlineExpired) btn.disabled = true;
   }
 }
 
@@ -1323,6 +1409,9 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
     document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
 
+    // Apply deadline banner (and disable submit if past deadline)
+    applyDeadline();
+
     try{
       if (EMAILJS_PUBLIC_KEY && !EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')){
         emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -1339,7 +1428,10 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
     toggleTBUI(false);
     setStatusChip('Completed');
     refreshTBEnabled();
-    document.getElementById('submitBtn').disabled=false;
+    // Only enable submit if deadline has not passed
+    if (!window._deadlineExpired) {
+      document.getElementById('submitBtn').disabled=false;
+    }
   }catch(e){
     console.error('init error:', e);
     document.getElementById('msg').textContent='Setup error: '+e.message;
@@ -1360,6 +1452,8 @@ document.addEventListener('visibilitychange', async () => {
     document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
     document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
   }
+  // Re-evaluate deadline on tab return
+  applyDeadline();
   await Promise.all([loadPlayers(), loadScheduleForRound()]);
   refreshWinnerOptions();
   recomputeOpponentForMode();
