@@ -141,9 +141,25 @@
   .modal-title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
   .modal-close{ appearance:none; border:1px solid #334258; background:#1a2436; color:#c9d6e6; border-radius:8px; width:28px; height:28px;
     font-size:16px; line-height:26px; text-align:center; cursor:pointer; }
-  .modal-body{ padding:16px; color:#d2deee; }
+  .modal-body{ padding:16px; color:#d2deee; max-height:70vh; overflow:auto; -webkit-overflow-scrolling:touch; }
   .modal-body p{ margin:0 0 8px 0; line-height:1.5; }
   .modal-body .tip{ margin-top:10px; font-size:13px; color:#93a6bf; border-top:1px dashed #2a3750; padding-top:10px; }
+
+  /* Clickable participant names → open match history */
+  .name-link{ cursor:pointer; }
+  .name-link:hover{ color:var(--accent); text-decoration:underline; }
+  .name-link:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+
+  /* Match-history modal contents */
+  .hist-round{ margin-bottom:16px; }
+  .hist-round:last-child{ margin-bottom:0; }
+  .hist-round-title{ font-weight:800; font-size:12px; color:#b9c6d8; text-transform:uppercase; letter-spacing:.6px;
+    margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid var(--rule); }
+  .hist-match{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 0; font-size:14px; }
+  .hist-match .result{ font-weight:600; }
+  .hist-pts{ font-size:12px; color:#cdd8e6; background:#101827; border:1px solid #253043;
+    padding:2px 8px; border-radius:999px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .hist-empty{ color:#8ea0b4; font-style:italic; }
 
   @media (max-width:720px){
     thead{ display:none; }
@@ -465,7 +481,9 @@ async function init(round){
 
       const mHead=document.createElement('div'); mHead.className='m-head';
       const mRank=document.createElement('span'); mRank.className='m-rank'; mRank.textContent=`#${leftRank}`;
-      const mName=document.createElement('span'); mName.className='m-name'; mName.textContent=playerName||'';
+      const mName=document.createElement('span'); mName.className='m-name name-link'; mName.textContent=playerName||'';
+      mName.setAttribute('data-player', playerName||''); mName.setAttribute('role','button');
+      mName.setAttribute('tabindex','0'); mName.title='Tap to see match history';
       mHead.appendChild(mRank); mHead.appendChild(mName);
 
       // Mobile: Round X points right after player name
@@ -476,7 +494,10 @@ async function init(round){
 
       wrap.appendChild(mHead);
 
-      const nameEl=document.createElement('div'); nameEl.className='name'; nameEl.textContent=playerName||''; wrap.appendChild(nameEl);
+      const nameEl=document.createElement('div'); nameEl.className='name name-link'; nameEl.textContent=playerName||'';
+      nameEl.setAttribute('data-player', playerName||''); nameEl.setAttribute('role','button');
+      nameEl.setAttribute('tabindex','0'); nameEl.title='Click to see match history';
+      wrap.appendChild(nameEl);
 
       // Phone: hidden by default, revealed on click
       const ph=phoneByName[nameKey(playerName)]||'';
@@ -706,6 +727,115 @@ function handlePointsClick(e){
 document.addEventListener('click', handlePointsClick, {capture:false});
 document.addEventListener('pointerup', handlePointsClick, {capture:false});
 
+/* ===== Player match history ===== */
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* caches so repeat clicks don't refetch */
+const _scoresCache = new Map();   // round -> rows
+let _playersCache = null;
+async function getScoresFor(r){
+  if(_scoresCache.has(r)) return _scoresCache.get(r);
+  const url = CSV[`ScoresRound${r}`];
+  const rows = url ? await loadCSV(url).catch(()=>[]) : [];
+  _scoresCache.set(r, rows);
+  return rows;
+}
+async function getPlayersRows(){
+  if(_playersCache) return _playersCache;
+  _playersCache = await loadCSV(CSV.Players).catch(()=>[]);
+  return _playersCache;
+}
+/* begin-of-round rank map for round r, using the R{r}Rank column */
+function rankMapForRound(playersRows, r){
+  const m={};
+  (playersRows||[]).forEach(row=>{
+    const nm=fmt(row.Participant); if(!nm) return;
+    const rk=num(row[`R${r}Rank`]);
+    if(!isNaN(rk)) m[nameKey(nm)]=rk;
+  });
+  return m;
+}
+
+async function showPlayerHistory(playerName){
+  const upTo = ROUND - 1; // prior rounds only (viewing R3 -> show R1, R2)
+  openModal(`${playerName} — Match History`, `<p class="tip">Loading…</p>`);
+
+  if (upTo < 1){
+    modalBody.innerHTML = `<p>No prior rounds yet — this is Round ${ROUND}.</p>`;
+    return;
+  }
+
+  try{
+    const playersRows = await getPlayersRows();
+    let html = '';
+    let totalMatches = 0;
+
+    for(let r=1; r<=upTo; r++){
+      const scores = await getScoresFor(r);
+      const ranks  = rankMapForRound(playersRows, r);
+
+      const mine = (scores||[]).filter(row=>{
+        const t=String(row.MatchType||'').trim();
+        if(t!=='Scheduled' && t!=='Challenge') return false;
+        const rr=Number(row.Round);
+        if(!isNaN(rr) && rr!==r) return false;
+        return nameKey(row.Winner)===nameKey(playerName) || nameKey(row.Opponent)===nameKey(playerName);
+      });
+      if(!mine.length) continue;
+
+      // Scheduled first, then challenges
+      mine.sort((a,b)=>{
+        const ta=String(a.MatchType||'').trim(), tb=String(b.MatchType||'').trim();
+        if(ta===tb) return 0; return ta==='Scheduled' ? -1 : 1;
+      });
+
+      let rowsHtml='';
+      mine.forEach(row=>{
+        const isWinner = nameKey(row.Winner)===nameKey(playerName);
+        const text = resultString(row, isWinner ? 'winner' : 'opponent', ranks);
+        const type = String(row.MatchType||'').trim();
+        const badgeClass = type==='Challenge' ? 'badge-challenge' : 'badge-scheduled';
+        const badgeTxt   = type==='Challenge' ? 'C' : 'S';
+        const resultClass= isWinner ? 'won' : 'lost';
+        const pts = isWinner ? fmtPts(row.WinPoints) : fmtPts(row.LosePoints);
+        const ptsHtml = pts ? ` <span class="hist-pts">${pts} pts</span>` : '';
+        rowsHtml += `<div class="hist-match"><span class="badge ${badgeClass}">${badgeTxt}</span>`
+                 +  `<span class="result ${resultClass}">${escapeHtml(text)}</span>${ptsHtml}</div>`;
+        totalMatches++;
+      });
+
+      html += `<div class="hist-round"><div class="hist-round-title">Round ${r}</div>${rowsHtml}</div>`;
+    }
+
+    if(!totalMatches){
+      html = `<p class="hist-empty">No recorded matches for ${escapeHtml(playerName)} in Round${upTo>1?'s':''} 1${upTo>1?`–${upTo}`:''}.</p>`;
+    }
+    modalBody.innerHTML = html;
+  }catch(err){
+    console.error(err);
+    modalBody.innerHTML = `<p>Sorry — couldn't load match history. Please try again.</p>`;
+  }
+}
+
+/* open history on name click (and keyboard activation) */
+document.addEventListener('click', e=>{
+  const link = e.target.closest('.name-link');
+  if(!link) return;
+  const name = link.getAttribute('data-player')||'';
+  if(name) showPlayerHistory(name);
+});
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const link = e.target.closest && e.target.closest('.name-link');
+  if(!link) return;
+  e.preventDefault();
+  const name = link.getAttribute('data-player')||'';
+  if(name) showPlayerHistory(name);
+});
+
+
 /* boot */
 (async function boot(){
   await fetchCurrentRound();
@@ -721,6 +851,7 @@ document.addEventListener('visibilitychange', async () => {
   const away = Date.now() - _lastVisible;
   if (away < 60000) return; // skip if away less than 60 s
   _lastVisible = Date.now();
+  _scoresCache.clear(); _playersCache = null; // refresh history data too
   const prevRound = CurrentRound;
   await fetchCurrentRound();
   if (CurrentRound !== prevRound) buildRoundSelect();
