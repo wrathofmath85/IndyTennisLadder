@@ -1195,6 +1195,52 @@ function safeEmailOf(name){
   return e;
 }
 
+/* ---- Pretty date for the email header/footer ---- */
+function fmtMatchDate(iso){
+  try{
+    return new Date(iso).toLocaleString('en-US', {
+      weekday:'short', month:'short', day:'numeric',
+      hour:'numeric', minute:'2-digit',
+      timeZone:'America/Indiana/Indianapolis'
+    });
+  }catch(e){ return iso; }
+}
+
+/* ---- Build the dark scorecard rows injected via {{{scorecard_rows}}} in the EmailJS template ---- */
+function buildScorecardRows(payload){
+  const rowStyleLabel  = 'color:#8ea0b4;font-size:13px;font-weight:600;padding:10px 0;border-bottom:1px solid #1a2333;';
+  const rowStyleWin    = 'color:#e9eef5;font-size:16px;font-weight:800;padding:10px 0;border-bottom:1px solid #1a2333;text-align:center;';
+  const rowStyleLose   = 'color:#8ea0b4;font-size:16px;font-weight:600;padding:10px 0;border-bottom:1px solid #1a2333;text-align:center;';
+  const tbStyle        = 'color:#5dd0ff;font-size:11px;font-weight:700;';
+
+  const row = (label, w, o, tb) => {
+    const tbTag = (tb !== '' && tb != null)
+      ? ` <span style="${tbStyle}">(${tb})</span>` : '';
+    return `<tr>
+      <td style="${rowStyleLabel}">${label}</td>
+      <td style="${rowStyleWin}">${w}${tbTag}</td>
+      <td style="${rowStyleLose}">${o}</td>
+    </tr>`;
+  };
+
+  // Walkover: single explanatory row instead of a set table
+  if (payload.Status === 'Walkover'){
+    return `<tr>
+      <td colspan="3" style="color:#f5a623;font-size:14px;font-weight:700;padding:14px 0;text-align:center;">
+        Walkover — no sets played
+      </td>
+    </tr>`;
+  }
+
+  const rows = [];
+  if (payload.S1_W !== '' && payload.S1_O !== '') rows.push(row('Set 1', payload.S1_W, payload.S1_O, payload.Set1_T));
+  if (payload.S2_W !== '' && payload.S2_O !== '') rows.push(row('Set 2', payload.S2_W, payload.S2_O, payload.Set2_T));
+  if (payload.S3_W !== '' && payload.S3_O !== '') rows.push(row('Set 3', payload.S3_W, payload.S3_O, payload.Set3_T));
+  if (payload.TB_W !== '' && payload.TB_O !== '') rows.push(row('Match TB', payload.TB_W, payload.TB_O, null));
+
+  return rows.join('');
+}
+
 async function sendEmailConfirmation(payload){
   if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')) return {skipped:true};
   if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.startsWith('REPLACE_')) return {skipped:true};
@@ -1206,14 +1252,29 @@ async function sendEmailConfirmation(payload){
   const ccList = [winnerEmail, opponentEmail].filter(Boolean).join(',');
 
   const params = {
-    subject: `Round ${payload.Round} Score Submission`,
+    // Subject reads like: "🎾 R3: Alice def. Bob"
+    subject: `🎾 R${payload.Round}: ${payload.Winner} def. ${payload.Opponent}` +
+             (payload.Status === 'Walkover' ? ' (Walkover)' : ''),
+
     to_email: ADMIN_EMAIL,
     cc_emails: ccList,
+
     winner_name: payload.Winner,
     opponent_name: payload.Opponent,
-    message: buildEmailBody(payload),
+
+    round: payload.Round,
+    match_type: payload.MatchType,
+    status_label: payload.Status,
+    match_date: fmtMatchDate(payload.Timestamp),
+
+    score_line: buildScoreLine(payload),
+    scorecard_rows: buildScorecardRows(payload),
+
     standings_link: STANDINGS_LINK,
-    update_note: UPDATE_NOTE
+    update_note: UPDATE_NOTE,
+
+    // Plaintext fallback (hidden div in the EmailJS template)
+    message: buildEmailBody(payload)
   };
 
   return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
