@@ -444,7 +444,7 @@
 /*** ======= CONFIG — UPDATE THESE FOR DOUBLES ======= ***/
 const CURRENT_ROUND_CSV = 'https://wrathofmath85.github.io/IndyTennisLadder/2026DoublesStandings';
 
-let RoundNumber = 2;
+let RoundNumber = 1;
 
 async function fetchRoundNumber(){
   try{
@@ -466,13 +466,13 @@ const PLAYERS_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB
 const SCHEDULE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1596015267&single=true&output=csv';
 const SUBMIT_ENDPOINT  = 'https://script.google.com/macros/s/AKfycbz10Q4c91kzn9R4gGyIAfelgQAW_3JxqYUjU6pXkU51UduHSt-GlN9v5z0PGXjeX4x_tg/exec';
 
-const STANDINGS_LINK   = 'REPLACE_WITH_DOUBLES_STANDINGS_URL';
-const UPDATE_NOTE      = 'https://wrathofmath85.github.io/IndyTennisLadder/2026DoublesStandings';;
+const STANDINGS_LINK   = 'https://wrathofmath85.github.io/IndyTennisLadder/2026DoublesStandings';
+const UPDATE_NOTE      = 'Please give the website up to 5 minutes to update before contacting Dan with concerns';
 
 // EmailJS config — can reuse the same keys if the template supports it, or set up a new template
 const EMAILJS_PUBLIC_KEY = 'YB5J-75APa-V6Giku';
-const EMAILJS_SERVICE_ID = 'service_erw700i';
-const EMAILJS_TEMPLATE_ID = 'template_gt6skt4';
+const EMAILJS_SERVICE_ID = 'service_uwt5e0k';
+const EMAILJS_TEMPLATE_ID = 'template_o8du7pt';
 
 const ADMIN_EMAIL = 'IndyTennisLadder@gmail.com';
 /*** ================================================== ***/
@@ -1000,6 +1000,52 @@ function safeEmailsOf(teamName){
   return (emailsByName.get(teamName) || []);
 }
 
+/* ---- Pretty date for the email header/footer ---- */
+function fmtMatchDate(iso){
+  try{
+    return new Date(iso).toLocaleString('en-US', {
+      weekday:'short', month:'short', day:'numeric',
+      hour:'numeric', minute:'2-digit',
+      timeZone:'America/Indiana/Indianapolis'
+    });
+  }catch(e){ return iso; }
+}
+
+/* ---- Build the dark scorecard rows injected via {{{scorecard_rows}}} in the EmailJS template ---- */
+function buildScorecardRows(payload){
+  const rowStyleLabel  = 'color:#8ea0b4;font-size:13px;font-weight:600;padding:10px 0;border-bottom:1px solid #1a2333;';
+  const rowStyleWin    = 'color:#e9eef5;font-size:16px;font-weight:800;padding:10px 0;border-bottom:1px solid #1a2333;text-align:center;';
+  const rowStyleLose   = 'color:#8ea0b4;font-size:16px;font-weight:600;padding:10px 0;border-bottom:1px solid #1a2333;text-align:center;';
+  const tbStyle        = 'color:#5dd0ff;font-size:11px;font-weight:700;';
+
+  const row = (label, w, o, tb) => {
+    const tbTag = (tb !== '' && tb != null)
+      ? ` <span style="${tbStyle}">(${tb})</span>` : '';
+    return `<tr>
+      <td style="${rowStyleLabel}">${label}</td>
+      <td style="${rowStyleWin}">${w}${tbTag}</td>
+      <td style="${rowStyleLose}">${o}</td>
+    </tr>`;
+  };
+
+  // Walkover: single explanatory row instead of a set table
+  if (payload.Status === 'Walkover'){
+    return `<tr>
+      <td colspan="3" style="color:#f5a623;font-size:14px;font-weight:700;padding:14px 0;text-align:center;">
+        Walkover — no sets played
+      </td>
+    </tr>`;
+  }
+
+  const rows = [];
+  if (payload.S1_W !== '' && payload.S1_O !== '') rows.push(row('Set 1', payload.S1_W, payload.S1_O, payload.Set1_T));
+  if (payload.S2_W !== '' && payload.S2_O !== '') rows.push(row('Set 2', payload.S2_W, payload.S2_O, payload.Set2_T));
+  if (payload.S3_W !== '' && payload.S3_O !== '') rows.push(row('Set 3', payload.S3_W, payload.S3_O, payload.Set3_T));
+  if (payload.TB_W !== '' && payload.TB_O !== '') rows.push(row('Match TB', payload.TB_W, payload.TB_O, null));
+
+  return rows.join('');
+}
+
 async function sendEmailConfirmation(payload){
   if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')) return {skipped:true};
   if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.startsWith('REPLACE_')) return {skipped:true};
@@ -1012,14 +1058,29 @@ async function sendEmailConfirmation(payload){
   const ccList = allEmails.join(',');
 
   const params = {
-    subject: `Round ${payload.Round} Doubles Score Submission`,
+    // Subject reads like: "🎾 R3 Doubles: Alice/Bob def. Carol/Dave"
+    subject: `🎾 R${payload.Round} Doubles: ${payload.Winner} def. ${payload.Opponent}` +
+             (payload.Status === 'Walkover' ? ' (Walkover)' : ''),
+
     to_email: ADMIN_EMAIL,
     cc_emails: ccList,
+
     winner_name: payload.Winner,
     opponent_name: payload.Opponent,
-    message: buildEmailBody(payload),
+
+    round: payload.Round,
+    match_type: payload.MatchType,
+    status_label: payload.Status,
+    match_date: fmtMatchDate(payload.Timestamp),
+
+    score_line: buildScoreLine(payload),
+    scorecard_rows: buildScorecardRows(payload),
+
     standings_link: STANDINGS_LINK,
-    update_note: UPDATE_NOTE
+    update_note: UPDATE_NOTE,
+
+    // Plaintext fallback (hidden div in the EmailJS template)
+    message: buildEmailBody(payload)
   };
 
   return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
