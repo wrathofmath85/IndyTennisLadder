@@ -186,6 +186,14 @@
   .bkt-lose{ color:#8ea0b4; }
   .bkt-tbd{ color:#5b6c85; font-style:italic; font-weight:600; }
   .bkt-score{ color:#b9c6d8; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12px; }
+  .bkt-phone-line{ padding:0 0 3px 0; }
+  .bkt-phone-toggle{
+    background:none; border:none; padding:0; cursor:pointer;
+    font-size:11px; color:#5b6c85; text-decoration:underline dotted;
+  }
+  .bkt-phone-toggle:hover{ color:var(--muted); }
+  .bkt-phone-line .phone-reveal{ margin-left:6px; }
+  .place-chip .name-link{ color:inherit; }
   .bkt-tag{ font-size:10px; font-weight:800; border-radius:999px; padding:1px 7px; white-space:nowrap; }
   .bkt-tag.ready{ background:rgba(245,166,35,.15); color:#f5a623; }
   .bkt-tag.done{ background:rgba(59,211,127,.15); color:var(--ok); }
@@ -566,11 +574,19 @@ async function fetchBracketScores(){
   return data.rows||[];
 }
 
+let bktPhoneByName = {};   // nameKey -> phone (for bracket-stage display)
+
 async function loadBracketData(){
   const r = BRACKET_START_ROUND;
   const [playersRaw, datesRaw, scoreRows] = await Promise.all([
     loadCSV(CSV.Players), loadCSV(CSV.Dates), fetchBracketScores()
   ]);
+  bktPhoneByName = {};
+  (playersRaw||[]).forEach(row=>{
+    const nm=fmt(row.Participant); if(!nm) return;
+    const ph=fmt(row.PHONE||row.Phone||row.phone);
+    if(ph) bktPhoneByName[nameKey(nm)]=ph;
+  });
   const active = (playersRaw||[]).filter(row=>{
     const start=num(row.RStart), end=num(row.REnd);
     return (isNaN(start)||start<=r) && (isNaN(end)||end>=r);
@@ -614,11 +630,30 @@ function bktLineHTML(part, src, m){
   const isL = m.done && m.loser===part;
   const cls = isW?'bkt-win':(isL?'bkt-lose':'');
   const score = (isW && m.row) ? `<span class="bkt-score">${escapeHtml(bktScore(m.row))}</span>` : '';
-  return `<div class="bkt-line">
-    <span class="bkt-name ${cls}"><span class="sd">#${part.seed}</span><span class="name-link" role="button" tabindex="0" data-player="${escapeHtml(part.name)}">${escapeHtml(part.name)}</span></span>
+  let html = `<div class="bkt-line">
+    <span class="bkt-name ${cls}"><span class="sd">#${part.seed}</span><span class="name-link" role="button" tabindex="0" title="Click to see match history" data-player="${escapeHtml(part.name)}">${escapeHtml(part.name)}</span></span>
     ${score}
   </div>`;
+  // Phone (same reveal style as the ladder) for matches still to be played
+  if (!m.done){
+    const ph = bktPhoneByName[nameKey(part.name)] || '';
+    if (ph){
+      html += `<div class="bkt-phone-line"><button type="button" class="bkt-phone-toggle">Show phone</button><span class="phone-reveal">${escapeHtml(ph)}</span></div>`;
+    }
+  }
+  return html;
 }
+
+/* reveal/hide phone in bracket cards (delegated — cards are re-rendered often) */
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.bkt-phone-toggle');
+  if(!btn) return;
+  const reveal = btn.nextElementSibling;
+  if (reveal && reveal.classList.contains('phone-reveal')){
+    const shown = reveal.classList.toggle('shown');
+    btn.textContent = shown ? 'Hide' : 'Show phone';
+  }
+});
 
 function renderBracketCard(br){
   const card=document.createElement('div'); card.className='bracket-card';
@@ -661,7 +696,7 @@ function renderBracketCard(br){
     const chip=document.createElement('span');
     if(part && !part.bye){
       chip.className='place-chip';
-      chip.innerHTML=`<b>#${overall}</b> ${escapeHtml(part.name)}`;
+      chip.innerHTML=`<b>#${overall}</b> <span class="name-link" role="button" tabindex="0" title="Click to see match history" data-player="${escapeHtml(part.name)}">${escapeHtml(part.name)}</span>`;
     }else{
       chip.className='place-chip tbd';
       chip.innerHTML=`<b>#${overall}</b> TBD`;
