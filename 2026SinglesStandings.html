@@ -161,6 +161,62 @@
     padding:2px 8px; border-radius:999px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .hist-empty{ color:#8ea0b4; font-style:italic; }
 
+  /* ===== Bracket stage view ===== */
+  .stage{ margin-top:18px; }
+  .stage-note{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .test-note{ display:inline-block; margin-left:8px; padding:2px 10px; border-radius:999px;
+    background:rgba(93,208,255,.12); border:1px solid rgba(93,208,255,.4); color:var(--accent);
+    font-size:12px; font-weight:800; }
+  .bracket-card{ background:var(--panel); border:1px solid var(--rule); border-radius:12px;
+    padding:14px; margin-bottom:18px; box-shadow:var(--shadow); }
+  .bracket-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .bracket-head h2{ margin:0; font-size:18px; letter-spacing:.2px; }
+  .bracket-sub{ color:var(--muted); font-size:13px; }
+  .bkt-cols{ display:flex; gap:14px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+  .bkt-col{ min-width:235px; max-width:280px; flex:1 0 235px; display:flex; flex-direction:column; gap:10px; }
+  .bkt-col-title{ font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+    color:#b9c6d8; padding-bottom:5px; border-bottom:1px solid var(--rule); }
+  .bkt-m{ background:#0e1420; border:1px solid var(--rule); border-radius:10px; padding:8px 10px; font-size:13px; }
+  .bkt-m-title{ color:var(--muted); font-size:11px; font-weight:700; margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .bkt-line{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:2px 0; min-width:0; }
+  .bkt-name{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .bkt-name .sd{ color:var(--muted); font-weight:600; margin-right:6px; font-variant-numeric:tabular-nums; font-size:12px; }
+  .bkt-win{ color:var(--ok); }
+  .bkt-lose{ color:#8ea0b4; }
+  .bkt-tbd{ color:#5b6c85; font-style:italic; font-weight:600; }
+  .bkt-score{ color:#b9c6d8; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12px; }
+  .bkt-phone-line{ padding:0 0 3px 0; }
+  .bkt-phone-toggle{
+    background:none; border:none; padding:0; cursor:pointer;
+    font-size:11px; color:#5b6c85; text-decoration:underline dotted;
+  }
+  .bkt-phone-toggle:hover{ color:var(--muted); }
+  .bkt-phone-line .phone-reveal{ margin-left:6px; }
+  .place-chip .name-link{ color:inherit; }
+  .bkt-tag{ font-size:10px; font-weight:800; border-radius:999px; padding:1px 7px; white-space:nowrap; }
+  .bkt-tag.ready{ background:rgba(245,166,35,.15); color:#f5a623; }
+  .bkt-tag.done{ background:rgba(59,211,127,.15); color:var(--ok); }
+  .bkt-tag.bye{ background:rgba(255,255,255,.06); color:#6e7f98; }
+  .bkt-places{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  .place-chip{ font-size:12px; background:#101827; border:1px solid #253043; border-radius:999px;
+    padding:3px 10px; color:#cdd8e6; font-variant-numeric:tabular-nums; }
+  .place-chip b{ color:#e9eef5; }
+  .place-chip.tbd{ opacity:.55; font-style:italic; }
+
+  /* ===== Final standings view ===== */
+  .final-panel{ background:var(--panel); border:1px solid var(--rule); border-radius:12px;
+    overflow:hidden; box-shadow:var(--shadow); }
+  .final-row{ display:flex; align-items:center; gap:12px; padding:11px 14px;
+    border-bottom:1px solid var(--rule); font-size:14px; }
+  .final-row:last-child{ border-bottom:none; }
+  .final-row .frank{ flex:0 0 58px; font-weight:900; font-variant-numeric:tabular-nums; color:#cdd8e6; }
+  .final-row .fname{ flex:1 1 auto; font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .final-row .fnote{ flex:0 1 auto; color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; }
+  .final-row.pending .fname, .final-row.pending .fnote{ color:#5b6c85; font-style:italic; font-weight:600; }
+  .final-row.podium{ background:rgba(93,208,255,.05); }
+  .fmedal{ margin-right:6px; }
+
   @media (max-width:720px){
     thead{ display:none; }
     table,tbody,tr,td{ display:block; width:100%; min-width:0; }
@@ -197,7 +253,7 @@
       <div class="meta" id="roundMeta"></div>
     </header>
 
-    <div class="panel">
+    <div class="panel" id="ladderPanel">
       <div class="loading" id="status">Loading data…</div>
       <table id="ladder" style="display:none;">
         <thead>
@@ -211,6 +267,9 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
+
+    <!-- Bracket stage / final standings view -->
+    <div id="stageView" class="stage" style="display:none;"></div>
 
 
   </div>
@@ -247,6 +306,223 @@ const CSV = {
 
 let ROUND = 1;
 
+/* ===== BRACKET STAGE CONFIG ===== */
+// TEST_MODE = true  → forces CurrentRound to 7 (so both the "Round 6 – Brackets" and
+//                     "Final Standings" views are available) and reads scores from
+//                     "Round 6 Scores TEST" via the Apps Script endpoint.
+// TEST_MODE = false → live behavior: views unlock as Current Round advances, and
+//                     bracket scores come from the real "Round 6 Scores" tab.
+const TEST_MODE = false;
+const BRACKET_START_ROUND = 6;
+const SCRIPT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwfs7OO_tAXSjAaoiFTp_ySQJbiaXWw3u37F7YJYZ2-kS-AHoLfaeVPfnkLUnoUW3DeDA/exec';
+const BRACKET_SCORES_SHEET = `Round ${BRACKET_START_ROUND} Scores` + (TEST_MODE ? ' TEST' : '');
+
+/* =====================================================================
+   BRACKET ENGINE (shared between SubmitScores + Standings pages)
+   Builds placement brackets of 8 (padded with BYEs) or 16 slots for
+   merged brackets of 9-11 players. BYEs automatically lose every match,
+   which forwards real players and cascades byes down the draw exactly
+   per league rules. Every match decides toward a final placement.
+   ===================================================================== */
+const BK = (function(){
+  'use strict';
+
+  const BYE = Object.freeze({ bye:true, name:'BYE' });
+
+  const bkFmt = v => (v===undefined||v===null) ? '' : String(v).trim();
+  const bkKey = s => bkFmt(s).toLowerCase();
+  const pairKey = (a,b) => { const x=bkKey(a), y=bkKey(b); return x<y ? x+'|'+y : y+'|'+x; };
+  function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+  /* Standard seeded bracket slot order, e.g. 8 -> [1,8,4,5,2,7,3,6] */
+  function seedOrder(n){
+    let arr=[1];
+    while(arr.length<n){
+      const m=arr.length*2, next=[];
+      for(const x of arr) next.push(x, m+1-x);
+      arr=next;
+    }
+    return arr;
+  }
+
+  /* Groups of 8 by seed; if the last group has <4 players it merges
+     into the previous group (making it 9-11). */
+  function chunkBrackets(seeded){
+    const groups=[];
+    for(let i=0;i<seeded.length;i+=8) groups.push(seeded.slice(i,i+8));
+    if(groups.length>1 && groups[groups.length-1].length<4){
+      const last=groups.pop();
+      groups[groups.length-1]=groups[groups.length-1].concat(last);
+    }
+    return groups;
+  }
+
+  /* Build the full match tree for one bracket. group = [{name, seed}] in
+     seed order (seed = overall ladder position). */
+  function buildBracketMatches(label, group){
+    const n=group.length;
+    const size = n<=8 ? 8 : 16;
+    const order=seedOrder(size);
+    const slots=order.map(s => s<=n
+      ? { name:group[s-1].name, seed:group[s-1].seed, local:s }
+      : BYE);
+    const matches=[];
+    function rec(entries, placeLo, roundIdx){
+      const s=entries.length;
+      const round=[];
+      for(let i=0;i<s;i+=2){
+        const m={
+          id:matches.length,
+          code:'', // filled after build: e.g. "A3"
+          bracket:label,
+          groupSize:s,
+          placeLo,
+          placeHi:placeLo+s-1,
+          roundIdx,
+          a:entries[i], b:entries[i+1],
+          pa:null, pb:null,
+          done:false, ready:false, auto:false,
+          winner:null, loser:null, row:null,
+          decides: (s===2) ? [placeLo, placeLo+1] : null
+        };
+        matches.push(m); round.push(m);
+      }
+      if(s===2) return;
+      rec(round.map(m=>({from:m, take:'winner'})), placeLo, roundIdx+1);
+      rec(round.map(m=>({from:m, take:'loser'})),  placeLo+s/2, roundIdx+1);
+    }
+    rec(slots, 1, 0);
+    matches.forEach((m,i)=>{ m.code = label + (i+1); });
+    return {
+      label, size, n, matches,
+      players: group,
+      rankStart: group.length ? 1 : 1 // set by caller
+    };
+  }
+
+  function matchLabel(m){
+    if(m.decides) return m.placeLo===1 ? 'Final' : ordinal(m.placeLo)+' Place Match';
+    if(m.groupSize===16) return 'Opening Round';
+    if(m.groupSize===8)  return m.placeLo===1 ? 'Quarterfinal' : 'Back Draw QF (Places '+m.placeLo+'\u2013'+m.placeHi+')';
+    if(m.groupSize===4)  return m.placeLo===1 ? 'Semifinal'    : 'Back Draw SF (Places '+m.placeLo+'\u2013'+m.placeHi+')';
+    return 'Places '+m.placeLo+'\u2013'+m.placeHi;
+  }
+
+  function srcParticipant(src){
+    if(!src) return null;
+    if(src.from){
+      if(!src.from.done) return null;
+      return src.take==='winner' ? src.from.winner : src.from.loser;
+    }
+    return src; // a slot entry or BYE
+  }
+
+  /* Human description of an unresolved source, e.g. "Winner of A2" */
+  function srcDesc(src){
+    if(!src) return '';
+    if(src.from) return (src.take==='winner'?'Winner of ':'Loser of ')+src.from.code;
+    return src.bye ? 'BYE' : src.name;
+  }
+
+  /* Apply results. resultsByPair: Map(pairKey -> scoreRow). Loops until
+     stable so order of submissions never matters. */
+  function resolveBracket(br, resultsByPair){
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const m of br.matches){
+        if(m.done) continue;
+        const A=srcParticipant(m.a), B=srcParticipant(m.b);
+        m.pa=A; m.pb=B;
+        if(!A||!B) continue;
+        if(A.bye&&B.bye){ m.done=true; m.auto=true; m.winner=BYE; m.loser=BYE; changed=true; continue; }
+        if(A.bye||B.bye){ m.done=true; m.auto=true; m.winner=A.bye?B:A; m.loser=A.bye?A:B; changed=true; continue; }
+        const row=resultsByPair.get(pairKey(A.name,B.name));
+        if(row){
+          const w = bkKey(row.Winner)===bkKey(A.name) ? A : B;
+          m.done=true; m.winner=w; m.loser=(w===A)?B:A; m.row=row; changed=true;
+        }
+      }
+    }
+    br.matches.forEach(m=>{
+      m.ready = !m.done && !!m.pa && !!m.pb && !m.pa.bye && !m.pb.bye;
+    });
+    br.placements = {}; // internal place (1..size) -> participant
+    br.matches.forEach(m=>{
+      if(m.decides && m.done){
+        br.placements[m.decides[0]] = m.winner;
+        br.placements[m.decides[1]] = m.loser;
+      }
+    });
+    br.complete = (function(){
+      for(let p=1;p<=br.n;p++){
+        const part=br.placements[p];
+        if(!part || part.bye) return false;
+      }
+      return true;
+    })();
+  }
+
+  /* seededPlayers: [{name, seed}] sorted by seed asc (seed = 1..N overall).
+     scoreRows: rows from the Round 6 Scores sheet (Winner/Opponent/S1_W...).
+     Later rows for the same pair overwrite earlier ones (corrections). */
+  function buildAll(seededPlayers, scoreRows){
+    const resultsByPair=new Map();
+    (scoreRows||[]).forEach(r=>{
+      const w=bkFmt(r.Winner), o=bkFmt(r.Opponent);
+      if(!w||!o||bkKey(w)===bkKey(o)) return;
+      resultsByPair.set(pairKey(w,o), r);
+    });
+    const groups=chunkBrackets(seededPlayers);
+    const letters='ABCDEFGHIJKLMNOP';
+    let offset=0;
+    return groups.map((g,i)=>{
+      const br=buildBracketMatches(letters[i]||('B'+(i+1)), g);
+      br.rankStart=offset+1;
+      br.rankEnd=offset+g.length;
+      offset+=g.length;
+      resolveBracket(br, resultsByPair);
+      return br;
+    });
+  }
+
+  /* Matches currently playable (both participants known, no score yet). */
+  function readyMatches(brackets){
+    const list=[];
+    brackets.forEach(br=>br.matches.forEach(m=>{
+      if(m.ready) list.push({
+        bracket:br.label, code:m.code, label:matchLabel(m),
+        a:m.pa, b:m.pb, match:m, br
+      });
+    }));
+    return list;
+  }
+
+  /* Overall final rankings. Internal place p maps to overall rank
+     rankStart-1+p (real players always occupy the top n places since
+     byes lose every match). Returns [{rank, name|null, bracket, place,
+     pending}] for every rank 1..N. */
+  function finalRankings(brackets){
+    const out=[];
+    brackets.forEach(br=>{
+      for(let p=1;p<=br.n;p++){
+        const part=br.placements[p];
+        out.push({
+          rank: br.rankStart-1+p,
+          place: p,
+          bracket: br.label,
+          name: (part && !part.bye) ? part.name : null,
+          seed: (part && !part.bye) ? part.seed : null,
+          pending: !(part && !part.bye)
+        });
+      }
+    });
+    return out;
+  }
+
+  return { BYE, buildAll, readyMatches, finalRankings, matchLabel, srcDesc, pairKey, ordinal };
+})();
+
 /* ===== helpers ===== */
 function bustUrl(url){ return url + (url.includes('?') ? '&' : '?') + '_bust=' + Date.now(); }
 function loadCSV(url){ return new Promise((res, rej)=> Papa.parse(bustUrl(url),{download:true,header:true,skipEmptyLines:'greedy',complete:r=>res(r.data||[]),error:rej})); }
@@ -269,7 +545,234 @@ function fmtDateRange(startRaw, endRaw){
 
 function setStatus(msg,isError=false){ const st=document.getElementById('status'); st.textContent=msg; st.className=isError?'error':'loading'; }
 async function fetchCurrentRound(){ try{ const rows=await loadCSV(CURRENT_ROUND_CSV); const r0=rows?.[0]||{}; const val=Number(r0['Current Round']??r0['CurrentRound']??r0['Round']??r0[Object.keys(r0)[0]]); if(!Number.isNaN(val)&&val>=1) CurrentRound=val; }catch{} }
-function computeRoundFromURL(){ const u=new URLSearchParams(location.search); const q=parseInt(u.get('round'),10); return (!isNaN(q) && q>=1 && q<=CurrentRound) ? q : CurrentRound; }
+function computeRoundFromURL(){
+  const u=new URLSearchParams(location.search); const raw=u.get('round');
+  if (raw==='final' && CurrentRound>=BRACKET_START_ROUND+1) return 'final';
+  const maxView=Math.min(CurrentRound, BRACKET_START_ROUND);
+  const q=parseInt(raw,10);
+  if (!isNaN(q) && q>=1 && q<=maxView) return q;
+  return (CurrentRound>=BRACKET_START_ROUND+1) ? 'final' : maxView;
+}
+
+/* ===== view toggling ===== */
+function showLadderView(){
+  document.getElementById('ladderPanel').style.display='';
+  document.getElementById('stageView').style.display='none';
+}
+function showStageView(){
+  document.getElementById('ladderPanel').style.display='none';
+  const sv=document.getElementById('stageView'); sv.style.display=''; return sv;
+}
+
+/* ===== bracket stage data ===== */
+async function fetchBracketScores(){
+  const url = `${SCRIPT_ENDPOINT}?action=scores&sheet=${encodeURIComponent(BRACKET_SCORES_SHEET)}&_bust=${Date.now()}`;
+  const res = await fetch(url,{cache:'no-store'});
+  if(!res.ok) throw new Error('Bracket scores HTTP '+res.status);
+  const data = await res.json();
+  if(!data || data.ok!==true) throw new Error((data&&data.error)||'Bracket scores read failed');
+  return data.rows||[];
+}
+
+let bktPhoneByName = {};   // nameKey -> phone (for bracket-stage display)
+
+async function loadBracketData(){
+  const r = BRACKET_START_ROUND;
+  const [playersRaw, datesRaw, scoreRows] = await Promise.all([
+    loadCSV(CSV.Players), loadCSV(CSV.Dates), fetchBracketScores()
+  ]);
+  bktPhoneByName = {};
+  (playersRaw||[]).forEach(row=>{
+    const nm=fmt(row.Participant); if(!nm) return;
+    const ph=fmt(row.PHONE||row.Phone||row.phone);
+    if(ph) bktPhoneByName[nameKey(nm)]=ph;
+  });
+  const active = (playersRaw||[]).filter(row=>{
+    const start=num(row.RStart), end=num(row.REnd);
+    return (isNaN(start)||start<=r) && (isNaN(end)||end>=r);
+  });
+  const seeded = active
+    .map(row=>({ name: fmt(row.Participant), rank: num(row[`R${r}Rank`]) }))
+    .filter(p=>p.name && !isNaN(p.rank) && p.rank>0)
+    .sort((a,b)=>a.rank-b.rank)
+    .map((p,i)=>({ name:p.name, seed:i+1 }));
+  if(!seeded.length) throw new Error(`No players have an R${r}Rank yet — bracket seeding is unavailable.`);
+  const brackets = BK.buildAll(seeded, scoreRows);
+  return { brackets, datesRaw };
+}
+
+/* score line for a bracket match, from the winner's perspective */
+function bktScore(row){
+  if(!row) return '';
+  const st=String(row.Status||'').toLowerCase();
+  if(st.includes('walkover')) return 'walkover';
+  const parts=[];
+  const set=(w,o,tb)=>{
+    if(fmt(w)===''&&fmt(o)==='') return;
+    parts.push(`${fmt(w)}-${fmt(o)}${fmt(tb)!==''?'('+fmt(tb)+')':''}`);
+  };
+  set(row.S1_W,row.S1_O,row.Set1_T);
+  set(row.S2_W,row.S2_O,row.Set2_T);
+  set(row.S3_W,row.S3_O,row.Set3_T);
+  if(fmt(row.TB_W)!==''||fmt(row.TB_O)!=='') parts.push(`[${fmt(row.TB_W)}-${fmt(row.TB_O)}]`);
+  let s=parts.join(' ');
+  if(st.includes('retired')) s+=' Ret';
+  return s;
+}
+
+/* one participant line inside a match card */
+function bktLineHTML(part, src, m){
+  if (part && part.bye) return `<div class="bkt-line"><span class="bkt-name bkt-tbd">BYE</span></div>`;
+  if (!part){
+    return `<div class="bkt-line"><span class="bkt-name bkt-tbd">${escapeHtml(BK.srcDesc(src))}</span></div>`;
+  }
+  const isW = m.done && m.winner===part;
+  const isL = m.done && m.loser===part;
+  const cls = isW?'bkt-win':(isL?'bkt-lose':'');
+  const score = (isW && m.row) ? `<span class="bkt-score">${escapeHtml(bktScore(m.row))}</span>` : '';
+  let html = `<div class="bkt-line">
+    <span class="bkt-name ${cls}"><span class="sd">#${part.seed}</span><span class="name-link" role="button" tabindex="0" title="Click to see match history" data-player="${escapeHtml(part.name)}">${escapeHtml(part.name)}</span></span>
+    ${score}
+  </div>`;
+  // Phone (same reveal style as the ladder) for matches still to be played
+  if (!m.done){
+    const ph = bktPhoneByName[nameKey(part.name)] || '';
+    if (ph){
+      html += `<div class="bkt-phone-line"><button type="button" class="bkt-phone-toggle">Show phone</button><span class="phone-reveal">${escapeHtml(ph)}</span></div>`;
+    }
+  }
+  return html;
+}
+
+/* reveal/hide phone in bracket cards (delegated — cards are re-rendered often) */
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.bkt-phone-toggle');
+  if(!btn) return;
+  const reveal = btn.nextElementSibling;
+  if (reveal && reveal.classList.contains('phone-reveal')){
+    const shown = reveal.classList.toggle('shown');
+    btn.textContent = shown ? 'Hide' : 'Show phone';
+  }
+});
+
+function renderBracketCard(br){
+  const card=document.createElement('div'); card.className='bracket-card';
+  const head=document.createElement('div'); head.className='bracket-head';
+  head.innerHTML = `<h2>Bracket ${escapeHtml(br.label)}</h2>
+    <span class="bracket-sub">Overall ranks ${br.rankStart}\u2013${br.rankEnd} \u00b7 ${br.n} players</span>`;
+  card.appendChild(head);
+
+  // columns by round
+  const byRound=new Map();
+  br.matches.forEach(m=>{
+    if (m.done && m.auto && m.winner && m.winner.bye) return;   // hide BYE vs BYE
+    if(!byRound.has(m.roundIdx)) byRound.set(m.roundIdx,[]);
+    byRound.get(m.roundIdx).push(m);
+  });
+  const cols=document.createElement('div'); cols.className='bkt-cols';
+  [...byRound.keys()].sort((a,b)=>a-b).forEach(ri=>{
+    const col=document.createElement('div'); col.className='bkt-col';
+    const t=document.createElement('div'); t.className='bkt-col-title'; t.textContent=`Round ${ri+1}`;
+    col.appendChild(t);
+    byRound.get(ri).sort((a,b)=>(a.placeLo-b.placeLo)||(a.id-b.id)).forEach(m=>{
+      const box=document.createElement('div'); box.className='bkt-m';
+      let tag='';
+      if (m.done && m.auto) tag='<span class="bkt-tag bye">Bye</span>';
+      else if (m.done) tag='<span class="bkt-tag done">Final</span>';
+      else if (m.ready) tag='<span class="bkt-tag ready">Ready to play</span>';
+      box.innerHTML = `<div class="bkt-m-title"><span>${escapeHtml(m.code)} \u00b7 ${escapeHtml(BK.matchLabel(m))}</span>${tag}</div>`
+        + bktLineHTML(m.pa, m.a, m) + bktLineHTML(m.pb, m.b, m);
+      col.appendChild(box);
+    });
+    cols.appendChild(col);
+  });
+  card.appendChild(cols);
+
+  // placements
+  const places=document.createElement('div'); places.className='bkt-places';
+  for(let p=1;p<=br.n;p++){
+    const part=br.placements[p];
+    const overall=br.rankStart-1+p;
+    const chip=document.createElement('span');
+    if(part && !part.bye){
+      chip.className='place-chip';
+      chip.innerHTML=`<b>#${overall}</b> <span class="name-link" role="button" tabindex="0" title="Click to see match history" data-player="${escapeHtml(part.name)}">${escapeHtml(part.name)}</span>`;
+    }else{
+      chip.className='place-chip tbd';
+      chip.innerHTML=`<b>#${overall}</b> TBD`;
+    }
+    places.appendChild(chip);
+  }
+  card.appendChild(places);
+  return card;
+}
+
+async function renderBracketStage(){
+  const sv=showStageView();
+  sv.innerHTML='<div class="loading">Loading brackets\u2026</div>';
+  try{
+    const {brackets, datesRaw}=await loadBracketData();
+    const roundRow=(datesRaw||[]).find(r=>Number(r.Round)===BRACKET_START_ROUND);
+    const meta=document.getElementById('roundMeta'); meta.textContent='';
+    if(roundRow){
+      const a=document.createElement('span'); a.textContent=fmtDateRange(roundRow.Start,roundRow.End)||''; meta.appendChild(a);
+    }
+    const dot=document.createElement('span'); dot.className='dot'; dot.textContent='Bracket Stage'; meta.appendChild(dot);
+    if(TEST_MODE){ const t=document.createElement('span'); t.className='test-note'; t.textContent='TEST DATA'; meta.appendChild(t); }
+
+    sv.innerHTML='';
+    const note=document.createElement('p'); note.className='stage-note';
+    note.textContent='Winners advance to the next round; first-round losers drop into the back draw. Placement matches decide every final position. Click a player name for their season match history.';
+    sv.appendChild(note);
+    brackets.forEach(br=> sv.appendChild(renderBracketCard(br)));
+  }catch(err){
+    console.error(err);
+    sv.innerHTML='<div class="error">Could not load bracket data. '+escapeHtml(err.message||'')+'</div>';
+  }
+}
+
+async function renderFinalStandings(){
+  const sv=showStageView();
+  sv.innerHTML='<div class="loading">Loading final standings\u2026</div>';
+  try{
+    const {brackets}=await loadBracketData();
+    const fr=BK.finalRankings(brackets);
+    const meta=document.getElementById('roundMeta'); meta.textContent='';
+    const a=document.createElement('span'); a.textContent='Final standings \u2014 determined by bracket-stage results'; meta.appendChild(a);
+    if(TEST_MODE){ const t=document.createElement('span'); t.className='test-note'; t.textContent='TEST DATA'; meta.appendChild(t); }
+
+    sv.innerHTML='';
+    if(fr.some(x=>x.pending)){
+      const note=document.createElement('p'); note.className='stage-note';
+      note.textContent='Some placement matches are still pending \u2014 positions marked TBD will fill in as bracket results are submitted.';
+      sv.appendChild(note);
+    }
+    const panel=document.createElement('div'); panel.className='final-panel';
+    fr.forEach(x=>{
+      const row=document.createElement('div');
+      row.className='final-row'+(x.pending?' pending':'')+((!x.pending&&x.rank<=3)?' podium':'');
+      const medal = x.rank===1?'\ud83e\udd47':x.rank===2?'\ud83e\udd48':x.rank===3?'\ud83e\udd49':'';
+      const frank=document.createElement('div'); frank.className='frank';
+      frank.innerHTML=(medal?`<span class="fmedal">${medal}</span>`:'')+`#${x.rank}`;
+      row.appendChild(frank);
+      const nm=document.createElement('div'); nm.className='fname';
+      if(x.name){
+        const s=document.createElement('span'); s.className='name-link'; s.setAttribute('data-player',x.name);
+        s.setAttribute('role','button'); s.setAttribute('tabindex','0'); s.title='Click to see match history';
+        s.textContent=x.name; nm.appendChild(s);
+      } else nm.textContent='TBD';
+      row.appendChild(nm);
+      const noteEl=document.createElement('div'); noteEl.className='fnote';
+      noteEl.textContent=`Bracket ${x.bracket} \u00b7 `+(x.place===1?'Champion':x.place===2?'Runner-up':BK.ordinal(x.place)+' place');
+      row.appendChild(noteEl);
+      panel.appendChild(row);
+    });
+    sv.appendChild(panel);
+  }catch(err){
+    console.error(err);
+    sv.innerHTML='<div class="error">Could not load final standings. '+escapeHtml(err.message||'')+'</div>';
+  }
+}
 
 /* rank/points column helpers */
 function colRank(r){ return `R${r}Rank`; }
@@ -377,12 +880,18 @@ function appendTextWithHighlight(container, fullText, oppName, hi){
 async function init(round){
   ROUND = round;
 
+  const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
+  const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
+
+  // Bracket stage & final standings render in their own view
+  if (ROUND === 'final')                      return renderFinalStandings();
+  if (Number(ROUND) >= BRACKET_START_ROUND)   return renderBracketStage();
+
+  showLadderView();
+
   // headings
   document.getElementById('thLeft').textContent  = `Round ${ROUND} Ranking - Points`;
   document.getElementById('thRight').textContent = `Round ${ROUND+1} Ranking - Points`;
-
-  const sel=document.getElementById('roundSelect'); if (sel.value !== String(ROUND)) sel.value=String(ROUND);
-  const url=new URL(location.href); url.searchParams.set('round',String(ROUND)); history.replaceState(null,'',url);
 
   try{
     setStatus('Loading data…'); document.getElementById('ladder').style.display='none'; document.getElementById('status').style.display='';
@@ -647,9 +1156,24 @@ async function init(round){
 /* round picker */
 function buildRoundSelect(){
   const sel=document.getElementById('roundSelect'); sel.innerHTML='';
-  for(let r=1;r<=CurrentRound;r++){ const opt=document.createElement('option'); opt.value=String(r); opt.textContent=`Round ${r}`; sel.appendChild(opt); }
+  const maxNumbered=Math.min(CurrentRound, BRACKET_START_ROUND);
+  for(let r=1;r<=maxNumbered;r++){
+    const opt=document.createElement('option'); opt.value=String(r);
+    opt.textContent = (r>=BRACKET_START_ROUND) ? `Round ${r} \u2013 Brackets` : `Round ${r}`;
+    sel.appendChild(opt);
+  }
+  if (CurrentRound>=BRACKET_START_ROUND+1){
+    const opt=document.createElement('option'); opt.value='final'; opt.textContent='Final Standings'; sel.appendChild(opt);
+  }
   sel.value=String(ROUND);
-  sel.addEventListener('change',()=>{ const r=parseInt(sel.value,10); if(!isNaN(r)&&r>=1&&r<=CurrentRound) init(r); });
+  if (!sel.dataset.bound){
+    sel.dataset.bound='1';
+    sel.addEventListener('change',()=>{
+      const v=sel.value;
+      if (v==='final'){ init('final'); return; }
+      const r=parseInt(v,10); if(!isNaN(r)&&r>=1) init(r);
+    });
+  }
 }
 
 /* modal – restored explanatory text (no in-page calculation of points) */
@@ -759,7 +1283,8 @@ function rankMapForRound(playersRows, r){
 }
 
 async function showPlayerHistory(playerName){
-  const upTo = ROUND - 1; // prior rounds only (viewing R3 -> show R1, R2)
+  // prior rounds only (viewing R3 -> show R1, R2); bracket & final views show rounds 1-5
+  const upTo = (ROUND==='final' ? BRACKET_START_ROUND : Number(ROUND)) - 1;
   openModal(`${playerName} — Match History`, `<p class="tip">Loading…</p>`);
 
   if (upTo < 1){
@@ -839,8 +1364,9 @@ document.addEventListener('keydown', e=>{
 /* boot */
 (async function boot(){
   await fetchCurrentRound();
-  buildRoundSelect();
+  if (TEST_MODE) CurrentRound = Math.max(CurrentRound, BRACKET_START_ROUND+1);
   ROUND = computeRoundFromURL();
+  buildRoundSelect();
   init(ROUND);
 })();
 
@@ -854,6 +1380,7 @@ document.addEventListener('visibilitychange', async () => {
   _scoresCache.clear(); _playersCache = null; // refresh history data too
   const prevRound = CurrentRound;
   await fetchCurrentRound();
+  if (TEST_MODE) CurrentRound = Math.max(CurrentRound, BRACKET_START_ROUND+1);
   if (CurrentRound !== prevRound) buildRoundSelect();
   init(ROUND);
 });

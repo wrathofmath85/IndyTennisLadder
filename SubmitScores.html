@@ -54,6 +54,29 @@
     border: 1px solid rgba(255,107,107,.35);
     color: var(--danger);
   }
+  .deadline-banner.test{
+    background: rgba(93,208,255,.10);
+    border: 1px solid rgba(93,208,255,.40);
+    color: var(--accent);
+  }
+
+  /* ===== Bracket-mode match context ===== */
+  .bkt-context{
+    display:none;
+    margin-top:12px;
+    padding:10px 14px;
+    border-radius:10px;
+    background:#0f1b2c;
+    border:1px solid #1e2a42;
+    font-size:.95rem;
+    line-height:1.45;
+  }
+  .bkt-context b{ color:var(--accent); }
+  .bkt-pill{
+    display:inline-block; padding:2px 10px; border-radius:999px;
+    background:rgba(93,208,255,.12); border:1px solid rgba(93,208,255,.35);
+    color:var(--accent); font-weight:800; font-size:.85rem; margin-right:8px;
+  }
 
   .card{
     background:var(--card);
@@ -327,7 +350,7 @@
     <div id="deadlineBanner" class="deadline-banner"></div>
   </header>
 
-  <section class="card">
+  <section class="card" id="matchTypeCard">
     <fieldset>
       <legend class="sr-only">Players</legend>
       <div class="step-label">Step 1 — Match Type</div>
@@ -340,6 +363,21 @@
         <div></div><div></div>
       </div>
       <p id="playersError" class="error" style="display:none;"></p>
+    </fieldset>
+  </section>
+
+  <!-- Bracket stage (shown for Round 6+; replaces Match Type) -->
+  <section class="card" id="bracketCard" style="display:none;">
+    <fieldset>
+      <legend class="sr-only">Bracket Stage</legend>
+      <div class="step-label">Step 1 — Bracket Stage</div>
+      <p class="muted" id="bracketIntro">
+        Select the winner below — the opponent and bracket match are determined automatically
+        from the current bracket standings. If your name is not listed, either your next
+        opponent has not been decided yet (waiting on another match), or your bracket run is complete.
+      </p>
+      <div id="bktContext" class="bkt-context"></div>
+      <p id="bracketError" class="error" style="display:none;"></p>
     </fieldset>
   </section>
 
@@ -575,7 +613,227 @@ const EMAILJS_TEMPLATE_ID = 'template_gt6skt4';
 
 // who always gets the email
 const ADMIN_EMAIL = 'IndyTennisLadder@gmail.com';
+
+/*** ===== BRACKET STAGE CONFIG ===== ***/
+// TEST_MODE = true  → forces Round 6, writes to "Round 6 Scores TEST",
+//                     skips email confirmations, ignores deadlines, shows a TEST banner.
+// TEST_MODE = false → live behavior: round comes from the Current Round CSV;
+//                     rounds 1-5 work exactly as before, Round 6+ uses bracket mode
+//                     and writes to "Round 6 Scores".
+const TEST_MODE = false;
+const BRACKET_START_ROUND = 6;
+const BRACKET_SCORES_SHEET = `Round ${BRACKET_START_ROUND} Scores` + (TEST_MODE ? ' TEST' : '');
+
+let isBracketMode = false;
+let brackets = [];              // built by the bracket engine
+let readyInfoByName = new Map();// nameKey -> {name, oppName, bracket, code, label}
 /*** ======================= ***/
+
+/* =====================================================================
+   BRACKET ENGINE (shared between SubmitScores + Standings pages)
+   Builds placement brackets of 8 (padded with BYEs) or 16 slots for
+   merged brackets of 9-11 players. BYEs automatically lose every match,
+   which forwards real players and cascades byes down the draw exactly
+   per league rules. Every match decides toward a final placement.
+   ===================================================================== */
+const BK = (function(){
+  'use strict';
+
+  const BYE = Object.freeze({ bye:true, name:'BYE' });
+
+  const bkFmt = v => (v===undefined||v===null) ? '' : String(v).trim();
+  const bkKey = s => bkFmt(s).toLowerCase();
+  const pairKey = (a,b) => { const x=bkKey(a), y=bkKey(b); return x<y ? x+'|'+y : y+'|'+x; };
+  function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+  /* Standard seeded bracket slot order, e.g. 8 -> [1,8,4,5,2,7,3,6] */
+  function seedOrder(n){
+    let arr=[1];
+    while(arr.length<n){
+      const m=arr.length*2, next=[];
+      for(const x of arr) next.push(x, m+1-x);
+      arr=next;
+    }
+    return arr;
+  }
+
+  /* Groups of 8 by seed; if the last group has <4 players it merges
+     into the previous group (making it 9-11). */
+  function chunkBrackets(seeded){
+    const groups=[];
+    for(let i=0;i<seeded.length;i+=8) groups.push(seeded.slice(i,i+8));
+    if(groups.length>1 && groups[groups.length-1].length<4){
+      const last=groups.pop();
+      groups[groups.length-1]=groups[groups.length-1].concat(last);
+    }
+    return groups;
+  }
+
+  /* Build the full match tree for one bracket. group = [{name, seed}] in
+     seed order (seed = overall ladder position). */
+  function buildBracketMatches(label, group){
+    const n=group.length;
+    const size = n<=8 ? 8 : 16;
+    const order=seedOrder(size);
+    const slots=order.map(s => s<=n
+      ? { name:group[s-1].name, seed:group[s-1].seed, local:s }
+      : BYE);
+    const matches=[];
+    function rec(entries, placeLo, roundIdx){
+      const s=entries.length;
+      const round=[];
+      for(let i=0;i<s;i+=2){
+        const m={
+          id:matches.length,
+          code:'', // filled after build: e.g. "A3"
+          bracket:label,
+          groupSize:s,
+          placeLo,
+          placeHi:placeLo+s-1,
+          roundIdx,
+          a:entries[i], b:entries[i+1],
+          pa:null, pb:null,
+          done:false, ready:false, auto:false,
+          winner:null, loser:null, row:null,
+          decides: (s===2) ? [placeLo, placeLo+1] : null
+        };
+        matches.push(m); round.push(m);
+      }
+      if(s===2) return;
+      rec(round.map(m=>({from:m, take:'winner'})), placeLo, roundIdx+1);
+      rec(round.map(m=>({from:m, take:'loser'})),  placeLo+s/2, roundIdx+1);
+    }
+    rec(slots, 1, 0);
+    matches.forEach((m,i)=>{ m.code = label + (i+1); });
+    return {
+      label, size, n, matches,
+      players: group,
+      rankStart: group.length ? 1 : 1 // set by caller
+    };
+  }
+
+  function matchLabel(m){
+    if(m.decides) return m.placeLo===1 ? 'Final' : ordinal(m.placeLo)+' Place Match';
+    if(m.groupSize===16) return 'Opening Round';
+    if(m.groupSize===8)  return m.placeLo===1 ? 'Quarterfinal' : 'Back Draw QF (Places '+m.placeLo+'\u2013'+m.placeHi+')';
+    if(m.groupSize===4)  return m.placeLo===1 ? 'Semifinal'    : 'Back Draw SF (Places '+m.placeLo+'\u2013'+m.placeHi+')';
+    return 'Places '+m.placeLo+'\u2013'+m.placeHi;
+  }
+
+  function srcParticipant(src){
+    if(!src) return null;
+    if(src.from){
+      if(!src.from.done) return null;
+      return src.take==='winner' ? src.from.winner : src.from.loser;
+    }
+    return src; // a slot entry or BYE
+  }
+
+  /* Human description of an unresolved source, e.g. "Winner of A2" */
+  function srcDesc(src){
+    if(!src) return '';
+    if(src.from) return (src.take==='winner'?'Winner of ':'Loser of ')+src.from.code;
+    return src.bye ? 'BYE' : src.name;
+  }
+
+  /* Apply results. resultsByPair: Map(pairKey -> scoreRow). Loops until
+     stable so order of submissions never matters. */
+  function resolveBracket(br, resultsByPair){
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const m of br.matches){
+        if(m.done) continue;
+        const A=srcParticipant(m.a), B=srcParticipant(m.b);
+        m.pa=A; m.pb=B;
+        if(!A||!B) continue;
+        if(A.bye&&B.bye){ m.done=true; m.auto=true; m.winner=BYE; m.loser=BYE; changed=true; continue; }
+        if(A.bye||B.bye){ m.done=true; m.auto=true; m.winner=A.bye?B:A; m.loser=A.bye?A:B; changed=true; continue; }
+        const row=resultsByPair.get(pairKey(A.name,B.name));
+        if(row){
+          const w = bkKey(row.Winner)===bkKey(A.name) ? A : B;
+          m.done=true; m.winner=w; m.loser=(w===A)?B:A; m.row=row; changed=true;
+        }
+      }
+    }
+    br.matches.forEach(m=>{
+      m.ready = !m.done && !!m.pa && !!m.pb && !m.pa.bye && !m.pb.bye;
+    });
+    br.placements = {}; // internal place (1..size) -> participant
+    br.matches.forEach(m=>{
+      if(m.decides && m.done){
+        br.placements[m.decides[0]] = m.winner;
+        br.placements[m.decides[1]] = m.loser;
+      }
+    });
+    br.complete = (function(){
+      for(let p=1;p<=br.n;p++){
+        const part=br.placements[p];
+        if(!part || part.bye) return false;
+      }
+      return true;
+    })();
+  }
+
+  /* seededPlayers: [{name, seed}] sorted by seed asc (seed = 1..N overall).
+     scoreRows: rows from the Round 6 Scores sheet (Winner/Opponent/S1_W...).
+     Later rows for the same pair overwrite earlier ones (corrections). */
+  function buildAll(seededPlayers, scoreRows){
+    const resultsByPair=new Map();
+    (scoreRows||[]).forEach(r=>{
+      const w=bkFmt(r.Winner), o=bkFmt(r.Opponent);
+      if(!w||!o||bkKey(w)===bkKey(o)) return;
+      resultsByPair.set(pairKey(w,o), r);
+    });
+    const groups=chunkBrackets(seededPlayers);
+    const letters='ABCDEFGHIJKLMNOP';
+    let offset=0;
+    return groups.map((g,i)=>{
+      const br=buildBracketMatches(letters[i]||('B'+(i+1)), g);
+      br.rankStart=offset+1;
+      br.rankEnd=offset+g.length;
+      offset+=g.length;
+      resolveBracket(br, resultsByPair);
+      return br;
+    });
+  }
+
+  /* Matches currently playable (both participants known, no score yet). */
+  function readyMatches(brackets){
+    const list=[];
+    brackets.forEach(br=>br.matches.forEach(m=>{
+      if(m.ready) list.push({
+        bracket:br.label, code:m.code, label:matchLabel(m),
+        a:m.pa, b:m.pb, match:m, br
+      });
+    }));
+    return list;
+  }
+
+  /* Overall final rankings. Internal place p maps to overall rank
+     rankStart-1+p (real players always occupy the top n places since
+     byes lose every match). Returns [{rank, name|null, bracket, place,
+     pending}] for every rank 1..N. */
+  function finalRankings(brackets){
+    const out=[];
+    brackets.forEach(br=>{
+      for(let p=1;p<=br.n;p++){
+        const part=br.placements[p];
+        out.push({
+          rank: br.rankStart-1+p,
+          place: p,
+          bracket: br.label,
+          name: (part && !part.bye) ? part.name : null,
+          seed: (part && !part.bye) ? part.seed : null,
+          pending: !(part && !part.bye)
+        });
+      }
+    });
+    return out;
+  }
+
+  return { BYE, buildAll, readyMatches, finalRankings, matchLabel, srcDesc, pairKey, ordinal };
+})();
 
 /**
  * CHANGE: We no longer compute ranks from points/percent.
@@ -816,8 +1074,66 @@ async function loadScheduleForRound(){
   });
 }
 
+/* ---------- Bracket stage data ---------- */
+async function loadBracketScores(){
+  const url = `${SUBMIT_ENDPOINT}?action=scores&sheet=${encodeURIComponent(BRACKET_SCORES_SHEET)}&_bust=${Date.now()}`;
+  const res = await fetch(url, { cache:'no-store' });
+  if (!res.ok) throw new Error('Bracket scores HTTP ' + res.status);
+  const data = await res.json();
+  if (!data || data.ok !== true) throw new Error((data && data.error) || 'Bracket scores read failed');
+  return data.rows || [];
+}
+
+/* Builds brackets from the R[6]Rank seeding + submitted scores, and
+   refreshes the map of players who currently have a playable match. */
+async function buildBracketState(){
+  const errEl = document.getElementById('bracketError');
+  errEl.style.display = 'none';
+  const scoreRows = await loadBracketScores();
+
+  // Seeds: active players sorted by their R[round]Rank; seed = position 1..N
+  const seeded = players
+    .filter(p => Number.isFinite(p.rank) && p.rank > 0)
+    .slice()
+    .sort((a,b)=> a.rank - b.rank)
+    .map((p,i)=> ({ name:p.name, seed:i+1 }));
+
+  if (!seeded.length){
+    errEl.textContent = `No players have an R${RoundNumber}Rank yet — bracket seeding is not available.`;
+    errEl.style.display = 'block';
+    brackets = []; readyInfoByName.clear();
+    return;
+  }
+
+  brackets = BK.buildAll(seeded, scoreRows);
+
+  readyInfoByName.clear();
+  BK.readyMatches(brackets).forEach(r=>{
+    const mk = (me, opp)=>({ name:me.name, oppName:opp.name, bracket:r.bracket, code:r.code, label:r.label });
+    readyInfoByName.set(norm(r.a.name), mk(r.a, r.b));
+    readyInfoByName.set(norm(r.b.name), mk(r.b, r.a));
+  });
+}
+
+function bracketInfoFor(name){
+  return readyInfoByName.get(norm(name)) || null;
+}
+
+function updateBracketContext(){
+  const box = document.getElementById('bktContext');
+  if (!isBracketMode){ box.style.display='none'; return; }
+  const winner = document.getElementById('winner').value;
+  const info = winner ? bracketInfoFor(winner) : null;
+  if (!info){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML =
+    `<span class="bkt-pill">Bracket ${info.bracket}</span>` +
+    `<b>${info.label}</b> (${info.code}) — <b>${info.name}</b> vs <b>${info.oppName}</b>`;
+  box.style.display = 'block';
+}
+
 /* ---------- Match type chips ---------- */
 function getMatchType(){
+  if (isBracketMode) return 'Bracket';
   const chips = document.querySelectorAll('#matchTypeChips .chip');
   for (const c of chips){ if (c.classList.contains('active')) return c.dataset.type; }
   return 'Scheduled';
@@ -924,6 +1240,14 @@ function updateRowLabels(){
 
 /* eligibility-dependent dropdown fills */
 function eligibleNamesFor(type){
+  if (isBracketMode){
+    const seen = new Set(); const list = [];
+    readyInfoByName.forEach(info=>{
+      if (!seen.has(norm(info.name))){ seen.add(norm(info.name)); list.push(info.name); }
+    });
+    list.sort((a,b)=>a.localeCompare(b));
+    return list;
+  }
   const list = players.filter(p=>{
     if (!(p.roundStart<=RoundNumber && p.roundEnd>=RoundNumber)) return false;
     return (type==='Scheduled') ? p.sEligible : p.cEligible;
@@ -937,7 +1261,9 @@ function refreshWinnerOptions(){
   const current = sel.value;
   const names = eligibleNamesFor(type);
   if (names.length===0){
-    sel.innerHTML = '<option value="">No eligible players</option>';
+    sel.innerHTML = isBracketMode
+      ? '<option value="">No matches awaiting scores right now</option>'
+      : '<option value="">No eligible players</option>';
     sel.value='';
   }else{
     sel.innerHTML = '<option value="">Select winner…</option>' + names.map(n=>`<option value="${n}">${n}</option>`).join('');
@@ -953,6 +1279,19 @@ function recomputeOpponentForMode(){
 
   const oppNameText = document.getElementById('opponentNameText');
   const oppSelect   = document.getElementById('opponentSelect');
+
+  if (mode==='Bracket'){
+    oppSelect.classList.add('hidden');
+    if (!winner){
+      oppNameText.textContent = 'Opponent';
+    } else {
+      const info = bracketInfoFor(winner);
+      oppNameText.textContent = info ? info.oppName : 'No opponent found';
+    }
+    updateBracketContext();
+    updateRowLabels();
+    return;
+  }
 
   if (!winner){
     oppSelect.classList.add('hidden');
@@ -1181,6 +1520,7 @@ function buildEmailBody(payload){
     `Round: ${payload.Round}`,
     `Status: ${payload.Status}`,
     `MatchType: ${payload.MatchType}`,
+    payload.BracketInfo ? `Match: ${payload.BracketInfo}` : '',
     ``,
     scoreLine,
     ``,
@@ -1252,8 +1592,8 @@ async function sendEmailConfirmation(payload){
   const ccList = [winnerEmail, opponentEmail].filter(Boolean).join(',');
 
   const params = {
-    // Subject reads like: "🎾 R3: Alice def. Bob"
-    subject: `🎾 R${payload.Round}: ${payload.Winner} def. ${payload.Opponent}` +
+    // Subject reads like: "🎾 R3: Alice def. Bob"  or  "🎾 Bracket A · Semifinal: Alice def. Bob"
+    subject: `🎾 ${payload.BracketInfo ? payload.BracketInfo.replace(/ \(\w+\d+\)$/,'') : 'R'+payload.Round}: ${payload.Winner} def. ${payload.Opponent}` +
              (payload.Status === 'Walkover' ? ' (Walkover)' : ''),
 
     to_email: ADMIN_EMAIL,
@@ -1313,6 +1653,8 @@ async function submitForm(){
     ? (scheduleMap.get(winnerRank) || '')
     : (rankByName.get(opponent) || '');
 
+  const bktInfo = isBracketMode ? bracketInfoFor(winner) : null;
+
   const payload = {
     Timestamp: new Date().toISOString(),
     Round: RoundNumber,
@@ -1324,7 +1666,9 @@ async function submitForm(){
     OpponentRank: opponentRank,
     IsTiebreakThird: isTB,
 
-    ScoresSheetName: `Round ${RoundNumber} Scores`,
+    BracketInfo: bktInfo ? `Bracket ${bktInfo.bracket} · ${bktInfo.label} (${bktInfo.code})` : '',
+
+    ScoresSheetName: isBracketMode ? BRACKET_SCORES_SHEET : `Round ${RoundNumber} Scores`,
 
     S1_W: (status==='Walkover') ? '' : s1w,
     S1_O: (status==='Walkover') ? '' : s1o,
@@ -1351,6 +1695,15 @@ async function submitForm(){
     'Submitting to Google Sheets and sending email confirmations. Please keep this page open.'
   );
 
+  // Bracket mode: never submit a pairing the bracket doesn't currently expect
+  if (isBracketMode && (!bktInfo || norm(bktInfo.oppName) !== norm(opponent))){
+    hideOverlay();
+    btn.disabled=false; btn.textContent=oldBtnText;
+    msg.textContent = 'This match is no longer pending (it may have just been submitted, or the bracket updated). Refreshing…';
+    try{ await buildBracketState(); refreshWinnerOptions(); recomputeOpponentForMode(); }catch(e){}
+    return;
+  }
+
   try{
     const submitUrl = `${SUBMIT_ENDPOINT}?round=${encodeURIComponent(RoundNumber)}`;
 
@@ -1362,7 +1715,7 @@ async function submitForm(){
     });
 
     try{
-      await sendEmailConfirmation(payload);
+      if (!TEST_MODE) await sendEmailConfirmation(payload);
     }catch(emailErr){
       console.warn('EmailJS failed:', emailErr);
       msg.textContent = 'Score submitted, but email confirmation failed to send. If this continues, contact Dan.';
@@ -1375,6 +1728,16 @@ async function submitForm(){
     clearInvalids();
     refreshTBEnabled();
     updatePreview();
+
+    // Bracket mode: re-pull scores so the next round's pairings appear immediately
+    if (isBracketMode){
+      try{
+        await buildBracketState();
+        document.getElementById('winner').value='';
+        refreshWinnerOptions();
+        recomputeOpponentForMode();
+      }catch(refreshErr){ console.warn('Bracket refresh after submit failed:', refreshErr); }
+    }
 
     showSuccessModal();
 
@@ -1479,16 +1842,37 @@ document.getElementById('opponentSelect').addEventListener('change', ()=>{
 
 document.getElementById('submitBtn').addEventListener('click', submitForm);
 
+/* Applies the correct UI for ladder vs bracket mode */
+function applyModeUI(){
+  isBracketMode = RoundNumber >= BRACKET_START_ROUND;
+  document.getElementById('matchTypeCard').style.display = isBracketMode ? 'none' : '';
+  document.getElementById('bracketCard').style.display   = isBracketMode ? '' : 'none';
+
+  const h1 = isBracketMode
+    ? `Round ${RoundNumber} — Bracket Stage Score Submission`
+    : `Round ${RoundNumber} Score Submission`;
+  document.getElementById('titleH1').textContent = h1;
+  document.title = `Indy Tennis Ladder – ` + (isBracketMode ? `Bracket Stage Score Entry` : `Round ${RoundNumber} Score Entry`);
+
+  if (TEST_MODE){
+    const banner = document.getElementById('deadlineBanner');
+    banner.textContent = `🧪 TEST MODE — scores go to "${BRACKET_SCORES_SHEET}" and no emails are sent.`;
+    banner.className = 'deadline-banner test';
+    banner.style.display = 'block';
+    window._deadlineExpired = false;
+  }
+}
+
 // init (fetch RoundNumber first)
 (async function init(){
   try{
     await fetchRoundNumber();
+    if (TEST_MODE) RoundNumber = BRACKET_START_ROUND;
 
-    document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
-    document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
+    applyModeUI();
 
-    // Apply deadline banner (and disable submit if past deadline)
-    applyDeadline();
+    // Apply deadline banner (and disable submit if past deadline) — not in test mode
+    if (!TEST_MODE) applyDeadline();
 
     try{
       if (EMAILJS_PUBLIC_KEY && !EMAILJS_PUBLIC_KEY.startsWith('REPLACE_')){
@@ -1498,8 +1882,13 @@ document.getElementById('submitBtn').addEventListener('click', submitForm);
       console.warn('EmailJS init warning:', e);
     }
 
-    await Promise.all([loadPlayers(), loadScheduleForRound()]);
-    setMatchTypeChip('Scheduled');
+    if (isBracketMode){
+      await loadPlayers();          // ranks come from R[RoundNumber]Rank
+      await buildBracketState();    // scores + pairings from the bracket sheet
+    } else {
+      await Promise.all([loadPlayers(), loadScheduleForRound()]);
+      setMatchTypeChip('Scheduled');
+    }
     refreshWinnerOptions();
     recomputeOpponentForMode();
     updateRowLabels();
@@ -1526,13 +1915,16 @@ document.addEventListener('visibilitychange', async () => {
   _lastVisibleSS = Date.now();
   const prevRound = RoundNumber;
   await fetchRoundNumber();
-  if (RoundNumber !== prevRound){
-    document.getElementById('titleH1').textContent = `Round ${RoundNumber} Score Submission`;
-    document.title = `Indy Tennis Ladder – Round ${RoundNumber} Score Entry`;
-  }
+  if (TEST_MODE) RoundNumber = BRACKET_START_ROUND;
+  if (RoundNumber !== prevRound) applyModeUI();
   // Re-evaluate deadline on tab return
-  applyDeadline();
-  await Promise.all([loadPlayers(), loadScheduleForRound()]);
+  if (!TEST_MODE) applyDeadline();
+  if (isBracketMode){
+    await loadPlayers();
+    try{ await buildBracketState(); }catch(e){ console.warn('bracket refresh failed', e); }
+  } else {
+    await Promise.all([loadPlayers(), loadScheduleForRound()]);
+  }
   refreshWinnerOptions();
   recomputeOpponentForMode();
   updateRowLabels();
