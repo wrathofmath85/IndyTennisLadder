@@ -174,10 +174,52 @@
   }
   .m-bottom b{ color:#e9eef5; font-variant-numeric:tabular-nums; }
 
+  /* ===== BRACKET STAGE (top 4 only, rounds 5–6) ===== */
+  .bracket-card{ margin-top:18px; background:var(--panel); border:1px solid var(--rule); border-radius:12px;
+    padding:14px; box-shadow:var(--shadow); }
+  .bracket-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .bracket-head h2{ margin:0; font-size:18px; letter-spacing:.2px; }
+  .bracket-sub{ color:var(--muted); font-size:13px; }
+  .stage-note{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .bkt-cols{ display:flex; gap:14px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+  .bkt-col{ min-width:260px; flex:1 1 260px; display:flex; flex-direction:column; gap:10px; }
+  .bkt-col-title{ font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+    color:#b9c6d8; padding-bottom:5px; border-bottom:1px solid var(--rule); }
+  .bkt-m{ background:#0e1420; border:1px solid var(--rule); border-radius:10px; padding:8px 10px; font-size:13px; }
+  .bkt-m-title{ color:var(--muted); font-size:11px; font-weight:700; margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .bkt-line{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:2px 0; min-width:0; }
+  .bkt-name{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .bkt-name .sd{ color:var(--muted); font-weight:600; margin-right:6px; font-variant-numeric:tabular-nums; font-size:12px; }
+  .bkt-win{ color:var(--ok); }
+  .bkt-lose{ color:#8ea0b4; }
+  .bkt-tbd{ color:#5b6c85; font-style:italic; font-weight:600; }
+  .bkt-score{ color:#b9c6d8; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12px; }
+  .bkt-phones{ display:flex; gap:12px; flex-wrap:wrap; padding:1px 0 4px; }
+  .bkt-phone-item{ display:flex; align-items:center; gap:5px; }
+  .bkt-phone-item .player-label{ font-size:11px; color:#5b6c85; }
+  .bkt-tag{ font-size:10px; font-weight:800; border-radius:999px; padding:1px 7px; white-space:nowrap; }
+  .bkt-tag.ready{ background:rgba(245,166,35,.15); color:#f5a623; }
+  .bkt-tag.done{ background:rgba(59,211,127,.15); color:var(--ok); }
+  .bkt-tag.wait{ background:rgba(255,255,255,.06); color:#6e7f98; }
+  .bkt-places{ margin-top:14px; padding-top:12px; border-top:1px dashed #2a3750;
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .bkt-places-label{ font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+    color:#b9c6d8; margin-right:2px; }
+  .place-chip{ font-size:12px; background:#101827; border:1px solid #253043; border-radius:999px;
+    padding:3px 10px; color:#cdd8e6; font-variant-numeric:tabular-nums; }
+  .place-chip b{ color:#e9eef5; }
+  .place-chip.tbd{ opacity:.55; font-style:italic; }
+  .ladder-heading{ margin:22px 0 0; font-size:15px; color:#b9c6d8; letter-spacing:.2px; }
+  .ladder-heading span{ color:var(--muted); font-size:13px; font-weight:400; margin-left:8px; }
+  .in-bracket{ color:#5b6c85; font-style:italic; font-size:13px; }
+
   @media (max-width:720px){
     body{ margin:12px; }
     .panel{ display:none; }
     .mobile-list{ display:block; }
+    .bkt-cols{ flex-direction:column; }
+    .bkt-col{ max-width:none; min-width:0; flex:1 1 auto; }
   }
 </style>
 </head>
@@ -193,6 +235,10 @@
     </div>
     <div class="meta" id="roundMeta"></div>
   </header>
+
+  <!-- Bracket stage (top 4 only, rounds 5–6) -->
+  <div id="bracketView"></div>
+  <div id="ladderHeading"></div>
 
   <!-- Desktop table -->
   <div class="panel">
@@ -236,8 +282,107 @@ const CSV = {
   ScoresRound3:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1340896382&single=true&output=csv',
   ScoresRound4:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1779797386&single=true&output=csv',
   ScoresRound5:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=1138515130&single=true&output=csv',
+  /* ⚠️ VERIFY THIS GID. Every other doubles gid matches the singles workbook exactly,
+     so this uses the singles "Round 6 Scores" gid. Publish the doubles Round 6 Scores
+     tab to CSV (File ▸ Share ▸ Publish to web) and paste the real gid here if it differs. */
+  ScoresRound6:'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPNHB3kzdNUyzMoQtiWkmnb4OiSqoUO9x8avI3ceYSvmXmdZYr0OxCyJ6wkPW8ftIBk-bW4QW5UkIh/pub?gid=2117392535&single=true&output=csv',
 };
 let ROUND = 1;
+
+/* ===== BRACKET STAGE CONFIG =====
+   Top 4 teams (seeded by their R5 ranking) play a 4-team bracket:
+     Round 5 → Semifinal 1 (#1 v #4), Semifinal 2 (#2 v #3)
+     Round 6 → Final (SF winners) and 3rd-Place Match (SF losers)
+   Ranks 5+ keep playing the normal ladder in both rounds.
+
+   Enter bracket scores in the ordinary Round 5 / Round 6 Scores tabs.
+   Set MatchType to "Bracket" (or Semifinal / Final / 3rd Place) so the rows
+   are kept out of the regular ladder result lines. If a bracket row is
+   mistakenly typed as "Scheduled", the bracket still picks it up as a
+   fallback — the pairing is what identifies the match. */
+const BRACKET_START_ROUND = 5;  // semifinals played this round
+const BRACKET_FINAL_ROUND = 6;  // final + 3rd-place match played this round
+const BRACKET_TEAMS       = 4;  // top N teams enter the bracket
+const BRACKET_TYPE_RE = /bracket|semi|final|3rd|third|place/i;
+const inBracketRound = r => Number(r) === BRACKET_START_ROUND || Number(r) === BRACKET_FINAL_ROUND;
+
+/* ===== BRACKET ENGINE (4-team, single elimination + 3rd-place match) ===== */
+const BK = (function(){
+  'use strict';
+  const bkFmt = v => (v===undefined||v===null) ? '' : String(v).trim();
+  const bkKey = s => bkFmt(s).toLowerCase();
+  const pairKey = (a,b) => { const x=bkKey(a), y=bkKey(b); return x<y ? x+'|'+y : y+'|'+x; };
+
+  /* seeded = [{name, seed}] ordered 1..4 (seed = R5 ladder rank) */
+  function build(seeded){
+    const S = n => seeded[n-1] || null;
+    const sf1 = { code:'SF1', title:'Semifinal 1', round:BRACKET_START_ROUND,
+                  a:S(1), b:S(4), src:null };
+    const sf2 = { code:'SF2', title:'Semifinal 2', round:BRACKET_START_ROUND,
+                  a:S(2), b:S(3), src:null };
+    const fin = { code:'F',   title:'Final', round:BRACKET_FINAL_ROUND,
+                  a:null, b:null, decides:[1,2],
+                  src:[{from:sf1,take:'winner'},{from:sf2,take:'winner'}] };
+    const thd = { code:'3P',  title:'3rd-Place Match', round:BRACKET_FINAL_ROUND,
+                  a:null, b:null, decides:[3,4],
+                  src:[{from:sf1,take:'loser'},{from:sf2,take:'loser'}] };
+    const matches=[sf1,sf2,fin,thd];
+    matches.forEach(m=>{ m.done=false; m.ready=false; m.winner=null; m.loser=null; m.row=null; });
+    return { matches, sf1, sf2, fin, thd, seeded };
+  }
+
+  function srcDesc(s){ return s ? ((s.take==='winner'?'Winner of ':'Loser of ')+s.from.code) : 'TBD'; }
+
+  /* rowsByPair: Map(pairKey -> score row). Loops until stable, so the order
+     results are entered in never matters. */
+  function resolve(br, rowsByPair){
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const m of br.matches){
+        if(m.done) continue;
+        if(m.src){
+          const [sa,sb]=m.src;
+          m.a = sa.from.done ? (sa.take==='winner'?sa.from.winner:sa.from.loser) : null;
+          m.b = sb.from.done ? (sb.take==='winner'?sb.from.winner:sb.from.loser) : null;
+        }
+        if(!m.a||!m.b) continue;
+        const row = rowsByPair.get(pairKey(m.a.name, m.b.name));
+        if(row){
+          const w = bkKey(row.Winner)===bkKey(m.a.name) ? m.a : m.b;
+          m.done=true; m.winner=w; m.loser=(w===m.a)?m.b:m.a; m.row=row; changed=true;
+        }
+      }
+    }
+    br.matches.forEach(m=>{ m.ready = !m.done && !!m.a && !!m.b; });
+
+    br.placements={};
+    br.matches.forEach(m=>{
+      if(m.decides && m.done){
+        br.placements[m.decides[0]]=m.winner;
+        br.placements[m.decides[1]]=m.loser;
+      }
+    });
+    br.complete = [1,2,3,4].every(p=>!!br.placements[p]);
+    return br;
+  }
+
+  /* Pull bracket results out of the R5 + R6 score rows. Rows whose MatchType
+     looks like a bracket match win; anything else is only a fallback. */
+  function indexRows(rows){
+    const primary=new Map(), fallback=new Map();
+    (rows||[]).forEach(r=>{
+      const w=bkFmt(r.Winner), o=bkFmt(r.Opponent);
+      if(!w||!o||bkKey(w)===bkKey(o)) return;
+      const t=String(r.MatchType||'');
+      (BRACKET_TYPE_RE.test(t) ? primary : fallback).set(pairKey(w,o), r);
+    });
+    fallback.forEach((v,k)=>{ if(!primary.has(k)) primary.set(k,v); });
+    return primary;
+  }
+
+  return { build, resolve, indexRows, srcDesc, pairKey };
+})();
 
 /* ===== Helpers ===== */
 function bustUrl(u){ return u+(u.includes('?')?'&':'?')+'_bust='+Date.now(); }
@@ -335,6 +480,134 @@ function makePhoneReveal(phone){
 
 const GROUP_COLORS=['rgba(255,80,80,.75)','rgba(255,150,30,.75)','rgba(255,220,0,.75)','rgba(60,200,80,.75)','rgba(30,180,200,.75)','rgba(80,120,255,.75)','rgba(160,60,220,.75)'];
 function groupColor(rank){return GROUP_COLORS[((Math.ceil(rank/8)-1)%7)];}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ===== BRACKET STAGE: data ===== */
+let BRACKET = null;          // resolved bracket for the current page load
+let BRACKET_NAMES = new Set(); // nameKeys of the 4 bracket teams (hidden from the ladder table)
+
+/* Seed the top 4 by their R{BRACKET_START_ROUND} rank and apply R5 + R6 results. */
+async function loadBracket(){
+  const [playersRaw, r5, r6] = await Promise.all([
+    loadCSV(CSV.Players),
+    loadCSV(CSV[`ScoresRound${BRACKET_START_ROUND}`]).catch(()=>[]),
+    (CSV[`ScoresRound${BRACKET_FINAL_ROUND}`] ? loadCSV(CSV[`ScoresRound${BRACKET_FINAL_ROUND}`]).catch(()=>[]) : Promise.resolve([]))
+  ]);
+  const r = BRACKET_START_ROUND;
+  const phones={};
+  const active=(playersRaw||[]).filter(row=>{
+    const st=num(row.RStart), en=num(row.REnd);
+    return (isNaN(st)||st<=r) && (isNaN(en)||en>=r);
+  });
+  active.forEach(row=>{
+    const nm=fmt(row.Team||row.Participant||row.Name); if(!nm) return;
+    phones[nameKey(nm)]=[fmt(row.PHONE1||row.Phone1||row.PHONE||row.Phone||''),fmt(row.PHONE2||row.Phone2||'')].filter(Boolean);
+  });
+  const seeded = active
+    .map(row=>({name:fmt(row.Team||row.Participant||row.Name), rank:num(row[`R${r}Rank`])}))
+    .filter(t=>t.name && !isNaN(t.rank) && t.rank>0)
+    .sort((a,b)=>a.rank-b.rank)
+    .slice(0,BRACKET_TEAMS)
+    .map((t,i)=>({name:t.name, seed:i+1}));
+
+  if(seeded.length < BRACKET_TEAMS) throw new Error(`Only ${seeded.length} team(s) have an R${r}Rank — the top ${BRACKET_TEAMS} can't be seeded yet.`);
+
+  const br = BK.resolve(BK.build(seeded), BK.indexRows([...(r5||[]), ...(r6||[])]));
+  br.phones = phones;
+  return br;
+}
+
+/* ===== BRACKET STAGE: rendering ===== */
+function bktScore(row){
+  if(!row) return '';
+  const st=String(row.Status||row.STATUS||'').toLowerCase();
+  if(st.includes('walkover')||st==='wo'||st==='w/o') return 'walkover';
+  const parts=[];
+  const set=(w,o)=>{ if(fmt(w)===''&&fmt(o)==='') return; parts.push(`${fmt(w)}-${fmt(o)}`); };
+  set(row.S1_W,row.S1_O); set(row.S2_W,row.S2_O); set(row.S3_W,row.S3_O);
+  if(fmt(row.TB_W)!==''||fmt(row.TB_O)!=='') parts.push(`[${fmt(row.TB_W)}-${fmt(row.TB_O)}]`);
+  let s=parts.join(' ');
+  if(st.includes('retired')||st==='ret') s+=' Ret';
+  return s;
+}
+
+function bktTeamLine(team, srcSpec, m, br){
+  if(!team) return `<div class="bkt-line"><span class="bkt-name bkt-tbd">${escapeHtml(BK.srcDesc(srcSpec))}</span></div>`;
+  const isW = m.done && m.winner===team, isL = m.done && m.loser===team;
+  const cls = isW?'bkt-win':(isL?'bkt-lose':'');
+  const score = (isW && m.row) ? `<span class="bkt-score">${escapeHtml(bktScore(m.row))}</span>` : '';
+  let html=`<div class="bkt-line"><span class="bkt-name ${cls}"><span class="sd">#${team.seed}</span>${escapeHtml(team.name)}</span>${score}</div>`;
+  if(!m.done){
+    const phones=(br.phones&&br.phones[nameKey(team.name)])||[];
+    if(phones.length){
+      html+='<div class="bkt-phones">'+phones.map((ph,i)=>
+        `<span class="bkt-phone-item"><span class="player-label">P${i+1}</span>`+
+        `<span class="phone-wrap"><button type="button" class="phone-toggle bkt-phone-toggle">📞</button>`+
+        `<span class="phone-reveal">${escapeHtml(ph)}</span></span></span>`).join('')+'</div>';
+    }
+  }
+  return html;
+}
+
+function bktMatchBox(m, br){
+  const box=document.createElement('div'); box.className='bkt-m';
+  let tag='';
+  if(m.done)       tag='<span class="bkt-tag done">Final</span>';
+  else if(m.ready) tag='<span class="bkt-tag ready">Ready to play</span>';
+  else             tag='<span class="bkt-tag wait">Awaiting semis</span>';
+  const sa = m.src?m.src[0]:null, sb = m.src?m.src[1]:null;
+  box.innerHTML=`<div class="bkt-m-title"><span>${escapeHtml(m.code)} · ${escapeHtml(m.title)}</span>${tag}</div>`
+    + bktTeamLine(m.a, sa, m, br) + bktTeamLine(m.b, sb, m, br);
+  return box;
+}
+
+function renderBracket(br){
+  const host=document.getElementById('bracketView'); host.innerHTML='';
+  const card=document.createElement('div'); card.className='bracket-card';
+
+  const head=document.createElement('div'); head.className='bracket-head';
+  head.innerHTML=`<h2>Championship Bracket</h2>`
+    +`<span class="bracket-sub">Top ${BRACKET_TEAMS} teams · seeded by Round ${BRACKET_START_ROUND} ranking</span>`;
+  card.appendChild(head);
+
+  const note=document.createElement('p'); note.className='stage-note';
+  note.textContent=`Semifinals are played in Round ${BRACKET_START_ROUND} (#1 v #4, #2 v #3). The final and the 3rd-place match are played in Round ${BRACKET_FINAL_ROUND}. These four results decide final positions 1–4; every other team keeps playing the regular ladder below.`;
+  card.appendChild(note);
+
+  const cols=document.createElement('div'); cols.className='bkt-cols';
+  const colA=document.createElement('div'); colA.className='bkt-col';
+  colA.innerHTML=`<div class="bkt-col-title">Round ${BRACKET_START_ROUND} · Semifinals</div>`;
+  colA.appendChild(bktMatchBox(br.sf1,br)); colA.appendChild(bktMatchBox(br.sf2,br));
+  const colB=document.createElement('div'); colB.className='bkt-col';
+  colB.innerHTML=`<div class="bkt-col-title">Round ${BRACKET_FINAL_ROUND} · Final &amp; 3rd Place</div>`;
+  colB.appendChild(bktMatchBox(br.fin,br)); colB.appendChild(bktMatchBox(br.thd,br));
+  cols.appendChild(colA); cols.appendChild(colB);
+  card.appendChild(cols);
+
+  const places=document.createElement('div'); places.className='bkt-places';
+  const lbl=document.createElement('span'); lbl.className='bkt-places-label'; lbl.textContent='Final placings';
+  places.appendChild(lbl);
+  const medals={1:'🥇',2:'🥈',3:'🥉'};
+  for(let p=1;p<=BRACKET_TEAMS;p++){
+    const team=br.placements[p];
+    const chip=document.createElement('span');
+    chip.className='place-chip'+(team?'':' tbd');
+    chip.innerHTML=`${medals[p]?`<span>${medals[p]}</span> `:''}<b>#${p}</b> ${team?escapeHtml(team.name):'TBD'}`;
+    places.appendChild(chip);
+  }
+  card.appendChild(places);
+
+  host.appendChild(card);
+}
+
+/* Phone reveal inside bracket cards (delegated — cards are re-rendered on every view change) */
+document.addEventListener('click', e=>{
+  const btn=e.target.closest('.bkt-phone-toggle'); if(!btn) return;
+  const rev=btn.nextElementSibling;
+  if(rev&&rev.classList.contains('phone-reveal')){
+    btn.textContent = rev.classList.toggle('shown') ? '🙈' : '📞';
+  }
+});
 
 /* ===== CORE INIT ===== */
 async function init(round){
@@ -350,6 +623,23 @@ async function init(round){
     document.getElementById('status').style.display='';
     document.getElementById('mobileList').innerHTML='';
 
+    /* ── Bracket stage: top 4 play their own draw in rounds 5–6 ── */
+    const bracketView=document.getElementById('bracketView');
+    const ladderHeading=document.getElementById('ladderHeading');
+    bracketView.innerHTML=''; ladderHeading.innerHTML='';
+    BRACKET=null; BRACKET_NAMES=new Set();
+    if(inBracketRound(ROUND)){
+      try{
+        BRACKET=await loadBracket();
+        BRACKET_NAMES=new Set(BRACKET.seeded.map(t=>nameKey(t.name)));
+        renderBracket(BRACKET);
+        ladderHeading.innerHTML=`<h2 class="ladder-heading">Ladder <span>Ranks ${BRACKET_TEAMS+1} and below — regular play continues</span></h2>`;
+      }catch(e){
+        console.error(e);
+        bracketView.innerHTML=`<div class="error">Could not load the championship bracket. ${escapeHtml(e.message||'')}</div>`;
+      }
+    }
+
     if(ROUND===CurrentRound)await buildRecentOpponents();
 
     const roundKey=`ScoresRound${ROUND}`;
@@ -359,10 +649,15 @@ async function init(round){
 
     /* Date meta */
     const roundRow=(datesRaw||[]).find(r=>Number(r.Round)===Number(ROUND));
+    const meta=document.getElementById('roundMeta');meta.textContent='';
     if(roundRow){
-      const meta=document.getElementById('roundMeta');meta.textContent='';
       const a=document.createElement('span');a.textContent=fmtDateRange(roundRow.Start,roundRow.End)||'';meta.appendChild(a);
       const type=fmt(roundRow.Type);if(type){const dot=document.createElement('span');dot.className='dot';dot.textContent=type;meta.appendChild(dot);}
+    }
+    if(inBracketRound(ROUND)){
+      const b=document.createElement('span');b.className='stage-badge';
+      b.textContent = Number(ROUND)===BRACKET_START_ROUND ? 'Semifinals + Ladder' : 'Final / 3rd Place + Ladder';
+      meta.appendChild(b);
     }
 
     /* Contact info */
@@ -380,13 +675,18 @@ async function init(round){
     });
 
     /* Teams sorted by rank */
-    const teams=activeTeamsRaw.map(r=>{
+    const allTeams=activeTeamsRaw.map(r=>{
       const name=fmt(r.Team||r.Participant||r.Name);
       return{name,LeftRank:readRank(r,ROUND),LeftPts:readPts(r,ROUND),RightRank:readRank(r,ROUND+1),RightPts:readPts(r,ROUND+1)};
     }).filter(t=>t.name&&!isNaN(t.LeftRank)&&t.LeftRank>0).sort((a,b)=>a.LeftRank-b.LeftRank);
 
+    /* Rank lookups keep every team, so "#2 <Team>" still resolves a name even
+       when that team has moved into the bracket. */
     const rankByName={},nameByRank={};
-    teams.forEach(t=>{if(!isNaN(t.LeftRank)&&t.LeftRank>0){rankByName[nameKey(t.name)]=t.LeftRank;nameByRank[t.LeftRank]=t.name;}});
+    allTeams.forEach(t=>{if(!isNaN(t.LeftRank)&&t.LeftRank>0){rankByName[nameKey(t.name)]=t.LeftRank;nameByRank[t.LeftRank]=t.name;}});
+
+    /* In bracket rounds the top 4 are shown in the bracket card instead of the table. */
+    const teams=allTeams.filter(t=>!BRACKET_NAMES.has(nameKey(t.name)));
 
     /* Schedule map */
     const schedCol=`Round ${ROUND}`,scheduleMap={};
@@ -457,7 +757,14 @@ async function init(round){
             const oppName=nameByRank[oR]||'';
             const pre=document.createElement('span');pre.textContent=`vs #${oR} `;line.appendChild(pre);
             const ns=document.createElement('span');if(hi)ns.className='repeat-opp';ns.textContent=oppName;line.appendChild(ns);
-            const pend=document.createElement('span');pend.className='pending';pend.textContent=' — pending';line.appendChild(pend);
+            /* That opponent may have moved into the championship bracket this round. */
+            const tail=document.createElement('span');
+            if(oppName&&BRACKET_NAMES.has(nameKey(oppName))){
+              tail.className='in-bracket';tail.textContent=' — in bracket play, no ladder match';
+            }else{
+              tail.className='pending';tail.textContent=' — pending';
+            }
+            line.appendChild(tail);
           }
         }
       }
@@ -601,7 +908,13 @@ async function init(round){
 
 function buildRoundSelect(){
   const sel=document.getElementById('roundSelect');sel.innerHTML='';
-  for(let r=1;r<=CurrentRound;r++){const opt=document.createElement('option');opt.value=String(r);opt.textContent=`Round ${r}`;sel.appendChild(opt);}
+  for(let r=1;r<=CurrentRound;r++){
+    const opt=document.createElement('option');opt.value=String(r);
+    opt.textContent = r===BRACKET_START_ROUND ? `Round ${r} – Semifinals`
+                    : r===BRACKET_FINAL_ROUND ? `Round ${r} – Final`
+                    : `Round ${r}`;
+    sel.appendChild(opt);
+  }
   sel.value=String(ROUND);
   sel.addEventListener('change',()=>{const r=parseInt(sel.value,10);if(!isNaN(r)&&r>=1&&r<=CurrentRound)init(r);});
 }
